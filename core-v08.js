@@ -57,6 +57,29 @@
     return String(team || "").trim().toUpperCase();
   }
 
+  function parseCsv(text) {
+    const rows = [];
+    let row = [], field = "", quoted = false;
+    for (let index = 0; index < String(text || "").length; index += 1) {
+      const character = text[index], next = text[index + 1];
+      if (character === '"' && quoted && next === '"') { field += '"'; index += 1; }
+      else if (character === '"') quoted = !quoted;
+      else if (character === "," && !quoted) { row.push(field); field = ""; }
+      else if ((character === "\n" || character === "\r") && !quoted) {
+        if (character === "\r" && next === "\n") index += 1;
+        row.push(field);
+        if (row.some(Boolean)) rows.push(row);
+        row = []; field = "";
+      } else field += character;
+    }
+    if (field || row.length) { row.push(field); rows.push(row); }
+    if (rows.length < 2) return [];
+    const headers = rows.shift().map((header) => header.trim());
+    return rows.map((values) => Object.fromEntries(
+      headers.map((header, index) => [header, values[index] ?? ""]),
+    ));
+  }
+
   function parseMarketRows(rows, format) {
     const suffix = format === "1qb" ? "1qb" : "2qb";
     return (rows || [])
@@ -79,16 +102,23 @@
 
   function buildIdentityIndex(marketRows) {
     const byNamePosition = new Map();
+    const byFpId = new Map();
     for (const row of marketRows || []) {
       const key = `${row.normalizedName}|${row.pos}`;
       const existing = byNamePosition.get(key) || [];
       existing.push(row);
       byNamePosition.set(key, existing);
+      if (row.fpId != null && row.fpId !== "") {
+        const id = String(row.fpId);
+        const idRows = byFpId.get(id) || [];
+        idRows.push(row);
+        byFpId.set(id, idRows);
+      }
     }
-    return { byNamePosition };
+    return { byNamePosition, byFpId };
   }
 
-  function matchPlayerIdentity(sleeperId, player, index, overrides = {}) {
+  function matchPlayerIdentity(sleeperId, player, index, overrides = {}, crosswalk = {}) {
     const override = overrides[sleeperId];
     if (override) {
       const candidates = index.byNamePosition.get(
@@ -102,6 +132,21 @@
       return exact
         ? { status: "manual", market: exact }
         : { status: "unmatched", reason: "Manual override did not resolve" };
+    }
+
+    const mappings = crosswalk?.mappings || crosswalk || {};
+    const mapping = mappings[sleeperId];
+    if (mapping?.fpId != null) {
+      const candidates = index.byFpId.get(String(mapping.fpId)) || [];
+      const position = mapping.position || positionOf(player);
+      const matches = candidates.filter((row) => !position || row.pos === position);
+      return matches.length === 1
+        ? { status: "crosswalk", market: matches[0] }
+        : {
+            status: matches.length ? "ambiguous" : "unmatched",
+            reason: `Stable crosswalk fpId ${mapping.fpId} resolved to ${matches.length} rows`,
+            crosswalkIssue: true,
+          };
     }
 
     const pos = positionOf(player);
@@ -429,6 +474,7 @@
     marketFormat,
     normalizeName,
     normalizeTeam,
+    parseCsv,
     parseMarketRows,
     buildIdentityIndex,
     matchPlayerIdentity,

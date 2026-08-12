@@ -67,6 +67,34 @@ test("supports explicit manual identity overrides", () => {
   assert.equal(result.status, "manual");
 });
 
+test("prefers a stable-ID crosswalk across team and name changes", () => {
+  const rows = Core.parseMarketRows(marketCsvRows, "2qb");
+  const index = Core.buildIdentityIndex(rows);
+  const result = Core.matchPlayerIdentity(
+    "sleeper-1",
+    { full_name: "Renamed Quarterback", position: "QB", team: "NYJ" },
+    index,
+    {},
+    { mappings: { "sleeper-1": { fpId: "99", position: "QB" } } },
+  );
+  assert.equal(result.status, "crosswalk");
+  assert.equal(result.market.fpId, "99");
+});
+
+test("reports a stale stable-ID mapping instead of falling back silently", () => {
+  const rows = Core.parseMarketRows(marketCsvRows, "2qb");
+  const index = Core.buildIdentityIndex(rows);
+  const result = Core.matchPlayerIdentity(
+    "sleeper-1",
+    { full_name: "Test Quarterback Jr.", position: "QB", team: "NE" },
+    index,
+    {},
+    { mappings: { "sleeper-1": { fpId: "missing", position: "QB" } } },
+  );
+  assert.equal(result.status, "unmatched");
+  assert.equal(result.crosswalkIssue, true);
+});
+
 test("marks IDP as context-only instead of inventing values", () => {
   const context = Core.leagueContext(idp);
   assert.equal(context.values.DL.availability, "context-only");

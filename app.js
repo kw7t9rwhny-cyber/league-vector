@@ -17,27 +17,6 @@
     return matches ? matches.at(-1) : "";
   }
 
-  function parseCsv(text) {
-    const rows = [];
-    let row = [], field = "", quoted = false;
-    for (let index = 0; index < text.length; index += 1) {
-      const character = text[index], next = text[index + 1];
-      if (character === '"' && quoted && next === '"') { field += '"'; index += 1; }
-      else if (character === '"') quoted = !quoted;
-      else if (character === "," && !quoted) { row.push(field); field = ""; }
-      else if ((character === "\n" || character === "\r") && !quoted) {
-        if (character === "\r" && next === "\n") index += 1;
-        row.push(field);
-        if (row.some(Boolean)) rows.push(row);
-        row = []; field = "";
-      } else field += character;
-    }
-    if (field || row.length) { row.push(field); rows.push(row); }
-    if (rows.length < 2) return [];
-    const headers = rows.shift().map((header) => header.trim());
-    return rows.map((values) => Object.fromEntries(headers.map((header, index) => [header, values[index] ?? ""])));
-  }
-
   function cleanSlot(slot) {
     return ({ SUPER_FLEX: "SF", REC_FLEX: "FLEX", WRRB_FLEX: "FLEX", IDP_FLEX: "IDP", DEF: "DST" }[slot] || slot || "?").replace("_FLEX", "");
   }
@@ -66,6 +45,12 @@
   async function loadOverrides(signal) {
     try {
       return (await Data.request("data/player-overrides.json", { signal, ttlMs: 5 * 60 * 1000 })).value || {};
+    } catch { return {}; }
+  }
+
+  async function loadCrosswalk(signal) {
+    try {
+      return (await Data.request("data/player-crosswalk.json", { signal, ttlMs: 5 * 60 * 1000 })).value || {};
     } catch { return {}; }
   }
 
@@ -176,7 +161,12 @@
 
     try {
       setStatus("Loading league, rosters, cached players and market data…");
-      const [bundle, marketResult, overrides] = await Promise.all([Data.leagueBundle(leagueId, signal), Data.marketData(signal), loadOverrides(signal)]);
+      const [bundle, marketResult, overrides, crosswalk] = await Promise.all([
+        Data.leagueBundle(leagueId, signal),
+        Data.marketData(signal),
+        loadOverrides(signal),
+        loadCrosswalk(signal),
+      ]);
       if (sequence !== analysisSequence) return;
       const { league, users, rosters, players, tradedPicks, state } = bundle;
       const format = Core.marketFormat(league);
@@ -193,7 +183,7 @@
       if (projectionResult.status !== "complete") warning(`Projection source is ${projectionResult.status}. ${projectionResult.failures.length} of 18 weekly requests failed. Values are explicitly marked partial.`);
       if (transactionResult.failures.length) warning(`${transactionResult.failures.length} transaction rounds failed and local trade counts may be incomplete.`);
 
-      const marketRows = Core.parseMarketRows(parseCsv(marketResult.value), format);
+      const marketRows = Core.parseMarketRows(Core.parseCsv(marketResult.value), format);
       const identityIndex = Core.buildIdentityIndex(marketRows);
       const projectionMap = Core.aggregateSeasonProjections(projectionResult.rows);
       const projectionBuild = Core.buildProjectionScores(players, projectionMap, league);
@@ -202,12 +192,12 @@
       const leagueReplacement = Core.replacementLevels(projectionBuild.rows, league, false);
       const localTradeCounts = tradeCounts(transactionResult.transactions);
       const rosteredIds = [...new Set(rosters.flatMap((roster) => roster.players || []))];
-      const identityReport = { exact: 0, verified: 0, manual: 0, unmatched: 0, ambiguous: 0 };
+      const identityReport = { crosswalk: 0, exact: 0, verified: 0, manual: 0, unmatched: 0, ambiguous: 0 };
       const valuations = [];
       for (const id of rosteredIds) {
         const player = players[id];
         if (!Core.isOffense(Core.positionOf(player))) continue;
-        const match = Core.matchPlayerIdentity(id, player, identityIndex, overrides);
+        const match = Core.matchPlayerIdentity(id, player, identityIndex, overrides, crosswalk);
         identityReport[match.status] = (identityReport[match.status] || 0) + 1;
         if (!match.market) continue;
         const components = Core.calculateValuation({ player, market: match.market, context, projection: projectionsById[id], neutralReplacement, leagueReplacement, tradeCount: localTradeCounts[id] });
@@ -232,7 +222,7 @@
       $("scoringNote").textContent = `${Object.keys(league.scoring_settings || {}).length} total settings imported; scoring coverage is reported below.`;
       $("valueGrid").innerHTML = ["QB", "RB", "WR", "TE", "DL", "LB", "DB"].map((pos) => valueCard(pos, context.values[pos])).join("");
       $("valueExplanation").textContent = "Structural league pressure is the direct league adjustment. League-scored projections and replacement levels are calculated separately, preventing scoring rules from being counted twice.";
-      $("identityStatus").textContent = `${valuations.length} offensive players valued • ${identityReport.exact} exact • ${identityReport.verified} team-verified • ${identityReport.manual} manual • ${identityReport.unmatched} unmatched • ${identityReport.ambiguous} ambiguous.`;
+      $("identityStatus").textContent = `${valuations.length} offensive players valued • ${identityReport.crosswalk} stable-ID crosswalk • ${identityReport.exact} exact • ${identityReport.verified} team-verified • ${identityReport.manual} manual • ${identityReport.unmatched} unmatched • ${identityReport.ambiguous} ambiguous.`;
       $("scoringCoverage").innerHTML = `<b>Applied keys:</b> ${escapeHtml(projectionBuild.coverage.used.join(", ") || "none")}<br><b>Unsupported/non-matching keys:</b> ${escapeHtml(projectionBuild.coverage.unsupported.join(", ") || "none detected")}`;
       $("projectionStatus").textContent = `${projectionResult.status} • ${projectionResult.rows.length} weekly player rows • source is undocumented and replaceable`;
       $("transactionStatus").textContent = `Rounds ${transactionResult.roundsScanned[0]}–${transactionResult.roundsScanned.at(-1)} scanned • ${transactionResult.transactions.filter((transaction) => transaction?.type === "trade" && transaction?.status === "complete").length} completed trades • picks shown without fabricated numeric values.`;

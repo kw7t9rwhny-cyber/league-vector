@@ -7,7 +7,7 @@ League Vector is a static Sleeper league analyzer that explains how dynasty mark
 - Imports Sleeper league settings, users, rosters, players, transactions and traded picks.
 - Selects DynastyProcess 1QB or 2QB market data from lineup structure.
 - Audits scoring keys used by the projection calculation.
-- Uses exact identity matching with team verification and manual overrides; no fuzzy matches.
+- Uses explicit stable-ID crosswalks, exact identity matching with team verification and manual overrides; no fuzzy matches.
 - Calculates offensive player and team values with completeness reporting.
 - Shows IDP context, but deliberately does not invent numeric IDP values.
 - Caches stable data in IndexedDB and cancels stale analyses.
@@ -33,6 +33,27 @@ npm run validate
 ```
 
 The validation command checks whitespace/style, parses all JavaScript and runs the Node test suite. GitHub Actions runs the same command for pull requests and pushes to `main`.
+
+Browser tests use Playwright with deterministic Sleeper, market and projection fixtures:
+
+```bash
+npx playwright install chromium
+npm run test:e2e
+```
+
+They cover successful one-QB analysis, superflex projection failure, unsupported scoring disclosure, ambiguous identities, IDP completeness warnings, imported-text escaping and mobile keyboard/layout behavior.
+
+## Player crosswalk
+
+`data/player-crosswalk.json` maps verified Sleeper IDs to stable market/provider IDs. It is intentionally empty until mappings have been verified. Stable mappings take priority over name/team fallback and stale mappings are reported rather than ignored.
+
+Generate an offline audit report from pinned inputs:
+
+```bash
+npm run audit:crosswalk -- --players players.json --market values-players.csv --crosswalk data/player-crosswalk.json --overrides data/player-overrides.json --format 1qb
+```
+
+The report separates stable-crosswalk, manual, exact, team-verified, unmatched and ambiguous records. The command does not download data or write mappings automatically.
 
 ## Player overrides
 

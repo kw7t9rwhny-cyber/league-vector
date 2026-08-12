@@ -1,0 +1,5 @@
+player,pos,team,age,ecr_1qb,ecr_2qb,value_1qb,value_2qb,scrape_date,fp_id
+Former Quarterback,QB,KC,27,22,10,4500,7800,2026-08-12,200
+Duplicate Name,QB,NE,26,90,45,1000,3000,2026-08-12,201
+Duplicate Name,QB,NYJ,26,91,46,900,2900,2026-08-12,202
+Rookie Star,WR,NE,21,30,33,5000,4800,2026-08-12,203

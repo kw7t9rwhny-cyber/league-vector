@@ -4,9 +4,14 @@
   "private": true,
   "description": "League-aware Sleeper dynasty analysis frontend",
   "scripts": {
-    "check": "node scripts/lint.js && node --check core-v08.js && node --check data-sources-v08.js && node --check app.js",
+    "audit:crosswalk": "node scripts/audit-crosswalk.js",
+    "check": "node scripts/lint.js && node --check core-v08.js && node --check data-sources-v08.js && node --check app.js && node --check playwright.config.js && node --check scripts/audit-crosswalk.js && node --check scripts/serve.js",
     "test": "node --test tests/*.test.js",
+    "test:e2e": "playwright test",
     "validate": "npm run check && npm test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1"
   },
   "engines": {
     "node": ">=20"

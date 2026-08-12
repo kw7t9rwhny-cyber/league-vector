@@ -10,7 +10,7 @@
 
 ## Engineering work
 
-1. Build a maintained Sleeper → GSIS/provider crosswalk with audit tooling.
+1. Populate and maintain the new Sleeper → provider crosswalk with legally sourced, verified mappings; audit tooling is now implemented.
 2. Replace the undocumented projection endpoint with a licensed provider adapter.
 3. Restore the validated scoring engine and weekly 308-slot scarcity pipeline behind the private API.
 4. Add licensed IDP projections, replacement levels, age curves and market calibration.
@@ -18,6 +18,6 @@
 6. Add calibrated rookie-pick values only after publishing and testing the methodology.
 7. Add transparent contender/rebuilder classifications and historical holdout evaluation.
 8. Add trade analysis, simulations, roster optimization and recommended moves.
-9. Add browser-level end-to-end tests and deployment previews.
+9. Add branch deployment previews; browser-level end-to-end tests are now implemented.
 
 The v0.8 frontend must continue disclosing incomplete inputs while these items remain open.

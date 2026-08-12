@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "updatedAt": "2026-08-12",
+  "mappings": {
+    "changed-team": {
+      "fpId": "200",
+      "position": "QB",
+      "source": "test fixture",
+      "verifiedAt": "2026-08-12"
+    }
+  }
+}

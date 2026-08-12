@@ -27,12 +27,17 @@ Separating structural pressure from league-scored projection prevents the same s
 
 ## Identity contract
 
-1. Explicit Sleeper-ID override.
-2. Exact normalized name and position.
-3. Team verification if multiple exact-name candidates exist.
-4. Ambiguous or unmatched status; never fuzzy match silently.
+1. Explicit Sleeper-ID manual override for a reviewed exception.
+2. Verified Sleeper → stable provider-ID crosswalk.
+3. Exact normalized name and position.
+4. Team verification if multiple exact-name candidates exist.
+5. Ambiguous or unmatched status; never fuzzy match silently.
 
-The current DynastyProcess feed does not include Sleeper IDs. A future private service should maintain Sleeper → GSIS/FantasyPros/provider identifiers and preserve Sleeper position eligibility.
+The current DynastyProcess feed does not include Sleeper IDs. The public crosswalk is intentionally empty until mappings are verified; `scripts/audit-crosswalk.js` reports coverage and unresolved records from pinned input files without mutating the crosswalk. A future private service should maintain Sleeper → GSIS/FantasyPros/provider identifiers and preserve Sleeper position eligibility.
+
+## Browser validation
+
+Playwright serves the static frontend and intercepts all external data calls with deterministic fixtures. Desktop and mobile Chromium projects verify success and partial-data flows without depending on live Sleeper or DynastyProcess availability. GitHub Actions installs Chromium and runs these checks after the pure calculation suite.
 
 ## Future private API boundary
 

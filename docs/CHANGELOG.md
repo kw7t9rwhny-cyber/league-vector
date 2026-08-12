@@ -14,3 +14,5 @@
 - Marked IDP numeric totals unavailable instead of silently excluding them.
 - Standardized interface language on v0.8 and added accessibility states.
 - Added documentation, fixtures, tests, validation scripts and pull-request CI.
+- Added stable-ID crosswalk precedence, stale-mapping disclosure and an offline crosswalk audit report.
+- Added real-browser desktop/mobile tests with mocked one-QB, superflex, projection-outage, identity, IDP and escaping scenarios.
