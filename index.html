@@ -1,109 +1,78 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>League Vector — Fantasy Intelligence</title>
-<link rel="stylesheet" href="styles.css?v=0.6">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="League Vector explains how dynasty market value changes inside your Sleeper league.">
+  <title>League Vector — League-Aware Fantasy Intelligence</title>
+  <link rel="stylesheet" href="styles.css?v=0.8">
 </head>
-
 <body>
-<div class="wrap">
+  <main class="wrap">
+    <header class="brand">LEAGUE VECTOR<small>League-Aware Fantasy Intelligence</small></header>
 
-<div class="brand">
-LEAGUE VECTOR
-<small>League-Aware Fantasy Intelligence</small>
-</div>
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="eyebrow">Sleeper League Analyzer • Foundation v0.8</div>
+      <h1 id="hero-title">Your league.<br>Your scoring.<br>Your edge.</h1>
+      <p class="sub">League Vector separates market baseline, age, league structure, projections and replacement value. Missing or unsupported data is disclosed instead of silently estimated.</p>
+      <div class="form">
+        <label class="sr-only" for="leagueId">Sleeper league ID or URL</label>
+        <input id="leagueId" inputmode="numeric" autocomplete="off" placeholder="Sleeper League ID or URL" aria-describedby="status">
+        <button id="go" type="button">Analyze League</button>
+      </div>
+      <div id="status" class="status" role="status" aria-live="polite">Example: 1312249622554501120</div>
+    </section>
 
-<div class="hero">
-<div class="eyebrow">Sleeper League Analyzer • MVP v0.7</div>
-<h1>Your league.<br>Your scoring.<br>Your edge.</h1>
-<p class="sub">
-League Vector blends dynasty market value, age curve,
-market-rank agreement, your league settings and Sleeper
-trade activity into one transparent player model.
-</p>
-<div class="form">
-<input id="leagueId" placeholder="Sleeper League ID or URL">
-<button id="go">Analyze League</button>
-</div>
-<div id="status" class="status">
-Example: 1312249622554501120
-</div>
-</div>
+    <section id="results" hidden>
+      <aside id="analysisWarnings" class="warning-panel" aria-labelledby="warning-title" hidden>
+        <h2 id="warning-title">Partial-data warnings</h2>
+        <ul id="warningList"></ul>
+      </aside>
 
-<div id="results">
+      <div class="summary">
+        <div class="card"><span>League</span><b id="name">—</b></div>
+        <div class="card"><span>Teams</span><b id="count">—</b></div>
+        <div class="card"><span>Season</span><b id="season">—</b></div>
+        <div class="card"><span>League starters</span><b id="leagueStarters">—</b></div>
+        <div class="card"><span>Market format</span><b id="marketFormat">—</b></div>
+      </div>
 
-<div class="summary">
-<div class="card"><span>League</span><b id="name">—</b></div>
-<div class="card"><span>Teams</span><b id="count">—</b></div>
-<div class="card"><span>Season</span><b id="season">—</b></div>
-<div class="card"><span>League Starters</span><b id="leagueStarters">—</b></div>
-</div>
+      <h2 class="section-title">League DNA</h2>
+      <div class="dna-grid">
+        <article class="dna"><h3>Lineup architecture</h3><div id="lineupChips" class="chips"></div><div id="lineupNote" class="dna-note"></div></article>
+        <article class="dna"><h3>Scoring profile</h3><div id="scoringChips" class="chips"></div><div id="scoringNote" class="dna-note"></div></article>
+      </div>
 
-<h2 class="section-title">League DNA</h2>
+      <h2 class="section-title">League Value Context</h2>
+      <p class="section-sub">100 is neutral compared with a typical 12-team 1QB structure. Structural pressure affects value directly; scoring pressure flows through the projection component.</p>
+      <div id="valueGrid" class="value-grid"></div>
+      <article class="explain"><h3>What League Vector sees</h3><p id="valueExplanation">—</p></article>
 
-<div class="dna-grid">
-<div class="dna">
-<h3>Lineup Architecture</h3>
-<div id="lineupChips" class="chips"></div>
-<div id="lineupNote" class="dna-note"></div>
-</div>
+      <h2 class="section-title">Data quality and scoring coverage</h2>
+      <div class="quality-grid">
+        <article class="dna"><h3>Identity matching</h3><p id="identityStatus" class="dna-note">—</p></article>
+        <article class="dna"><h3>Projection status</h3><p id="projectionStatus" class="dna-note">—</p></article>
+        <article class="dna"><h3>Scoring-key audit</h3><p id="scoringCoverage" class="dna-note">—</p></article>
+        <article class="dna"><h3>Trades and picks</h3><p id="transactionStatus" class="dna-note">—</p></article>
+      </div>
+      <p id="dataQuality" class="source-note"></p>
 
-<div class="dna">
-<h3>Scoring Profile</h3>
-<div id="scoringChips" class="chips"></div>
-<div id="scoringNote" class="dna-note"></div>
-</div>
-</div>
+      <h2 class="section-title">Player Values — v0.8 Formula</h2>
+      <p class="section-sub">Final value = rookie-adjusted market baseline × (1 + age adjustment + structural league adjustment + neutral-benchmark projection adjustment). Local trades and confidence are informational.</p>
+      <div id="playerValues" class="player-values"></div>
+      <p class="source-note">Offensive market baseline: DynastyProcess open data. Projection endpoint: undocumented Sleeper source, treated as replaceable and explicitly monitored. IDP numeric values are unavailable until a defensible licensed source is connected.</p>
 
-<h2 class="section-title">League Value Context</h2>
+      <h2 class="section-title">Team Analysis</h2>
+      <p class="section-sub">Numeric totals cover matched offensive players only. IDP exclusions and completeness are shown on every team.</p>
+      <div id="teamAnalysis" class="team-analysis"></div>
 
-<p class="section-sub">
-100 is neutral. Scores above 100 indicate league rules
-that increase positional demand compared with a typical
-12-team 1QB format.
-</p>
+      <h2 class="section-title">League Rosters</h2>
+      <div id="teams" class="teams"></div>
+    </section>
+  </main>
 
-<div id="valueGrid" class="value-grid"></div>
-
-<div class="explain">
-<h3>What League Vector sees</h3>
-<p id="valueExplanation">—</p>
-</div>
-
-<h2 class="section-title">
-Player Values — League Vector Model
-</h2>
-
-<p class="section-sub">
-v0.6 separates the signals behind each offensive value:
-market baseline, dynasty age curve, league fit and local
-Sleeper trade activity. IDP remains context-only until
-its dedicated model is added.
-</p>
-
-<div id="playerValueStatus" class="dna-note">
-Waiting for dynasty market data…
-</div>
-
-<div id="playerValues" class="player-values"></div>
-
-<div class="source-note">
-Market baseline: DynastyProcess open data. Age curve,
-league fit, confidence and Sleeper trade activity are
-League Vector calculations. Local trade activity is
-informational in v0.6 and does not change value yet.
-</div>
-
-<h2 class="section-title">League Rosters</h2>
-
-<div id="teams" class="teams"></div>
-
-</div>
-</div>
-
-  <script src="engine-v07.js?v=0.7" defer></script>
-<script src="app.js?v=0.7" defer></script>
+  <script src="core-v08.js?v=0.8" defer></script>
+  <script src="data-sources-v08.js?v=0.8" defer></script>
+  <script src="app.js?v=0.8" defer></script>
 </body>
 </html>
