@@ -3,7 +3,6 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-
 <title>League Vector — Fantasy Intelligence</title>
 
 <style>
@@ -51,7 +50,12 @@ body{
   border:1px solid var(--line);
   border-radius:24px;
   padding:32px;
-  background:radial-gradient(circle at top right,#16395f,#0d1b2d 45%,#091626);
+  background:radial-gradient(
+    circle at top right,
+    #16395f,
+    #0d1b2d 45%,
+    #091626
+  );
 }
 
 .eyebrow{
@@ -72,7 +76,7 @@ h1{
   color:#b7c8d9;
   font-size:17px;
   line-height:1.5;
-  max-width:720px;
+  max-width:760px;
 }
 
 .form{
@@ -122,7 +126,9 @@ button{
   gap:10px;
 }
 
-.card,.team{
+.card,
+.team,
+.dna{
   background:var(--panel);
   border:1px solid var(--line);
   border-radius:15px;
@@ -145,6 +151,44 @@ button{
 .section-title{
   margin:28px 0 12px;
   font-size:20px;
+}
+
+.dna-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:10px;
+}
+
+.dna h3{
+  margin:0 0 10px;
+  font-size:15px;
+}
+
+.chips{
+  display:flex;
+  flex-wrap:wrap;
+  gap:7px;
+}
+
+.chip{
+  background:#07111f;
+  border:1px solid #29435d;
+  border-radius:999px;
+  padding:6px 9px;
+  font-size:11px;
+  color:#d7e5f2;
+}
+
+.chip.hot{
+  border-color:#8a6622;
+  color:#ffd37b;
+}
+
+.dna-note{
+  color:var(--muted);
+  font-size:12px;
+  line-height:1.5;
+  margin-top:10px;
 }
 
 .teams{
@@ -192,7 +236,7 @@ button{
 .player{
   display:flex;
   align-items:center;
-  gap:8px;
+  gap:7px;
   padding:6px 0;
   border-bottom:1px solid rgba(255,255,255,.05);
   font-size:13px;
@@ -200,6 +244,18 @@ button{
 
 .player:last-child{
   border-bottom:0;
+}
+
+.slot{
+  min-width:34px;
+  text-align:center;
+  background:#3a2b10;
+  border:1px solid #6d5220;
+  color:#ffd37b;
+  border-radius:6px;
+  padding:3px 5px;
+  font-size:9px;
+  font-weight:900;
 }
 
 .pos{
@@ -230,6 +286,7 @@ button{
 
 @media(max-width:700px){
   .summary{grid-template-columns:1fr 1fr}
+  .dna-grid,
   .teams{grid-template-columns:1fr}
   .hero{padding:24px}
 }
@@ -248,7 +305,7 @@ LEAGUE VECTOR
 <div class="hero">
 
 <div class="eyebrow">
-Sleeper League Analyzer • MVP v0.2
+Sleeper League Analyzer • MVP v0.3
 </div>
 
 <h1>
@@ -258,12 +315,17 @@ Your edge.
 </h1>
 
 <p class="sub">
-Paste a Sleeper league ID or league URL. League Vector will import the league,
-owners, rosters, players and exact scoring settings directly from Sleeper.
+Paste a Sleeper league ID or league URL.
+League Vector reads the league format,
+lineup requirements, scoring, owners and rosters
+directly from Sleeper.
 </p>
 
 <div class="form">
-<input id="leagueId" placeholder="Sleeper League ID or URL">
+<input
+  id="leagueId"
+  placeholder="Sleeper League ID or URL"
+>
 <button id="go">Analyze League</button>
 </div>
 
@@ -293,228 +355,747 @@ Example: 1312249622554501120
 </div>
 
 <div class="card">
-<span>Scoring Rules</span>
-<b id="rules">—</b>
+<span>Starter Slots</span>
+<b id="starterCount">—</b>
 </div>
 
 </div>
 
-<h2 class="section-title">League Rosters</h2>
+<h2 class="section-title">League DNA</h2>
 
-<div id="teams" class="teams"></div>
+<div class="dna-grid">
+
+<div class="dna">
+
+<h3>Lineup Architecture</h3>
+
+<div
+  id="lineupChips"
+  class="chips">
+</div>
+
+<div
+  id="lineupNote"
+  class="dna-note">
+</div>
 
 </div>
+
+<div class="dna">
+
+<h3>Scoring Profile</h3>
+
+<div
+  id="scoringChips"
+  class="chips">
+</div>
+
+<div
+  id="scoringNote"
+  class="dna-note">
+</div>
+
+</div>
+
+</div>
+
+<h2 class="section-title">
+League Rosters
+</h2>
+
+<div
+  id="teams"
+  class="teams">
+</div>
+
+</div>
+
 </div>
 
 <script>
 
 const API="https://api.sleeper.app/v1";
 
-const $=id=>document.getElementById(id);
+const $=id=>
+  document.getElementById(id);
 
-const esc=s=>String(s??"").replace(
-  /[&<>"']/g,
-  c=>({
-    "&":"&amp;",
-    "<":"&lt;",
-    ">":"&gt;",
-    '"':"&quot;",
-    "'":"&#39;"
-  }[c])
-);
+const esc=s=>
+  String(s??"").replace(
+    /[&<>"']/g,
+    c=>({
+      "&":"&amp;",
+      "<":"&lt;",
+      ">":"&gt;",
+      '"':"&quot;",
+      "'":"&#39;"
+    }[c])
+  );
 
 function lid(v){
-  let m=String(v).match(/\d{8,}/g);
-  return m ? m[m.length-1] : "";
+
+  const m=
+    String(v).match(/\d{8,}/g);
+
+  return m
+    ? m[m.length-1]
+    : "";
+
 }
 
 async function get(url){
-  let r=await fetch(url);
-  if(!r.ok) throw Error("Sleeper returned "+r.status);
+
+  const r=
+    await fetch(url);
+
+  if(!r.ok){
+
+    throw Error(
+      "Sleeper returned "+r.status
+    );
+
+  }
+
   return r.json();
+
 }
 
-function playerName(player,id){
-  if(!player) return "Unknown Player ("+id+")";
+function playerName(p,id){
 
   return (
-    player.full_name ||
-    [player.first_name,player.last_name].filter(Boolean).join(" ") ||
-    "Unknown Player"
+    p?.full_name ||
+    [
+      p?.first_name,
+      p?.last_name
+    ]
+      .filter(Boolean)
+      .join(" ") ||
+    `Unknown Player (${id})`
   );
+
 }
 
-function position(player){
-  if(!player) return "?";
+function position(p){
 
   return (
-    player.fantasy_positions?.[0] ||
-    player.position ||
+    p?.fantasy_positions?.[0] ||
+    p?.position ||
     "?"
   );
+
 }
 
-function playerRow(id,players){
-  const p=players[id];
+function cleanSlot(slot){
+
+  const map={
+
+    SUPER_FLEX:"SF",
+
+    REC_FLEX:"FLEX",
+
+    WRRB_FLEX:"FLEX",
+
+    FLEX:"FLEX",
+
+    IDP_FLEX:"IDP",
+
+    DEF:"DST"
+
+  };
+
+  return (
+    map[slot] ||
+    slot ||
+    "?"
+  )
+    .replace("_FLEX","");
+
+}
+
+function playerRow(
+  id,
+  players,
+  slot
+){
+
+  const p=
+    players[id];
 
   return `
+
     <div class="player">
-      <span class="pos">${esc(position(p))}</span>
-      <span class="player-name">${esc(playerName(p,id))}</span>
-      <span class="nfl-team">${esc(p?.team||"FA")}</span>
+
+      ${
+        slot
+          ? `
+            <span class="slot">
+              ${esc(cleanSlot(slot))}
+            </span>
+          `
+          : ""
+      }
+
+      <span class="pos">
+        ${esc(position(p))}
+      </span>
+
+      <span class="player-name">
+        ${esc(playerName(p,id))}
+      </span>
+
+      <span class="nfl-team">
+        ${esc(p?.team||"FA")}
+      </span>
+
     </div>
+
   `;
+
 }
 
-$("go").onclick=async()=>{
+function countSlots(arr){
 
-  const id=lid($("leagueId").value);
+  const out={};
+
+  for(const slot of arr||[]){
+
+    if(slot==="BN"){
+      continue;
+    }
+
+    out[slot]=
+      (out[slot]||0)+1;
+
+  }
+
+  return out;
+
+}
+
+function scoringProfile(s={}){
+
+  const chips=[];
+
+  const rec=
+    Number(s.rec||0);
+
+  if(rec>=1){
+
+    chips.push(
+      `${rec} PPR`
+    );
+
+  }else if(rec>0){
+
+    chips.push(
+      `${rec} PPR`
+    );
+
+  }else{
+
+    chips.push(
+      "Standard receptions"
+    );
+
+  }
+
+  if(s.pass_td!=null){
+
+    chips.push(
+      `${s.pass_td} pt Pass TD`
+    );
+
+  }
+
+  if(
+    Number(
+      s.bonus_rec_te||0
+    )>0
+  ){
+
+    chips.push(
+      `TE Premium +${s.bonus_rec_te}`
+    );
+
+  }else if(
+    Number(
+      s.rec_te||0
+    )>rec
+  ){
+
+    chips.push(
+      `TE Premium ${s.rec_te} PPR`
+    );
+
+  }
+
+  const idpKeys=
+    Object.keys(s)
+      .filter(
+        k=>
+          /tkl|sack|int|ff|fum|def|qb_hit|pass_def|ast/
+          .test(k)
+      );
+
+  if(idpKeys.length){
+
+    chips.push(
+      "IDP scoring"
+    );
+
+  }
+
+  if(
+    Number(s.sack||0)>=4
+  ){
+
+    chips.push(
+      `${s.sack} pt Sacks`
+    );
+
+  }
+
+  if(
+    Number(s.int||0)>=4
+  ){
+
+    chips.push(
+      `${s.int} pt INT`
+    );
+
+  }
+
+  return {
+    chips,
+    idpKeys
+  };
+
+}
+
+function scoringNote(
+  settings,
+  profile
+){
+
+  const parts=[];
+
+  if(
+    profile.idpKeys.length
+  ){
+
+    parts.push(
+      `${profile.idpKeys.length} defensive scoring categories detected`
+    );
+
+  }
+
+  parts.push(
+    `${Object.keys(settings||{}).length} total scoring settings imported`
+  );
+
+  return parts.join(" • ");
+
+}
+
+$("go").onclick=
+async()=>{
+
+  const id=
+    lid(
+      $("leagueId").value
+    );
 
   if(!id){
-    $("status").className="status error";
-    $("status").textContent="Enter a valid Sleeper league ID.";
+
+    $("status").className=
+      "status error";
+
+    $("status").textContent=
+      "Enter a valid Sleeper league ID.";
+
     return;
+
   }
 
   $("go").disabled=true;
-  $("status").className="status";
-  $("status").textContent="Importing league and player database…";
-  $("results").style.display="none";
+
+  $("status").className=
+    "status";
+
+  $("status").textContent=
+    "Reading league DNA and player database…";
+
+  $("results").style.display=
+    "none";
 
   try{
 
-    const [league,users,rosters,players]=await Promise.all([
-      get(`${API}/league/${id}`),
-      get(`${API}/league/${id}/users`),
-      get(`${API}/league/${id}/rosters`),
-      get(`${API}/players/nfl`)
+    const [
+      league,
+      users,
+      rosters,
+      players
+    ]=
+    await Promise.all([
+
+      get(
+        `${API}/league/${id}`
+      ),
+
+      get(
+        `${API}/league/${id}/users`
+      ),
+
+      get(
+        `${API}/league/${id}/rosters`
+      ),
+
+      get(
+        `${API}/players/nfl`
+      )
+
     ]);
 
-    const userMap=Object.fromEntries(
-      users.map(x=>[x.user_id,x])
-    );
+    const userMap=
+      Object.fromEntries(
+        users.map(
+          x=>[
+            x.user_id,
+            x
+          ]
+        )
+      );
 
-    $("name").textContent=league.name||"Sleeper League";
-    $("count").textContent=rosters.length;
-    $("season").textContent=league.season||"—";
-    $("rules").textContent=
-      Object.keys(league.scoring_settings||{}).length;
+    const rosterPositions=
+      league.roster_positions||[];
 
-    $("teams").innerHTML=rosters
-      .sort((a,b)=>a.roster_id-b.roster_id)
-      .map(roster=>{
+    const starterSlots=
+      rosterPositions.filter(
+        x=>x!=="BN"
+      );
 
-        const owner=userMap[roster.owner_id];
+    const slotCounts=
+      countSlots(
+        rosterPositions
+      );
 
-        const teamName=
-          owner?.metadata?.team_name ||
-          owner?.display_name ||
-          `Roster ${roster.roster_id}`;
+    $("name").textContent=
+      league.name||
+      "Sleeper League";
 
-        const starters=(roster.starters||[])
-          .filter(x=>x && x!=="0");
+    $("count").textContent=
+      rosters.length;
 
-        const allPlayers=roster.players||[];
+    $("season").textContent=
+      league.season||
+      "—";
 
-        const starterSet=new Set(starters);
+    $("starterCount").textContent=
+      starterSlots.length;
 
-        const bench=allPlayers.filter(
-          x=>!starterSet.has(x)
-        );
-
-        const idpCount=allPlayers.filter(id=>{
-          const pos=position(players[id]);
-          return [
-            "DL","DE","DT","LB","ILB","OLB",
-            "DB","CB","S"
-          ].includes(pos);
-        }).length;
-
-        const starterHTML=starters
-          .map(id=>playerRow(id,players))
-          .join("");
-
-        const benchPreview=bench
-          .slice(0,8)
-          .map(id=>playerRow(id,players))
-          .join("");
-
-        const extraBench=Math.max(0,bench.length-8);
-
-        return `
-          <div class="team">
-
-            <h3>${esc(teamName)}</h3>
-
-            <div class="owner">
-              ${esc(owner?.display_name||"Unknown owner")}
-              • Roster ${roster.roster_id}
-            </div>
-
-            <div class="team-stats">
-              <span class="pill">${allPlayers.length} players</span>
-              <span class="pill">${starters.length} starters</span>
-              <span class="pill">${bench.length} bench</span>
-              <span class="pill">${idpCount} IDP</span>
-              <span class="pill">${(roster.taxi||[]).length} taxi</span>
-              <span class="pill">${(roster.reserve||[]).length} IR</span>
-            </div>
-
-            <div class="label">Starting Lineup</div>
-
-            ${starterHTML || `
-              <div class="more">
-                No starters currently set.
-              </div>
-            `}
-
-            <div class="label">Bench Preview</div>
-
-            ${benchPreview || `
-              <div class="more">
-                No bench players.
-              </div>
-            `}
-
-            ${
-              extraBench
-              ? `<div class="more">+ ${extraBench} more bench players</div>`
+    $("lineupChips").innerHTML=
+      Object.entries(
+        slotCounts
+      )
+      .map(
+        ([slot,n])=>
+          `
+          <span class="chip ${
+            slot.includes("FLEX")
+              ? "hot"
               : ""
-            }
+          }">
+            ${n}× ${esc(cleanSlot(slot))}
+          </span>
+          `
+      )
+      .join("");
 
-          </div>
-        `;
+    const sf=
+      starterSlots.some(
+        x=>
+          x==="SUPER_FLEX"
+      );
 
-      }).join("");
+    const idp=
+      starterSlots.some(
+        x=>
+          [
+            "DL",
+            "DE",
+            "DT",
+            "LB",
+            "DB",
+            "CB",
+            "S",
+            "IDP_FLEX"
+          ]
+          .includes(x)
+      );
 
-    $("results").style.display="block";
+    $("lineupNote").textContent=
+      `${
+        sf
+          ? "Superflex • "
+          : ""
+      }${
+        idp
+          ? "IDP • "
+          : ""
+      }${starterSlots.length} starters per team across ${rosters.length} teams.`;
 
-    $("status").className="status success";
+    const profile=
+      scoringProfile(
+        league.scoring_settings||{}
+      );
+
+    $("scoringChips").innerHTML=
+      profile.chips
+      .map(
+        x=>
+          `
+          <span class="chip hot">
+            ${esc(x)}
+          </span>
+          `
+      )
+      .join("");
+
+    $("scoringNote").textContent=
+      scoringNote(
+        league.scoring_settings||{},
+        profile
+      );
+
+    $("teams").innerHTML=
+      rosters
+      .sort(
+        (a,b)=>
+          a.roster_id-
+          b.roster_id
+      )
+      .map(
+        roster=>{
+
+          const owner=
+            userMap[
+              roster.owner_id
+            ];
+
+          const teamName=
+            owner?.metadata
+              ?.team_name ||
+            owner?.display_name ||
+            `Roster ${roster.roster_id}`;
+
+          const starters=
+            (roster.starters||[])
+            .filter(
+              x=>
+                x &&
+                x!=="0"
+            );
+
+          const allPlayers=
+            roster.players||[];
+
+          const starterSet=
+            new Set(
+              starters
+            );
+
+          const bench=
+            allPlayers.filter(
+              x=>
+                !starterSet.has(x)
+            );
+
+          const idpCount=
+            allPlayers.filter(
+              pid=>{
+
+                const pos=
+                  position(
+                    players[pid]
+                  );
+
+                return [
+                  "DL",
+                  "DE",
+                  "DT",
+                  "LB",
+                  "ILB",
+                  "OLB",
+                  "DB",
+                  "CB",
+                  "S"
+                ]
+                .includes(pos);
+
+              }
+            )
+            .length;
+
+          const starterHTML=
+            starters
+            .map(
+              (pid,i)=>
+                playerRow(
+                  pid,
+                  players,
+                  starterSlots[i]
+                )
+            )
+            .join("");
+
+          const benchPreview=
+            bench
+            .slice(0,8)
+            .map(
+              pid=>
+                playerRow(
+                  pid,
+                  players
+                )
+            )
+            .join("");
+
+          const extraBench=
+            Math.max(
+              0,
+              bench.length-8
+            );
+
+          return `
+
+            <div class="team">
+
+              <h3>
+                ${esc(teamName)}
+              </h3>
+
+              <div class="owner">
+                ${
+                  esc(
+                    owner?.display_name||
+                    "Unknown owner"
+                  )
+                }
+                • Roster ${roster.roster_id}
+              </div>
+
+              <div class="team-stats">
+
+                <span class="pill">
+                  ${allPlayers.length} players
+                </span>
+
+                <span class="pill">
+                  ${starters.length} starters
+                </span>
+
+                <span class="pill">
+                  ${bench.length} bench
+                </span>
+
+                <span class="pill">
+                  ${idpCount} IDP
+                </span>
+
+                <span class="pill">
+                  ${(roster.taxi||[]).length} taxi
+                </span>
+
+                <span class="pill">
+                  ${(roster.reserve||[]).length} IR
+                </span>
+
+              </div>
+
+              <div class="label">
+                Starting Lineup — Slot Aware
+              </div>
+
+              ${
+                starterHTML ||
+                `
+                <div class="more">
+                  No starters currently set.
+                </div>
+                `
+              }
+
+              <div class="label">
+                Bench Preview
+              </div>
+
+              ${
+                benchPreview ||
+                `
+                <div class="more">
+                  No bench players.
+                </div>
+                `
+              }
+
+              ${
+                extraBench
+                  ? `
+                    <div class="more">
+                      + ${extraBench} more bench players
+                    </div>
+                  `
+                  : ""
+              }
+
+            </div>
+
+          `;
+
+        }
+      )
+      .join("");
+
+    $("results").style.display=
+      "block";
+
+    $("status").className=
+      "status success";
+
     $("status").textContent=
-      "✓ League imported. Player identities loaded.";
+      "✓ League DNA loaded. Lineup and scoring format understood.";
 
   }catch(e){
 
     console.error(e);
 
-    $("status").className="status error";
+    $("status").className=
+      "status error";
 
     $("status").textContent=
-      "Could not import league: "+e.message;
+      "Could not import league: "+
+      e.message;
 
   }finally{
 
     $("go").disabled=false;
 
   }
+
 };
 
-$("leagueId").addEventListener(
+$("leagueId")
+.addEventListener(
   "keydown",
   e=>{
-    if(e.key==="Enter"){
+
+    if(
+      e.key==="Enter"
+    ){
+
       $("go").click();
+
     }
+
   }
 );
 
