@@ -334,7 +334,137 @@ if(gap<.25)return {label:"Moderate confidence",gap};
 return {label:"Market disagreement",gap};
 }
 
-function playerValuation(id,players,marketMap,context,tradeCounts){
+function playerValuation(
+id,
+players,
+marketMap,
+context,
+tradeCounts,
+projectionScoreMap,
+replacement
+){
+const p=players[id];
+const pos=position(p);
+
+if(!["QB","RB","WR","TE"].includes(pos))return null;
+
+const name=playerName(p,id);
+
+const market=marketMap.get(
+`${normalizeName(name)}|${pos}`
+);
+
+if(!market)return null;
+
+const engine=
+window.LeagueVectorEngine;
+
+const rookie=
+engine.applyRookieFloor(
+market.base,
+p,
+market
+);
+
+const age=
+engine.compactAgeDelta(
+pos,
+market.age
+);
+
+const projection=
+projectionScoreMap[id]||null;
+
+let vorp=0;
+let projectionDelta=0;
+let projectedPoints=0;
+let replacementPoints=0;
+
+if(projection){
+projectedPoints=
+projection.points||0;
+
+replacementPoints=
+replacement?.levels?.[pos]||0;
+
+vorp=
+engine.vorpForPlayer(
+projection,
+replacement
+);
+
+projectionDelta=
+engine.projectionValueDelta(
+vorp,
+projectedPoints,
+pos
+);
+}
+
+const confidence=
+confidenceFor(
+market.base,
+market.ecr
+);
+
+const totalDelta=
+Math.min(
+.35,
+Math.max(
+-.22,
+age+projectionDelta
+)
+);
+
+const adjusted=
+Math.round(
+rookie.value*
+(1+totalDelta)
+);
+
+return {
+id,
+name,
+pos,
+team:p?.team||market.team||"FA",
+age:market.age,
+ecr:market.ecr,
+base:market.base,
+date:market.date,
+
+rookieFloor:rookie.floor,
+rookieApplied:rookie.applied,
+
+projectedPoints:
+Math.round(projectedPoints*10)/10,
+
+replacementPoints:
+Math.round(replacementPoints*10)/10,
+
+vorp:
+Math.round(vorp*10)/10,
+
+projectionPct:
+Math.round(projectionDelta*100),
+
+leaguePct:
+Math.round(projectionDelta*100),
+
+agePct:
+Math.round(age*100),
+
+totalPct:
+Math.round(totalDelta*100),
+
+adjusted,
+
+confidence:
+confidence.label,
+
+tradeCount:
+tradeCounts[id]||0
+};
+}
 const p=players[id];
 const pos=position(p);
 
@@ -791,7 +921,9 @@ pid,
 players,
 marketMap,
 context,
-tradeCounts
+tradeCounts,
+projectionScoreMap,
+replacement
 )
 )
 .filter(Boolean)
