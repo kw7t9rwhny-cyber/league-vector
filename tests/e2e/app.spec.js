@@ -91,8 +91,7 @@ async function analyze(page) {
   await expect(page.getByRole("status")).toHaveText(/League Vector v0\.8 foundation calculated/, { timeout: 15_000 });
 }
 
-test("renders a complete 1QB analysis without unsafe markup or numeric display errors", async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== "desktop-chromium");
+test("renders a complete 1QB analysis without unsafe markup or numeric display errors", async ({ page }) => {
   const counts = await mockData(page);
   await analyze(page);
 
@@ -108,8 +107,7 @@ test("renders a complete 1QB analysis without unsafe markup or numeric display e
   expect(counts.transactions).toBe(18);
 });
 
-test("shows a visible partial-data state when the projection adapter fails", async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== "desktop-chromium");
+test("shows a visible partial-data state when the projection adapter fails", async ({ page }) => {
   await mockData(page, { superflex: true, projectionFailure: true });
   await analyze(page);
 
@@ -121,8 +119,7 @@ test("shows a visible partial-data state when the projection adapter fails", asy
   await expect(page.locator("#playerValues")).toContainText("Projection unavailable");
 });
 
-test("remains usable at a mobile viewport and submits from the keyboard", async ({ page }, testInfo) => {
-  test.skip(testInfo.project.name !== "mobile-chromium");
+test("remains usable at a mobile viewport and submits from the keyboard", async ({ page }) => {
   await mockData(page);
   await page.goto("/");
   const input = page.getByLabel("Sleeper league ID or URL");
