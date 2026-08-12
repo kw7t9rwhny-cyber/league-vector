@@ -1,0 +1,23 @@
+# Roadmap after v0.8 foundation
+
+## External decisions required
+
+1. Contact Sleeper about commercial API use; do not launch paid access first.
+2. Verify DynastyProcess and upstream data licensing/attribution.
+3. Choose whether and how to license this public repository.
+4. Choose a private repository and hosting platform for the Top Dog Engine API.
+5. Decide whether to enable branch protection and GitHub Pages HTTPS enforcement.
+
+## Engineering work
+
+1. Build a maintained Sleeper → GSIS/provider crosswalk with audit tooling.
+2. Replace the undocumented projection endpoint with a licensed provider adapter.
+3. Restore the validated scoring engine and weekly 308-slot scarcity pipeline behind the private API.
+4. Add licensed IDP projections, replacement levels, age curves and market calibration.
+5. Add scoring-neutral projections so market/role talent and league scoring can be tested independently.
+6. Add calibrated rookie-pick values only after publishing and testing the methodology.
+7. Add transparent contender/rebuilder classifications and historical holdout evaluation.
+8. Add trade analysis, simulations, roster optimization and recommended moves.
+9. Add browser-level end-to-end tests and deployment previews.
+
+The v0.8 frontend must continue disclosing incomplete inputs while these items remain open.
