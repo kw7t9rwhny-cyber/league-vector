@@ -465,47 +465,7 @@ tradeCount:
 tradeCounts[id]||0
 };
 }
-const p=players[id];
-const pos=position(p);
 
-if(!["QB","RB","WR","TE"].includes(pos))return null;
-
-const name=playerName(p,id);
-
-const market=marketMap.get(
-`${normalizeName(name)}|${pos}`
-);
-
-if(!market)return null;
-
-const league=leagueDelta(pos,context);
-const age=ageDelta(pos,market.age);
-const confidence=confidenceFor(market.base,market.ecr);
-
-const rawDelta=league+age;
-const totalDelta=Math.min(.22,Math.max(-.20,rawDelta));
-
-const adjusted=Math.round(
-market.base*(1+totalDelta)
-);
-
-return {
-id,
-name,
-pos,
-team:p?.team||market.team||"FA",
-age:market.age,
-ecr:market.ecr,
-base:market.base,
-date:market.date,
-leaguePct:Math.round(league*100),
-agePct:Math.round(age*100),
-totalPct:Math.round(totalDelta*100),
-adjusted,
-confidence:confidence.label,
-tradeCount:tradeCounts[id]||0
-};
-}
 
 function valueCard(pos,data){
 const width=Math.min(
