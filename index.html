@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>League Vector — Fantasy Intelligence</title>
+
 <style>
 :root{
   --bg:#07111f;
@@ -13,73 +14,486 @@
   --muted:#8fa6be;
   --accent:#ffb01f;
   --good:#5ee6a8;
-  --blue:#65b8ff;
+  --bad:#ff8d8d;
 }
+
 *{box-sizing:border-box}
-body{margin:0;font-family:system-ui,-apple-system,sans-serif;background:linear-gradient(#050b13,#091726);color:var(--text);min-height:100vh}
-.wrap{max-width:1100px;margin:auto;padding:28px 18px 70px}
-.brand{font-weight:900;letter-spacing:1px;font-size:22px}
-.brand small{display:block;color:var(--muted);font-size:12px;margin-top:3px}
-.hero{margin-top:28px;border:1px solid var(--line);border-radius:24px;padding:32px;background:radial-gradient(circle at top right,#16395f,#0d1b2d 45%,#091626)}
-.eyebrow{color:var(--accent);font-size:12px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase}
-h1{font-size:clamp(34px,7vw,56px);line-height:1;margin:10px 0}
-.sub{color:#b7c8d9;font-size:17px;line-height:1.5;max-width:760px}
-.form{display:flex;gap:10px;flex-wrap:wrap;margin-top:25px}
-input{flex:1;min-width:240px;padding:16px;border-radius:12px;border:1px solid #35516f;background:#07111f;color:white;font-size:16px}
-button{border:0;border-radius:12px;padding:16px 22px;background:var(--accent);font-weight:850;font-size:15px;cursor:pointer}
-.status{margin-top:16px;color:#c5d6e7}
-.error{color:#ffaaaa}.success{color:var(--good)}
-#results{display:none;margin-top:22px}
-.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-.card,.team,.dna,.value-card,.explain,.player-value-card{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:16px}
-.card span{display:block;color:var(--muted);font-size:11px;text-transform:uppercase}
-.card b{font-size:22px;display:block;margin-top:6px}
-.section-title{margin:28px 0 12px;font-size:20px}
-.section-sub{color:var(--muted);font-size:12px;line-height:1.55;margin:-4px 0 13px}
-.dna-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
-.dna h3,.explain h3{margin:0 0 10px;font-size:15px}
-.chips{display:flex;flex-wrap:wrap;gap:7px}
-.chip{background:#07111f;border:1px solid #29435d;border-radius:999px;padding:6px 9px;font-size:11px;color:#d7e5f2}
-.chip.hot{border-color:#8a6622;color:#ffd37b}
-.dna-note{color:var(--muted);font-size:12px;line-height:1.5;margin-top:10px}
-.value-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
-.value-card h3{margin:0;font-size:18px}
-.value-number{font-size:30px;font-weight:900;margin-top:8px}
-.value-label{color:var(--muted);font-size:11px;text-transform:uppercase}
-.value-bar{height:7px;background:#07111f;border-radius:999px;overflow:hidden;margin:12px 0 10px}
-.value-fill{height:100%;background:linear-gradient(90deg,#284c70,var(--accent));border-radius:999px}
-.value-note,.explain p{color:#b9cadb;font-size:11px;line-height:1.5}
-.demand{color:var(--accent);font-weight:800}
-.explain{margin-top:10px}
-.player-values{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
-.player-value-card{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center}
-.rank{color:var(--muted);font-weight:900;min-width:28px}
-.pv-name{font-weight:800;font-size:14px}
-.pv-meta{color:var(--muted);font-size:11px;margin-top:3px}
-.pv-values{text-align:right}
-.lv-value{color:var(--accent);font-size:19px;font-weight:900}
-.market-value{color:var(--muted);font-size:10px;margin-top:3px}
-.adjust{color:var(--good);font-size:10px;margin-top:3px}
-.adjust.down{color:#ffaaaa}
-.source-note{color:var(--muted);font-size:10px;line-height:1.5;margin-top:10px}
-.teams{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
-.team h3{margin:0;font-size:18px}
-.owner{color:var(--muted);font-size:12px;margin:5px 0 14px}
-.team-stats{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
-.pill{background:#07111f;border:1px solid #29435d;border-radius:999px;padding:5px 8px;font-size:11px;color:#bdd0e2}
-.label{color:var(--accent);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin:12px 0 7px}
-.player{display:flex;align-items:center;gap:7px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px}
-.slot{min-width:34px;text-align:center;background:#3a2b10;border:1px solid #6d5220;color:#ffd37b;border-radius:6px;padding:3px 5px;font-size:9px;font-weight:900}
-.pos{min-width:32px;text-align:center;background:#162b42;border:1px solid #294762;border-radius:6px;padding:3px 5px;font-size:10px;font-weight:900}
-.player-name{flex:1}
-.nfl-team{color:var(--muted);font-size:11px}
-.roster-value{color:var(--accent);font-size:10px;font-weight:800}
-.more{color:var(--muted);font-size:11px;margin-top:8px}
-@media(max-width:850px){.value-grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:700px){.summary{grid-template-columns:1fr 1fr}.dna-grid,.teams,.player-values{grid-template-columns:1fr}.hero{padding:24px}}
+
+body{
+  margin:0;
+  font-family:system-ui,-apple-system,sans-serif;
+  background:linear-gradient(#050b13,#091726);
+  color:var(--text);
+  min-height:100vh;
+}
+
+.wrap{
+  max-width:1100px;
+  margin:auto;
+  padding:28px 18px 70px;
+}
+
+.brand{
+  font-weight:900;
+  letter-spacing:1px;
+  font-size:22px;
+}
+
+.brand small{
+  display:block;
+  color:var(--muted);
+  font-size:12px;
+  margin-top:3px;
+}
+
+.hero{
+  margin-top:28px;
+  border:1px solid var(--line);
+  border-radius:24px;
+  padding:32px;
+  background:radial-gradient(
+    circle at top right,
+    #16395f,
+    #0d1b2d 45%,
+    #091626
+  );
+}
+
+.eyebrow{
+  color:var(--accent);
+  font-size:12px;
+  font-weight:800;
+  letter-spacing:1.5px;
+  text-transform:uppercase;
+}
+
+h1{
+  font-size:clamp(34px,7vw,56px);
+  line-height:1;
+  margin:10px 0;
+}
+
+.sub{
+  color:#b7c8d9;
+  font-size:17px;
+  line-height:1.5;
+  max-width:780px;
+}
+
+.form{
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+  margin-top:25px;
+}
+
+input{
+  flex:1;
+  min-width:240px;
+  padding:16px;
+  border-radius:12px;
+  border:1px solid #35516f;
+  background:#07111f;
+  color:white;
+  font-size:16px;
+}
+
+button{
+  border:0;
+  border-radius:12px;
+  padding:16px 22px;
+  background:var(--accent);
+  font-weight:850;
+  font-size:15px;
+  cursor:pointer;
+}
+
+.status{
+  margin-top:16px;
+  color:#c5d6e7;
+}
+
+.error{color:#ffaaaa}
+.success{color:var(--good)}
+
+#results{
+  display:none;
+  margin-top:22px;
+}
+
+.summary{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:10px;
+}
+
+.card,
+.dna,
+.value-card,
+.player-card,
+.team,
+.trade-card,
+.explain{
+  background:var(--panel);
+  border:1px solid var(--line);
+  border-radius:15px;
+  padding:16px;
+}
+
+.card span{
+  display:block;
+  color:var(--muted);
+  font-size:11px;
+  text-transform:uppercase;
+}
+
+.card b{
+  display:block;
+  font-size:22px;
+  margin-top:6px;
+}
+
+.section-title{
+  margin:28px 0 12px;
+  font-size:20px;
+}
+
+.section-sub{
+  color:var(--muted);
+  font-size:12px;
+  line-height:1.55;
+  margin:-4px 0 13px;
+}
+
+.dna-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:10px;
+}
+
+.dna h3,
+.explain h3{
+  margin:0 0 10px;
+  font-size:15px;
+}
+
+.chips{
+  display:flex;
+  flex-wrap:wrap;
+  gap:7px;
+}
+
+.chip{
+  background:#07111f;
+  border:1px solid #29435d;
+  border-radius:999px;
+  padding:6px 9px;
+  font-size:11px;
+  color:#d7e5f2;
+}
+
+.chip.hot{
+  border-color:#8a6622;
+  color:#ffd37b;
+}
+
+.dna-note{
+  color:var(--muted);
+  font-size:12px;
+  line-height:1.5;
+  margin-top:10px;
+}
+
+.value-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:10px;
+}
+
+.value-card h3{
+  margin:0;
+  font-size:18px;
+}
+
+.value-number{
+  font-size:30px;
+  font-weight:900;
+  margin-top:8px;
+}
+
+.value-label{
+  color:var(--muted);
+  font-size:11px;
+  text-transform:uppercase;
+}
+
+.value-bar{
+  height:7px;
+  background:#07111f;
+  border-radius:999px;
+  overflow:hidden;
+  margin:12px 0 10px;
+}
+
+.value-fill{
+  height:100%;
+  background:linear-gradient(
+    90deg,
+    #284c70,
+    var(--accent)
+  );
+  border-radius:999px;
+}
+
+.value-note,
+.explain p{
+  color:#b9cadb;
+  font-size:11px;
+  line-height:1.5;
+}
+
+.demand{
+  color:var(--accent);
+  font-weight:800;
+}
+
+.explain{
+  margin-top:10px;
+}
+
+.player-values{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:10px;
+}
+
+.player-card{
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  gap:12px;
+  align-items:center;
+}
+
+.rank{
+  color:var(--muted);
+  font-weight:900;
+  min-width:30px;
+}
+
+.pv-name{
+  font-weight:850;
+  font-size:14px;
+}
+
+.pv-meta{
+  color:var(--muted);
+  font-size:11px;
+  margin-top:3px;
+}
+
+.signal-row{
+  display:flex;
+  flex-wrap:wrap;
+  gap:5px;
+  margin-top:7px;
+}
+
+.signal{
+  background:#07111f;
+  border:1px solid #29435d;
+  border-radius:999px;
+  padding:4px 6px;
+  font-size:9px;
+  color:#bdd0e2;
+}
+
+.signal.good{
+  border-color:#27634d;
+  color:var(--good);
+}
+
+.signal.bad{
+  border-color:#704242;
+  color:var(--bad);
+}
+
+.pv-values{
+  text-align:right;
+}
+
+.lv-value{
+  color:var(--accent);
+  font-size:19px;
+  font-weight:900;
+}
+
+.market-value{
+  color:var(--muted);
+  font-size:10px;
+  margin-top:3px;
+}
+
+.confidence{
+  font-size:10px;
+  margin-top:3px;
+  color:#b9cadb;
+}
+
+.source-note{
+  color:var(--muted);
+  font-size:10px;
+  line-height:1.5;
+  margin-top:10px;
+}
+
+.trade-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:10px;
+}
+
+.trade-card h3{
+  margin:0;
+  font-size:16px;
+}
+
+.trade-count{
+  color:var(--accent);
+  font-size:26px;
+  font-weight:900;
+  margin-top:6px;
+}
+
+.trade-note{
+  color:var(--muted);
+  font-size:11px;
+  line-height:1.5;
+  margin-top:6px;
+}
+
+.teams{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:12px;
+}
+
+.team h3{
+  margin:0;
+  font-size:18px;
+}
+
+.owner{
+  color:var(--muted);
+  font-size:12px;
+  margin:5px 0 14px;
+}
+
+.team-stats{
+  display:flex;
+  flex-wrap:wrap;
+  gap:6px;
+  margin-bottom:14px;
+}
+
+.pill{
+  background:#07111f;
+  border:1px solid #29435d;
+  border-radius:999px;
+  padding:5px 8px;
+  font-size:11px;
+  color:#bdd0e2;
+}
+
+.label{
+  color:var(--accent);
+  font-size:11px;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:1px;
+  margin:12px 0 7px;
+}
+
+.player{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  padding:6px 0;
+  border-bottom:1px solid rgba(255,255,255,.05);
+  font-size:13px;
+}
+
+.slot{
+  min-width:34px;
+  text-align:center;
+  background:#3a2b10;
+  border:1px solid #6d5220;
+  color:#ffd37b;
+  border-radius:6px;
+  padding:3px 5px;
+  font-size:9px;
+  font-weight:900;
+}
+
+.pos{
+  min-width:32px;
+  text-align:center;
+  background:#162b42;
+  border:1px solid #294762;
+  border-radius:6px;
+  padding:3px 5px;
+  font-size:10px;
+  font-weight:900;
+}
+
+.player-name{
+  flex:1;
+}
+
+.roster-value{
+  color:var(--accent);
+  font-size:10px;
+  font-weight:800;
+}
+
+.nfl-team,
+.more{
+  color:var(--muted);
+  font-size:11px;
+}
+
+.more{
+  margin-top:8px;
+}
+
+@media(max-width:850px){
+  .value-grid{
+    grid-template-columns:repeat(2,1fr);
+  }
+}
+
+@media(max-width:700px){
+
+  .summary{
+    grid-template-columns:1fr 1fr;
+  }
+
+  .dna-grid,
+  .player-values,
+  .trade-grid,
+  .teams{
+    grid-template-columns:1fr;
+  }
+
+  .hero{
+    padding:24px;
+  }
+
+}
 </style>
 </head>
+
 <body>
+
 <div class="wrap">
 
 <div class="brand">
@@ -88,28 +502,74 @@ LEAGUE VECTOR
 </div>
 
 <div class="hero">
-<div class="eyebrow">Sleeper League Analyzer • MVP v0.5</div>
-<h1>Your league.<br>Your scoring.<br>Your edge.</h1>
-<p class="sub">League Vector combines dynasty market data with your actual Sleeper league settings to estimate how player values change inside your league.</p>
-<div class="form">
-<input id="leagueId" placeholder="Sleeper League ID or URL">
-<button id="go">Analyze League</button>
+
+<div class="eyebrow">
+Sleeper League Analyzer • MVP v0.6
 </div>
-<div id="status" class="status">Example: 1312249622554501120</div>
+
+<h1>
+Your league.<br>
+Your scoring.<br>
+Your edge.
+</h1>
+
+<p class="sub">
+League Vector blends dynasty market value, age,
+consensus ranking, league scarcity and real Sleeper
+trade activity to build a league-specific valuation.
+</p>
+
+<div class="form">
+
+<input
+  id="leagueId"
+  placeholder="Sleeper League ID or URL"
+>
+
+<button id="go">
+Analyze League
+</button>
+
+</div>
+
+<div id="status" class="status">
+Example: 1312249622554501120
+</div>
+
 </div>
 
 <div id="results">
 
 <div class="summary">
-<div class="card"><span>League</span><b id="name">—</b></div>
-<div class="card"><span>Teams</span><b id="count">—</b></div>
-<div class="card"><span>Season</span><b id="season">—</b></div>
-<div class="card"><span>League Starters</span><b id="leagueStarters">—</b></div>
+
+<div class="card">
+<span>League</span>
+<b id="name">—</b>
 </div>
 
-<h2 class="section-title">League DNA</h2>
+<div class="card">
+<span>Teams</span>
+<b id="count">—</b>
+</div>
+
+<div class="card">
+<span>Season</span>
+<b id="season">—</b>
+</div>
+
+<div class="card">
+<span>League Starters</span>
+<b id="leagueStarters">—</b>
+</div>
+
+</div>
+
+<h2 class="section-title">
+League DNA
+</h2>
 
 <div class="dna-grid">
+
 <div class="dna">
 <h3>Lineup Architecture</h3>
 <div id="lineupChips" class="chips"></div>
@@ -121,12 +581,16 @@ LEAGUE VECTOR
 <div id="scoringChips" class="chips"></div>
 <div id="scoringNote" class="dna-note"></div>
 </div>
+
 </div>
 
-<h2 class="section-title">League Value Context</h2>
+<h2 class="section-title">
+League Value Context
+</h2>
 
 <p class="section-sub">
-100 is neutral. Scores above 100 indicate league rules that increase positional demand compared with a typical 12-team 1QB format.
+100 is neutral. Higher scores indicate greater
+positional pressure created by this league.
 </p>
 
 <div id="valueGrid" class="value-grid"></div>
@@ -136,23 +600,46 @@ LEAGUE VECTOR
 <p id="valueExplanation">—</p>
 </div>
 
-<h2 class="section-title">Player Values — League Adjusted</h2>
+<h2 class="section-title">
+League Vector Player Values
+</h2>
 
 <p class="section-sub">
-Base dynasty market values are adjusted using this league's positional pressure. v0.5 values QB, RB, WR and TE only; IDP player values remain intentionally unvalued until a defensive market/projection layer is added.
+v0.6 blends the current dynasty market signal with
+player age, 2QB consensus rank and your league-specific
+environment. The model also reports disagreement rather
+than hiding it.
 </p>
 
 <div id="playerValueStatus" class="dna-note">
-Waiting for dynasty market data…
+Waiting for market data…
 </div>
 
 <div id="playerValues" class="player-values"></div>
 
 <div class="source-note">
-Base offensive values: DynastyProcess open data. League Vector's adjustment is calculated independently from your Sleeper league settings and is deliberately capped in v0.5.
+Current offensive market baseline: DynastyProcess open
+data. League Vector age and league-fit adjustments are
+calculated independently. IDP player valuation remains
+disabled until the defensive valuation layer is ready.
 </div>
 
-<h2 class="section-title">League Rosters</h2>
+<h2 class="section-title">
+Sleeper Trade Signal
+</h2>
+
+<p class="section-sub">
+League Vector reads completed trades from this Sleeper
+league. In v0.6 this is an informational signal only.
+It does not change player value until League Vector has
+a large enough trade sample to do that responsibly.
+</p>
+
+<div id="tradeGrid" class="trade-grid"></div>
+
+<h2 class="section-title">
+League Rosters
+</h2>
 
 <div id="teams" class="teams"></div>
 
@@ -160,108 +647,194 @@ Base offensive values: DynastyProcess open data. League Vector's adjustment is c
 </div>
 
 <script>
-const API="https://api.sleeper.app/v1";
+
+const API=
+  "https://api.sleeper.app/v1";
 
 const DYNASTY_DATA_URL=
   "https://raw.githubusercontent.com/dynastyprocess/data/master/files/values-players.csv";
 
-const $=id=>document.getElementById(id);
+const $=
+  id=>
+    document.getElementById(id);
 
-const esc=s=>String(s??"").replace(
-  /[&<>"']/g,
-  c=>({
-    "&":"&amp;",
-    "<":"&lt;",
-    ">":"&gt;",
-    '"':"&quot;",
-    "'":"&#39;"
-  }[c])
-);
+const esc=
+  s=>
+    String(s??"")
+      .replace(
+        /[&<>"']/g,
+        c=>({
+          "&":"&amp;",
+          "<":"&lt;",
+          ">":"&gt;",
+          '"':"&quot;",
+          "'":"&#39;"
+        }[c])
+      );
 
 function lid(v){
-  const m=String(v).match(/\d{8,}/g);
-  return m?m[m.length-1]:"";
+
+  const m=
+    String(v)
+      .match(/\d{8,}/g);
+
+  return m
+    ? m[m.length-1]
+    : "";
+
 }
 
 async function get(url){
-  const r=await fetch(url);
+
+  const r=
+    await fetch(url);
+
   if(!r.ok){
-    throw Error("Request returned "+r.status);
+
+    throw Error(
+      "Request returned "+
+      r.status
+    );
+
   }
+
   return r.json();
+
 }
 
 async function getText(url){
-  const r=await fetch(url);
+
+  const r=
+    await fetch(url);
+
   if(!r.ok){
-    throw Error("Market data returned "+r.status);
+
+    throw Error(
+      "Market data returned "+
+      r.status
+    );
+
   }
+
   return r.text();
+
 }
 
 function parseCSV(text){
+
   const rows=[];
+
   let row=[];
   let field="";
   let quoted=false;
 
-  for(let i=0;i<text.length;i++){
+  for(
+    let i=0;
+    i<text.length;
+    i++
+  ){
 
-    const c=text[i];
-    const next=text[i+1];
+    const c=
+      text[i];
 
-    if(c==='"'&&quoted&&next==='"'){
+    const next=
+      text[i+1];
+
+    if(
+      c==='"' &&
+      quoted &&
+      next==='"'
+    ){
+
       field+='"';
       i++;
       continue;
+
     }
 
     if(c==='"'){
-      quoted=!quoted;
-      continue;
-    }
 
-    if(c===","&&!quoted){
-      row.push(field);
-      field="";
+      quoted=
+        !quoted;
+
       continue;
+
     }
 
     if(
-      (c==="\n"||c==="\r") &&
+      c==="," &&
       !quoted
     ){
-      if(c==="\r"&&next==="\n"){
+
+      row.push(field);
+      field="";
+      continue;
+
+    }
+
+    if(
+      (
+        c==="\n" ||
+        c==="\r"
+      ) &&
+      !quoted
+    ){
+
+      if(
+        c==="\r" &&
+        next==="\n"
+      ){
+
         i++;
+
       }
 
       row.push(field);
 
-      if(row.some(x=>x!=="")){
+      if(
+        row.some(
+          x=>x!==""
+        )
+      ){
+
         rows.push(row);
+
       }
 
       row=[];
       field="";
       continue;
+
     }
 
     field+=c;
+
   }
 
-  if(field||row.length){
+  if(
+    field ||
+    row.length
+  ){
+
     row.push(field);
     rows.push(row);
+
   }
 
-  if(rows.length<2){
+  if(
+    rows.length<2
+  ){
+
     return [];
+
   }
 
   const headers=
-    rows.shift().map(
-      h=>h.trim()
-    );
+    rows
+      .shift()
+      .map(
+        h=>h.trim()
+      );
 
   return rows.map(
     values=>
@@ -274,11 +847,14 @@ function parseCSV(text){
         )
       )
   );
+
 }
 
 function normalizeName(name){
 
-  return String(name||"")
+  return String(
+    name||""
+  )
     .toLowerCase()
     .normalize("NFD")
     .replace(
@@ -296,7 +872,10 @@ function normalizeName(name){
 
 }
 
-function playerName(p,id){
+function playerName(
+  p,
+  id
+){
 
   return (
     p?.full_name ||
@@ -324,12 +903,19 @@ function position(p){
 function cleanSlot(slot){
 
   const map={
+
     SUPER_FLEX:"SF",
+
     REC_FLEX:"FLEX",
+
     WRRB_FLEX:"FLEX",
+
     FLEX:"FLEX",
+
     IDP_FLEX:"IDP",
+
     DEF:"DST"
+
   };
 
   return (
@@ -348,10 +934,17 @@ function countSlots(arr){
 
   const out={};
 
-  for(const slot of arr||[]){
+  for(
+    const slot
+    of arr||[]
+  ){
 
-    if(slot==="BN"){
+    if(
+      slot==="BN"
+    ){
+
       continue;
+
     }
 
     out[slot]=
@@ -377,1323 +970,7 @@ function slotCount(
 function scoringProfile(s={}){
 
   const chips=[];
+
   const rec=
     Number(
       s.rec||0
-    );
-
-  chips.push(
-    rec>0
-      ? `${rec} PPR`
-      : "Standard receptions"
-  );
-
-  if(s.pass_td!=null){
-
-    chips.push(
-      `${s.pass_td} pt Pass TD`
-    );
-
-  }
-
-  if(
-    Number(
-      s.bonus_rec_te||0
-    )>0
-  ){
-
-    chips.push(
-      `TE Premium +${s.bonus_rec_te}`
-    );
-
-  }else if(
-    Number(
-      s.rec_te||0
-    )>rec
-  ){
-
-    chips.push(
-      `TE Premium ${s.rec_te} PPR`
-    );
-
-  }
-
-  const idpKeys=
-    Object.keys(s)
-      .filter(
-        k=>
-          /tkl|sack|int|ff|fum|def|qb_hit|pass_def|ast/
-          .test(k)
-      );
-
-  if(idpKeys.length){
-
-    chips.push(
-      "IDP scoring"
-    );
-
-  }
-
-  return {
-    chips,
-    idpKeys
-  };
-
-}
-
-function calcValueContext(
-  league,
-  counts
-){
-
-  const teams=
-    Number(
-      league.total_rosters||0
-    )||12;
-
-  const scoring=
-    league.scoring_settings||{};
-
-  const teamPressure=
-    Math.max(
-      0,
-      teams-12
-    )*3;
-
-  const qb=
-    slotCount(
-      counts,
-      "QB"
-    );
-
-  const sf=
-    slotCount(
-      counts,
-      "SUPER_FLEX"
-    );
-
-  const rb=
-    slotCount(
-      counts,
-      "RB"
-    );
-
-  const wr=
-    slotCount(
-      counts,
-      "WR"
-    );
-
-  const te=
-    slotCount(
-      counts,
-      "TE"
-    );
-
-  const flex=
-    slotCount(
-      counts,
-      "FLEX"
-    )+
-    slotCount(
-      counts,
-      "REC_FLEX"
-    )+
-    slotCount(
-      counts,
-      "WRRB_FLEX"
-    );
-
-  const dl=
-    slotCount(
-      counts,
-      "DL"
-    )+
-    slotCount(
-      counts,
-      "DE"
-    )+
-    slotCount(
-      counts,
-      "DT"
-    );
-
-  const lb=
-    slotCount(
-      counts,
-      "LB"
-    );
-
-  const db=
-    slotCount(
-      counts,
-      "DB"
-    )+
-    slotCount(
-      counts,
-      "CB"
-    )+
-    slotCount(
-      counts,
-      "S"
-    );
-
-  const idpFlex=
-    slotCount(
-      counts,
-      "IDP_FLEX"
-    );
-
-  const passTD=
-    Number(
-      scoring.pass_td||4
-    );
-
-  const ppr=
-    Number(
-      scoring.rec||0
-    );
-
-  const teBonus=
-    Number(
-      scoring.bonus_rec_te||0
-    );
-
-  const tePpr=
-    Number(
-      scoring.rec_te||ppr
-    );
-
-  const idpSettings=
-    Object.keys(scoring)
-      .filter(
-        k=>
-          /tkl|sack|int|ff|fum|def|qb_hit|pass_def|ast/
-          .test(k)
-      )
-      .length;
-
-  const QB=
-    100+
-    teamPressure+
-    sf*28+
-    Math.max(
-      0,
-      qb-1
-    )*15+
-    Math.max(
-      0,
-      passTD-4
-    )*4;
-
-  const RB=
-    100+
-    teamPressure+
-    Math.max(
-      0,
-      rb-2
-    )*7+
-    flex*4+
-    ppr*2;
-
-  const WR=
-    100+
-    teamPressure+
-    Math.max(
-      0,
-      wr-2
-    )*7+
-    flex*5+
-    ppr*5;
-
-  const TE=
-    100+
-    teamPressure+
-    Math.max(
-      0,
-      te-1
-    )*10+
-    flex*2+
-    teBonus*15+
-    Math.max(
-      0,
-      tePpr-ppr
-    )*15;
-
-  const idpBase=
-    100+
-    teamPressure+
-    Math.min(
-      15,
-      idpSettings*.4
-    );
-
-  const DL=
-    idpBase+
-    dl*5+
-    idpFlex*3;
-
-  const LB=
-    idpBase+
-    lb*5+
-    idpFlex*3;
-
-  const DB=
-    idpBase+
-    db*5+
-    idpFlex*3;
-
-  return {
-
-    QB:{
-      score:Math.round(QB),
-      demand:teams*(qb+sf),
-      reason:
-        sf
-          ? `${teams}-team Superflex creates major quarterback scarcity.`
-          : `${teams}-team QB demand.`
-    },
-
-    RB:{
-      score:Math.round(RB),
-      demand:teams*rb,
-      reason:
-        `${rb} dedicated RB slots plus ${flex} flex slots per team.`
-    },
-
-    WR:{
-      score:Math.round(WR),
-      demand:teams*wr,
-      reason:
-        `${wr} dedicated WR slots plus ${flex} flex slots and ${ppr} PPR scoring.`
-    },
-
-    TE:{
-      score:Math.round(TE),
-      demand:teams*te,
-      reason:
-        (
-          teBonus>0 ||
-          tePpr>ppr
-        )
-          ? "Tight ends receive premium reception scoring."
-          : `${te} starting TE slot per team.`
-    },
-
-    DL:{
-      score:Math.round(DL),
-      demand:teams*dl,
-      reason:
-        `${dl} dedicated DL slots plus ${idpFlex} IDP flex slots per team.`
-    },
-
-    LB:{
-      score:Math.round(LB),
-      demand:teams*lb,
-      reason:
-        `${lb} dedicated LB slots plus ${idpFlex} IDP flex slots per team.`
-    },
-
-    DB:{
-      score:Math.round(DB),
-      demand:teams*db,
-      reason:
-        `${db} dedicated DB slots plus ${idpFlex} IDP flex slots per team.`
-    }
-
-  };
-
-}
-
-const ADJUSTMENT_RULES={
-
-  QB:{
-    rate:.0028,
-    maxUp:.12,
-    maxDown:.06
-  },
-
-  RB:{
-    rate:.0020,
-    maxUp:.08,
-    maxDown:.06
-  },
-
-  WR:{
-    rate:.0024,
-    maxUp:.10,
-    maxDown:.06
-  },
-
-  TE:{
-    rate:.0026,
-    maxUp:.12,
-    maxDown:.06
-  }
-
-};
-
-function leagueMultiplier(
-  pos,
-  context
-){
-
-  const rule=
-    ADJUSTMENT_RULES[pos]||
-    {
-      rate:.002,
-      maxUp:.08,
-      maxDown:.06
-    };
-
-  const pressure=
-    (
-      context[pos]?.score||
-      100
-    )-100;
-
-  let delta=
-    pressure*
-    rule.rate;
-
-  delta=
-    Math.min(
-      rule.maxUp,
-      Math.max(
-        -rule.maxDown,
-        delta
-      )
-    );
-
-  return 1+delta;
-
-}
-
-function buildMarketMap(rows){
-
-  const map=
-    new Map();
-
-  for(const row of rows){
-
-    const pos=
-      String(
-        row.pos||""
-      )
-        .trim()
-        .toUpperCase();
-
-    if(
-      ![
-        "QB",
-        "RB",
-        "WR",
-        "TE"
-      ]
-        .includes(pos)
-    ){
-      continue;
-    }
-
-    const base=
-      Number(
-        row.value_2qb||0
-      );
-
-    if(!base){
-      continue;
-    }
-
-    const key=
-      `${
-        normalizeName(
-          row.player
-        )
-      }|${pos}`;
-
-    if(
-      !key.startsWith("|")
-    ){
-
-      map.set(
-        key,
-        {
-          name:row.player,
-          pos,
-          team:row.team,
-          age:
-            Number(
-              row.age
-            )||null,
-          ecr:
-            Number(
-              row.ecr_2qb
-            )||null,
-          base,
-          date:
-            row.scrape_date||""
-        }
-      );
-
-    }
-
-  }
-
-  return map;
-
-}
-
-function getPlayerValue(
-  id,
-  players,
-  marketMap,
-  context
-){
-
-  const p=
-    players[id];
-
-  const pos=
-    position(p);
-
-  if(
-    ![
-      "QB",
-      "RB",
-      "WR",
-      "TE"
-    ]
-      .includes(pos)
-  ){
-
-    return null;
-
-  }
-
-  const name=
-    playerName(
-      p,
-      id
-    );
-
-  const market=
-    marketMap.get(
-      `${
-        normalizeName(name)
-      }|${pos}`
-    );
-
-  if(!market){
-
-    return null;
-
-  }
-
-  const multiplier=
-    leagueMultiplier(
-      pos,
-      context
-    );
-
-  const adjusted=
-    Math.round(
-      market.base*
-      multiplier
-    );
-
-  const pct=
-    Math.round(
-      (
-        multiplier-1
-      )*100
-    );
-
-  return {
-    id,
-    name,
-    pos,
-    nflTeam:
-      p?.team||
-      market.team||
-      "FA",
-    age:
-      market.age,
-    ecr:
-      market.ecr,
-    base:
-      market.base,
-    adjusted,
-    multiplier,
-    pct,
-    date:
-      market.date
-  };
-
-}
-
-function valueCard(
-  pos,
-  data
-){
-
-  const width=
-    Math.min(
-      100,
-      Math.max(
-        12,
-        (
-          (
-            data.score-70
-          )/80
-        )*100
-      )
-    );
-
-  const label=
-    data.score>=135
-      ? "Extreme pressure"
-      : data.score>=120
-      ? "High pressure"
-      : data.score>=108
-      ? "Elevated"
-      : data.score>=95
-      ? "Neutral"
-      : "Reduced";
-
-  return `
-
-  <div class="value-card">
-
-    <h3>
-      ${esc(pos)}
-    </h3>
-
-    <div class="value-number">
-      ${data.score}
-    </div>
-
-    <div class="value-label">
-      ${label}
-    </div>
-
-    <div class="value-bar">
-      <div
-        class="value-fill"
-        style="width:${width}%">
-      </div>
-    </div>
-
-    <div class="value-note">
-
-      <span class="demand">
-        ${data.demand}
-      </span>
-
-      dedicated league-wide
-      starter opportunities.
-
-      <br><br>
-
-      ${esc(data.reason)}
-
-    </div>
-
-  </div>
-
-  `;
-
-}
-
-function valueExplanation(ctx){
-
-  const ranked=
-    Object.entries(ctx)
-      .sort(
-        (a,b)=>
-          b[1].score-
-          a[1].score
-      );
-
-  const top=
-    ranked[0];
-
-  const second=
-    ranked[1];
-
-  const idpAvg=
-    Math.round(
-      (
-        ctx.DL.score+
-        ctx.LB.score+
-        ctx.DB.score
-      )/3
-    );
-
-  return (
-    `The strongest league-driven value pressure is currently ${top[0]} (${top[1].score}), `+
-    `followed by ${second[0]} (${second[1].score}). `+
-    `The combined IDP environment averages ${idpAvg}. `+
-    `v0.5 converts offensive pressure into deliberately capped league adjustments rather than treating the pressure score itself as player value.`
-  );
-
-}
-
-function playerValueCard(
-  v,
-  rank
-){
-
-  const sign=
-    v.pct>0
-      ? "+"
-      : "";
-
-  const cls=
-    v.pct<0
-      ? "adjust down"
-      : "adjust";
-
-  return `
-
-  <div class="player-value-card">
-
-    <div class="rank">
-      #${rank}
-    </div>
-
-    <div>
-
-      <div class="pv-name">
-        ${esc(v.name)}
-      </div>
-
-      <div class="pv-meta">
-        ${esc(v.pos)}
-        •
-        ${esc(v.nflTeam)}
-        ${
-          v.age
-            ? ` • Age ${v.age}`
-            : ""
-        }
-        ${
-          v.ecr
-            ? ` • 2QB ECR ${v.ecr}`
-            : ""
-        }
-      </div>
-
-    </div>
-
-    <div class="pv-values">
-
-      <div class="lv-value">
-        ${v.adjusted.toLocaleString()}
-      </div>
-
-      <div class="market-value">
-        Base ${v.base.toLocaleString()}
-      </div>
-
-      <div class="${cls}">
-        ${sign}${v.pct}% league adjustment
-      </div>
-
-    </div>
-
-  </div>
-
-  `;
-
-}
-
-function playerRow(
-  id,
-  players,
-  slot,
-  valuation
-){
-
-  const p=
-    players[id];
-
-  return `
-
-  <div class="player">
-
-    ${
-      slot
-        ? `
-        <span class="slot">
-          ${esc(cleanSlot(slot))}
-        </span>
-        `
-        : ""
-    }
-
-    <span class="pos">
-      ${esc(position(p))}
-    </span>
-
-    <span class="player-name">
-      ${esc(playerName(p,id))}
-    </span>
-
-    ${
-      valuation
-        ? `
-        <span class="roster-value">
-          LV ${valuation.adjusted.toLocaleString()}
-        </span>
-        `
-        : `
-        <span class="nfl-team">
-          ${esc(p?.team||"FA")}
-        </span>
-        `
-    }
-
-  </div>
-
-  `;
-
-}
-
-$("go").onclick=
-async()=>{
-
-  const id=
-    lid(
-      $("leagueId").value
-    );
-
-  if(!id){
-
-    $("status").className=
-      "status error";
-
-    $("status").textContent=
-      "Enter a valid Sleeper league ID.";
-
-    return;
-
-  }
-
-  $("go").disabled=
-    true;
-
-  $("status").className=
-    "status";
-
-  $("status").textContent=
-    "Loading league and dynasty market data…";
-
-  $("results").style.display=
-    "none";
-
-  try{
-
-    const [
-      league,
-      users,
-      rosters,
-      players,
-      dynastyCSV
-    ]=
-    await Promise.all([
-
-      get(
-        `${API}/league/${id}`
-      ),
-
-      get(
-        `${API}/league/${id}/users`
-      ),
-
-      get(
-        `${API}/league/${id}/rosters`
-      ),
-
-      get(
-        `${API}/players/nfl`
-      ),
-
-      getText(
-        DYNASTY_DATA_URL
-      )
-
-    ]);
-
-    const userMap=
-      Object.fromEntries(
-        users.map(
-          x=>[
-            x.user_id,
-            x
-          ]
-        )
-      );
-
-    const marketRows=
-      parseCSV(
-        dynastyCSV
-      );
-
-    const marketMap=
-      buildMarketMap(
-        marketRows
-      );
-
-    const rosterPositions=
-      league.roster_positions||[];
-
-    const starterSlots=
-      rosterPositions.filter(
-        x=>x!=="BN"
-      );
-
-    const slotCounts=
-      countSlots(
-        rosterPositions
-      );
-
-    const valueContext=
-      calcValueContext(
-        league,
-        slotCounts
-      );
-
-    $("name").textContent=
-      league.name||
-      "Sleeper League";
-
-    $("count").textContent=
-      rosters.length;
-
-    $("season").textContent=
-      league.season||
-      "—";
-
-    $("leagueStarters").textContent=
-      starterSlots.length*
-      rosters.length;
-
-    $("lineupChips").innerHTML=
-      Object.entries(
-        slotCounts
-      )
-        .map(
-          ([slot,n])=>
-            `
-            <span class="chip ${
-              slot.includes(
-                "FLEX"
-              )
-                ? "hot"
-                : ""
-            }">
-              ${n}× ${esc(cleanSlot(slot))}
-            </span>
-            `
-        )
-        .join("");
-
-    const sf=
-      starterSlots.some(
-        x=>
-          x==="SUPER_FLEX"
-      );
-
-    const idp=
-      starterSlots.some(
-        x=>
-          [
-            "DL",
-            "DE",
-            "DT",
-            "LB",
-            "DB",
-            "CB",
-            "S",
-            "IDP_FLEX"
-          ]
-            .includes(x)
-      );
-
-    $("lineupNote").textContent=
-      `${
-        sf
-          ? "Superflex • "
-          : ""
-      }${
-        idp
-          ? "IDP • "
-          : ""
-      }${starterSlots.length} starters per team across ${rosters.length} teams.`;
-
-    const profile=
-      scoringProfile(
-        league.scoring_settings||{}
-      );
-
-    $("scoringChips").innerHTML=
-      profile.chips
-        .map(
-          x=>
-            `
-            <span class="chip hot">
-              ${esc(x)}
-            </span>
-            `
-        )
-        .join("");
-
-    $("scoringNote").textContent=
-      `${profile.idpKeys.length} defensive scoring categories detected • ${
-        Object.keys(
-          league.scoring_settings||{}
-        ).length
-      } total scoring settings imported`;
-
-    $("valueGrid").innerHTML=
-      [
-        "QB",
-        "RB",
-        "WR",
-        "TE",
-        "DL",
-        "LB",
-        "DB"
-      ]
-        .map(
-          pos=>
-            valueCard(
-              pos,
-              valueContext[pos]
-            )
-        )
-        .join("");
-
-    $("valueExplanation").textContent=
-      valueExplanation(
-        valueContext
-      );
-
-    const rosteredIds=
-      [
-        ...new Set(
-          rosters.flatMap(
-            r=>
-              r.players||[]
-          )
-        )
-      ];
-
-    const valuations=
-      rosteredIds
-        .map(
-          pid=>
-            getPlayerValue(
-              pid,
-              players,
-              marketMap,
-              valueContext
-            )
-        )
-        .filter(Boolean)
-        .sort(
-          (a,b)=>
-            b.adjusted-
-            a.adjusted
-        );
-
-    const valuationMap=
-      Object.fromEntries(
-        valuations.map(
-          v=>[
-            v.id,
-            v
-          ]
-        )
-      );
-
-    const latestDate=
-      valuations
-        .map(
-          v=>v.date
-        )
-        .filter(Boolean)
-        .sort()
-        .at(-1)||"";
-
-    $("playerValueStatus").textContent=
-      `${valuations.length} rostered offensive players matched to dynasty market data${
-        latestDate
-          ? ` • Market snapshot ${latestDate}`
-          : ""
-      }.`;
-
-    $("playerValues").innerHTML=
-      valuations.length
-        ? valuations
-            .slice(
-              0,
-              30
-            )
-            .map(
-              (v,i)=>
-                playerValueCard(
-                  v,
-                  i+1
-                )
-            )
-            .join("")
-        : `
-          <div class="dna-note">
-            No offensive market-value matches were found.
-          </div>
-        `;
-
-    $("teams").innerHTML=
-      rosters
-        .sort(
-          (a,b)=>
-            a.roster_id-
-            b.roster_id
-        )
-        .map(
-          roster=>{
-
-            const owner=
-              userMap[
-                roster.owner_id
-              ];
-
-            const teamName=
-              owner?.metadata
-                ?.team_name||
-              owner?.display_name||
-              `Roster ${roster.roster_id}`;
-
-            const starters=
-              (roster.starters||[])
-                .filter(
-                  x=>
-                    x &&
-                    x!=="0"
-                );
-
-            const allPlayers=
-              roster.players||[];
-
-            const starterSet=
-              new Set(
-                starters
-              );
-
-            const bench=
-              allPlayers
-                .filter(
-                  x=>
-                    !starterSet
-                      .has(x)
-                );
-
-            const idpCount=
-              allPlayers
-                .filter(
-                  pid=>
-                    [
-                      "DL",
-                      "DE",
-                      "DT",
-                      "LB",
-                      "ILB",
-                      "OLB",
-                      "DB",
-                      "CB",
-                      "S"
-                    ]
-                      .includes(
-                        position(
-                          players[pid]
-                        )
-                      )
-                )
-                .length;
-
-            const starterHTML=
-              starters
-                .map(
-                  (pid,i)=>
-                    playerRow(
-                      pid,
-                      players,
-                      starterSlots[i],
-                      valuationMap[pid]
-                    )
-                )
-                .join("");
-
-            const benchPreview=
-              bench
-                .slice(
-                  0,
-                  8
-                )
-                .map(
-                  pid=>
-                    playerRow(
-                      pid,
-                      players,
-                      null,
-                      valuationMap[pid]
-                    )
-                )
-                .join("");
-
-            const extraBench=
-              Math.max(
-                0,
-                bench.length-8
-              );
-
-            return `
-
-            <div class="team">
-
-              <h3>
-                ${esc(teamName)}
-              </h3>
-
-              <div class="owner">
-                ${
-                  esc(
-                    owner?.display_name||
-                    "Unknown owner"
-                  )
-                }
-                • Roster ${roster.roster_id}
-              </div>
-
-              <div class="team-stats">
-
-                <span class="pill">
-                  ${allPlayers.length} players
-                </span>
-
-                <span class="pill">
-                  ${starters.length} starters
-                </span>
-
-                <span class="pill">
-                  ${bench.length} bench
-                </span>
-
-                <span class="pill">
-                  ${idpCount} IDP
-                </span>
-
-                <span class="pill">
-                  ${(roster.taxi||[]).length} taxi
-                </span>
-
-                <span class="pill">
-                  ${(roster.reserve||[]).length} IR
-                </span>
-
-              </div>
-
-              <div class="label">
-                Starting Lineup — Slot Aware
-              </div>
-
-              ${
-                starterHTML||
-                `
-                <div class="more">
-                  No starters currently set.
-                </div>
-                `
-              }
-
-              <div class="label">
-                Bench Preview
-              </div>
-
-              ${
-                benchPreview||
-                `
-                <div class="more">
-                  No bench players.
-                </div>
-                `
-              }
-
-              ${
-                extraBench
-                  ? `
-                  <div class="more">
-                    + ${extraBench} more bench players
-                  </div>
-                  `
-                  : ""
-              }
-
-            </div>
-
-            `;
-
-          }
-        )
-        .join("");
-
-    $("results").style.display=
-      "block";
-
-    $("status").className=
-      "status success";
-
-    $("status").textContent=
-      "✓ League-adjusted offensive player values calculated.";
-
-  }catch(e){
-
-    console.error(e);
-
-    $("status").className=
-      "status error";
-
-    $("status").textContent=
-      "Could not analyze league: "+
-      e.message;
-
-  }finally{
-
-    $("go").disabled=
-      false;
-
-  }
-
-};
-
-$("leagueId")
-  .addEventListener(
-    "keydown",
-    e=>{
-
-      if(
-        e.key==="Enter"
-      ){
-
-        $("go").click();
-
-      }
-
-    }
-  );
-
-</script>
-
-</body>
-</html>
