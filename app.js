@@ -681,6 +681,33 @@ x=>x!=="BN"
 const slotCounts=countSlots(
 rosterPositions
 );
+  const projectionMap=
+window.LeagueVectorEngine
+  .aggregateSeasonProjections(
+    projectionRows
+  );
+
+const projectionScores=
+window.LeagueVectorEngine
+  .buildProjectionScores(
+    players,
+    projectionMap,
+    league
+  );
+
+const replacement=
+window.LeagueVectorEngine
+  .replacementLevels(
+    projectionScores,
+    league
+  );
+
+const projectionScoreMap=
+Object.fromEntries(
+  projectionScores.map(
+    x=>[x.id,x]
+  )
+);
 
 const context=calcValueContext(
 league,
