@@ -586,8 +586,26 @@ Age ${signPct(v.agePct)}
 </span>
 
 <span class="signal good">
-League ${signPct(v.leaguePct)}
+Projection/VORP ${signPct(v.projectionPct)}
 </span>
+
+${v.rookieApplied?`
+<span class="signal good">
+Rookie floor ${v.rookieFloor.toLocaleString()}
+</span>
+`:""}
+
+${v.projectedPoints?`
+<span class="signal">
+Proj ${v.projectedPoints} pts
+</span>
+`:""}
+
+${v.vorp?`
+<span class="${v.vorp>=0?"signal good":"signal bad"}">
+VORP ${v.vorp>0?"+":""}${v.vorp}
+</span>
+`:""}
 
 <span class="${totalClass}">
 Net ${signPct(v.totalPct)}
