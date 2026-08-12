@@ -1,0 +1,14 @@
+{
+  "name": "league-vector",
+  "version": "0.8.0",
+  "private": true,
+  "description": "League-aware Sleeper dynasty analysis frontend",
+  "scripts": {
+    "check": "node scripts/lint.js && node --check core-v08.js && node --check data-sources-v08.js && node --check app.js",
+    "test": "node --test tests/*.test.js",
+    "validate": "npm run check && npm test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
