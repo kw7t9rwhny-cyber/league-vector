@@ -645,6 +645,12 @@ getText(DYNASTY_DATA_URL),
 fetchLeagueTrades(id)
 
 ]);
+  const projectionRows=
+await window.LeagueVectorEngine
+  .fetchSeasonProjections(
+    Number(league.season)||2026
+  )
+  .catch(()=>[]);
 
 const userMap=Object.fromEntries(
 users.map(
