@@ -726,4 +726,288 @@ league.scoring_settings||{}
 $("scoringChips").innerHTML=
 profile.chips
 .map(
-x=>`<span class="chip hot">${esc(x)}</span
+x=>`<span class="chip hot">${esc(x)}</span>`)
+.join("");
+
+$("scoringNote").textContent=
+`${profile.idpKeys.length} defensive scoring categories detected • ${
+Object.keys(league.scoring_settings||{}).length
+} total scoring settings imported`;
+
+$("valueGrid").innerHTML=
+["QB","RB","WR","TE","DL","LB","DB"]
+.map(pos=>valueCard(pos,context[pos]))
+.join("");
+
+$("valueExplanation").textContent=
+valueExplanation(context);
+
+const rosteredIds=[
+...new Set(
+rosters.flatMap(
+r=>r.players||[]
+)
+)
+];
+
+const valuations=
+rosteredIds
+.map(pid=>
+playerValuation(
+pid,
+players,
+marketMap,
+context,
+tradeCounts
+)
+)
+.filter(Boolean)
+.sort(
+(a,b)=>b.adjusted-a.adjusted
+);
+
+const valuationMap=
+Object.fromEntries(
+valuations.map(
+v=>[v.id,v]
+)
+);
+
+const latestDate=
+valuations
+.map(v=>v.date)
+.filter(Boolean)
+.sort()
+.at(-1)||"";
+
+const tradedPlayers=
+Object.keys(tradeCounts).length;
+
+$("playerValueStatus").textContent=
+`${valuations.length} rostered offensive players matched • ${
+trades.length
+} completed league trades scanned • ${
+tradedPlayers
+} players appeared in trades${
+latestDate
+? ` • Market snapshot ${latestDate}`
+: ""
+}.`;
+
+$("playerValues").innerHTML=
+valuations.length
+? valuations
+.slice(0,40)
+.map(
+(v,i)=>playerCard(v,i+1)
+)
+.join("")
+: `
+<div class="dna-note">
+No offensive market-value matches were found.
+</div>
+`;
+
+$("teams").innerHTML=
+rosters
+.sort(
+(a,b)=>a.roster_id-b.roster_id
+)
+.map(roster=>{
+
+const owner=
+userMap[
+roster.owner_id
+];
+
+const teamName=
+owner?.metadata?.team_name||
+owner?.display_name||
+`Roster ${roster.roster_id}`;
+
+const starters=
+(roster.starters||[])
+.filter(
+x=>x&&x!=="0"
+);
+
+const allPlayers=
+roster.players||[];
+
+const starterSet=
+new Set(starters);
+
+const bench=
+allPlayers.filter(
+x=>!starterSet.has(x)
+);
+
+const idpCount=
+allPlayers.filter(pid=>
+[
+"DL","DE","DT",
+"LB","ILB","OLB",
+"DB","CB","S"
+].includes(
+position(players[pid])
+)
+).length;
+
+const starterHTML=
+starters
+.map(
+(pid,i)=>
+playerRow(
+pid,
+players,
+starterSlots[i],
+valuationMap[pid]
+)
+)
+.join("");
+
+const benchPreview=
+bench
+.slice(0,8)
+.map(
+pid=>
+playerRow(
+pid,
+players,
+null,
+valuationMap[pid]
+)
+)
+.join("");
+
+const extraBench=
+Math.max(
+0,
+bench.length-8
+);
+
+return `
+<div class="team">
+
+<h3>
+${esc(teamName)}
+</h3>
+
+<div class="owner">
+${esc(
+owner?.display_name||
+"Unknown owner"
+)}
+• Roster ${roster.roster_id}
+</div>
+
+<div class="team-stats">
+
+<span class="pill">
+${allPlayers.length} players
+</span>
+
+<span class="pill">
+${starters.length} starters
+</span>
+
+<span class="pill">
+${bench.length} bench
+</span>
+
+<span class="pill">
+${idpCount} IDP
+</span>
+
+<span class="pill">
+${(roster.taxi||[]).length} taxi
+</span>
+
+<span class="pill">
+${(roster.reserve||[]).length} IR
+</span>
+
+</div>
+
+<div class="label">
+Starting Lineup — Slot Aware
+</div>
+
+${
+starterHTML||
+`
+<div class="more">
+No starters currently set.
+</div>
+`
+}
+
+<div class="label">
+Bench Preview
+</div>
+
+${
+benchPreview||
+`
+<div class="more">
+No bench players.
+</div>
+`
+}
+
+${
+extraBench
+? `
+<div class="more">
++ ${extraBench} more bench players
+</div>
+`
+: ""
+}
+
+</div>
+`;
+
+})
+.join("");
+
+$("results").style.display=
+"block";
+
+$("status").className=
+"status success";
+
+$("status").textContent=
+"✓ League Vector v0.6 model calculated.";
+
+}catch(e){
+
+console.error(e);
+
+$("status").className=
+"status error";
+
+$("status").textContent=
+"Could not analyze league: "+
+e.message;
+
+}finally{
+
+$("go").disabled=
+false;
+
+}
+
+};
+
+$("leagueId")
+.addEventListener(
+"keydown",
+e=>{
+
+if(e.key==="Enter"){
+$("go").click();
+}
+
+}
+);
