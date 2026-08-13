@@ -14,10 +14,13 @@ const projectionArtifact = {
   m: "lv-projection-system-v0.3",
   d: "2026-08-13T12:00:00Z",
   through: 2025,
+  aliases: [["p6", "p5"]],
   r: [
     { s: "p1", g: "g1", p: "QB", z: "projection_ready", x: { py: 4200, pt: 30, i: 12, ry: 250, rt: 3 }, c: "High", h: [2025, 2024, 2023] },
     { s: "p2", g: "g2", p: "RB", z: "projection_ready", x: { r: 220, ry: 980, rt: 8, tg: 70, rc: 55, cy: 450, ct: 3 }, c: "Medium", h: [2025, 2024] },
     { s: "p3", g: "g3", p: "LB", z: "projection_ready", x: { ts: 100, ta: 35, tt: 135, tl: 10, sk: 4, qh: 8, i: 1, pd: 5, ff: 2, fr: 1 }, c: "Medium", h: [2025, 2024, 2023] },
+    { s: "p5", l: "lv:gsis:g5", g: "g5", p: "LB", z: "projection_ready", x: { ts: 90, ta: 30 }, c: "Medium", h: [2025, 2024] },
+    { s: "p6", l: "lv:lv:gsis:g5", g: "g5", p: "LB", z: "projection_ready", x: { ts: 88, ta: 29 }, c: "Medium", h: [2025, 2024] },
   ],
 };
 
@@ -126,6 +129,7 @@ test("shows League Vector v0.3 experimental projections with truthful scoring co
   await analyze(page);
   await expect(page.locator("#experimentalProjectionPanel")).toBeVisible();
   await expect(page.locator("#experimentalProjectionStatus")).toContainText("Dynasty values are unchanged");
+  await expect(page.locator("#experimentalProjectionStatus")).not.toContainText("duplicate stable identities");
   await expect(page.locator("#projectionMeta")).toContainText("lv-projection-system-v0.3");
   await expect(page.locator("#experimentalProjectionRows")).toContainText("Test Runner");
   await expect(page.locator("#experimentalProjectionRows")).toContainText("Test Defender");
@@ -158,6 +162,7 @@ test("remains usable at a mobile viewport and submits from the keyboard", async 
   await expect(page.locator("#status")).toHaveText(/calculated/, { timeout: 15_000 });
   await expect(page.locator("#results")).toBeVisible();
   await expect(page.locator("#experimentalProjectionPanel")).toBeVisible();
+  await expect(page.locator("#experimentalProjectionStatus")).not.toContainText("duplicate stable identities");
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(1);
 });
