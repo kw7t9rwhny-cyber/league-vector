@@ -83,12 +83,19 @@ jobs:
       - name: Assemble static experimental preview
         run: |
           mkdir -p site-preview/data/experimental
-          cp index.html styles.css experimental.css core-v08.js live-test-fixes-v01.js data-sources-v08.js app.js projection-frontend-v03.js projection-frontend-v03-contract.js experimental-ui-v03.js experimental-ui-v03-enhancements.js site-preview/
+          cp index.html styles.css experimental.css core-v08.js live-test-fixes-v01.js scoring-coverage-v02.js idp-scoring-context-v01.js experimental-idp-context-v01.js data-sources-v08.js app.js projection-frontend-v03.js projection-frontend-v03-contract.js experimental-ui-v03.js experimental-ui-v03-enhancements.js site-preview/
           cp data/experimental/2026-projections.json site-preview/data/experimental/
-      - name: Verify deployable projection asset resolves and parses
+      - name: Verify deployable projection asset resolves, parses, and has unique stable identities
         run: |
           test -s site-preview/data/experimental/2026-projections.json
-          node -e "const fs=require('fs');const p='site-preview/data/experimental/2026-projections.json';const a=JSON.parse(fs.readFileSync(p,'utf8'));if(!Array.isArray(a.r)||!a.r.length)throw new Error('Projection asset has no compact records');if(a.m!=='lv-projection-system-v0.3')throw new Error('Unexpected projection model version: '+a.m);"
+          node - <<'NODE'
+          const fs=require('fs');
+          const a=JSON.parse(fs.readFileSync('site-preview/data/experimental/2026-projections.json','utf8'));
+          if(!Array.isArray(a.r)||!a.r.length)throw new Error('Projection asset has no compact records');
+          if(a.m!=='lv-projection-system-v0.3')throw new Error('Unexpected projection model version: '+a.m);
+          if(!a.ip?.positions?.DL||!a.ip?.positions?.LB||!a.ip?.positions?.DB)throw new Error('IDP scoring profiles missing from projection asset');
+          for(const field of ['s','g','l']){const seen=new Set();for(const r of a.r){const v=r[field];if(!v)continue;if(seen.has(String(v)))throw new Error('Duplicate stable identity '+field+':'+v);seen.add(String(v));}}
+          NODE
           python3 -m http.server 4174 --directory site-preview >/tmp/league-vector-preview.log 2>&1 &
           server_pid=$!
           trap 'kill $server_pid' EXIT
