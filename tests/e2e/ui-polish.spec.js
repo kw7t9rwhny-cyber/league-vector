@@ -5,8 +5,8 @@ test("loads the isolated polish layer without changing the import contract", asy
   await expect(page.getByRole("heading", { name: /Your league/i })).toBeVisible();
   await expect(page.getByLabel("Sleeper league ID or URL")).toBeVisible();
   await expect(page.getByRole("button", { name: "Analyze League" })).toBeVisible();
-  const polishLoaded = await page.evaluate(() => [...document.styleSheets].some((sheet) => String(sheet.href || "").includes("ui-polish.css")));
-  expect(polishLoaded).toBe(true);
+  const heroShadow = await page.locator(".hero").evaluate((node) => getComputedStyle(node).boxShadow);
+  expect(heroShadow).not.toBe("none");
 });
 
 test("keeps first-touch league import usable on an iPhone-sized viewport", async ({ page }) => {
