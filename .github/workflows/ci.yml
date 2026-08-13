@@ -83,7 +83,7 @@ jobs:
       - name: Assemble static experimental preview
         run: |
           mkdir -p site-preview/data/experimental
-          cp index.html styles.css experimental.css core-v08.js data-sources-v08.js app.js projection-frontend-v03.js experimental-ui-v03.js site-preview/
+          cp index.html styles.css experimental.css core-v08.js data-sources-v08.js app.js projection-frontend-v03.js projection-frontend-v03-contract.js experimental-ui-v03.js experimental-ui-v03-enhancements.js site-preview/
           cp data/experimental/2026-projections.json site-preview/data/experimental/
       - name: Upload projection v0.3 reports
         if: always()
