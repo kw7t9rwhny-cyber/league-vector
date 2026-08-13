@@ -9,6 +9,18 @@ const marketCsv = [
   "Duplicate Name,QB,NYJ,26,91,46,900,2900,2026-08-12,103",
 ].join("\n");
 
+const projectionArtifact = {
+  v: "lv-projection-frontend-v0.3",
+  m: "lv-projection-system-v0.3",
+  d: "2026-08-13T12:00:00Z",
+  through: 2025,
+  r: [
+    { s: "p1", g: "g1", p: "QB", z: "projection_ready", x: { py: 4200, pt: 30, i: 12, ry: 250, rt: 3 }, c: "High", h: [2025, 2024, 2023] },
+    { s: "p2", g: "g2", p: "RB", z: "projection_ready", x: { r: 220, ry: 980, rt: 8, tg: 70, rc: 55, cy: 450, ct: 3 }, c: "Medium", h: [2025, 2024] },
+    { s: "p3", g: "g3", p: "LB", z: "projection_ready", x: { ts: 100, ta: 35, tt: 135, tl: 10, sk: 4, qh: 8, i: 1, pd: 5, ff: 2, fr: 1 }, c: "Medium", h: [2025, 2024, 2023] },
+  ],
+};
+
 function leagueFixture(superflex = false) {
   return {
     league_id: LEAGUE_ID,
@@ -46,6 +58,9 @@ async function mockData(page, options = {}) {
   const counts = { players: 0, projections: 0, transactions: 0 };
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
+    if (url.pathname.endsWith("/data/experimental/2026-projections.json")) {
+      return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(projectionArtifact) });
+    }
     if (url.hostname === "raw.githubusercontent.com") {
       await route.fulfill({ status: 200, contentType: "text/csv", body: marketCsv });
       return;
@@ -107,6 +122,21 @@ test("renders a complete 1QB analysis without unsafe markup or numeric display e
   expect(counts.transactions).toBe(18);
 });
 
+test("shows League Vector v0.3 experimental projections with truthful scoring coverage", async ({ page }) => {
+  await mockData(page);
+  await analyze(page);
+  await expect(page.locator("#experimentalProjectionPanel")).toBeVisible();
+  await expect(page.locator("#experimentalProjectionStatus")).toContainText("Dynasty values are unchanged");
+  await expect(page.locator("#projectionMeta")).toContainText("lv-projection-system-v0.3");
+  await expect(page.locator("#experimentalProjectionRows")).toContainText("Test Runner");
+  await expect(page.locator("#experimentalProjectionRows")).toContainText("Test Defender");
+  await expect(page.locator("#experimentalProjectionRows")).toContainText("bonus_pass_yd_400");
+  await page.locator("#experimentalProjectionRows details").first().locator("summary").click();
+  await expect(page.locator("#experimentalProjectionRows")).toContainText(/Receiving|Rushing|Passing|Tackles/);
+  await expect(page.locator("#experimentalTeamProjection")).toContainText("Alpha & Co");
+  await expect(page.locator("#playerValues")).toContainText("Test Quarterback Jr.");
+});
+
 test("shows a visible partial-data state when the projection adapter fails", async ({ page }) => {
   await mockData(page, { superflex: true, projectionFailure: true });
   await analyze(page);
@@ -127,6 +157,7 @@ test("remains usable at a mobile viewport and submits from the keyboard", async 
   await input.press("Enter");
   await expect(page.getByRole("status")).toHaveText(/calculated/, { timeout: 15_000 });
   await expect(page.locator("#results")).toBeVisible();
+  await expect(page.locator("#experimentalProjectionPanel")).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(1);
 });
