@@ -1,8 +1,7 @@
-const P=require('../projection-v03.js');const Ridge=require('../ridge-v02.js');const V1=require('./benchmark-projections.js');
+const P=require('../projection-v03.js');const V1=require('./benchmark-projections.js');
 const ZERO_FIELDS=['attempts','completions','passing_yards','passing_td','interceptions','sacks','sack_yards','carries','rushing_yards','rushing_td','rushing_fumbles','targets','receptions','receiving_yards','receiving_td','air_yards','yards_after_catch'];
 const originalLoad=V1.load;V1.load=async function(...args){const loaded=await originalLoad(...args);for(const row of loaded.observations){if(!['QB','RB','WR','TE'].includes(row.position_group))continue;for(const field of ZERO_FIELDS){const cell=row.stats?.[field];if(!cell||cell.state!=='value')row.stats[field]={state:'value',value:0};}}return loaded;};
-function optimizedFinalModel(rows,position,target,birth,selection,targetSeason=2026){const name=selection.selected.model,i=P.index(rows),useAge=name==='ridge_age_v03';let ridge=null;if(name==='ridge_age_v03'||name==='ridge_noage_v03'){const alpha=P.tuneAlpha(rows,position,target,targetSeason,birth,useAge),tr=P.train(rows,position,target,targetSeason,birth,useAge);ridge=Ridge.fit(tr.X,tr.y,alpha);}return{name,buildFor(id){const h=P.history(i,id,targetSeason);if(!h.length)return null;if(name==='weighted_603010')return P.weighted(h,target);if(name==='shrink_v03')return P.shrink(h,rows,position,target,targetSeason);const f=P.feature(h,target,birth[id],targetSeason,useAge);return ridge&&f?ridge.predict(f):null;}};}
-P.finalModel=optimizedFinalModel;
+const Complete=require('../projection-v03-complete.js');Complete.install();
 const runner=require('./projection-v03.js');
 if(require.main===module){const a={};for(let i=2;i<process.argv.length;i+=2)a[process.argv[i].replace(/^--/,'')]=process.argv[i+1];const seasons=(a.seasons||Array.from({length:11},(_,i)=>2015+i).join(',')).split(',').map(Number),folds=(a.folds||'2020,2021,2022,2023,2024,2025').split(',').map(Number);runner.run({seasons,folds,cacheDir:a.cache,outputDir:a.outputDir,refresh:a.refresh==='true'}).then(x=>console.log(JSON.stringify(x.summary,null,2))).catch(e=>{console.error(e.stack||e);process.exit(1);});}
-module.exports={optimizedFinalModel,run:runner.run,ZERO_FIELDS};
+module.exports={run:runner.run,ZERO_FIELDS};
