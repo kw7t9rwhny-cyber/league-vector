@@ -1,0 +1,26 @@
+/* League Vector UI polish layer. Presentation only; no valuation or projection logic. */
+:root{--shadow:0 18px 50px rgba(0,0,0,.22)}
+html{scroll-behavior:smooth}
+body{background:radial-gradient(circle at 50% -20%,#173451 0,#091726 34%,#050b13 72%);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;padding-top:26px}
+.hero{border-color:#31516f;box-shadow:var(--shadow);background:radial-gradient(circle at top right,rgba(43,101,153,.42),transparent 46%),linear-gradient(145deg,#0e2034,#091625 66%)}
+h1{letter-spacing:-1.8px;max-width:800px}.sub{max-width:820px}
+input{background:rgba(4,12,22,.88);box-shadow:inset 0 1px rgba(255,255,255,.03)}
+button{border:1px solid #ffc760;background:linear-gradient(180deg,#ffbd43,#ffa90d);color:#171006;box-shadow:0 7px 24px rgba(255,176,31,.18);transition:transform .16s ease,box-shadow .16s ease}
+button:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 10px 30px rgba(255,176,31,.24)}
+button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visible{outline:3px solid #fff2c7;outline-offset:3px}
+#results{margin-top:26px}.summary{grid-template-columns:1.6fr repeat(4,1fr)}
+.card,.dna,.value-card,.player-card,.team,.explain,.team-analysis-card{background:linear-gradient(180deg,rgba(16,34,56,.97),rgba(11,25,42,.97));box-shadow:0 8px 30px rgba(0,0,0,.09)}
+.card span,.value-label{font-weight:800;letter-spacing:.55px}.card b{letter-spacing:-.35px;overflow-wrap:anywhere}
+.section-title{font-size:22px;letter-spacing:-.45px}.section-sub{line-height:1.65;max-width:940px}
+.explain{border-left:3px solid var(--accent)}.player-card{transition:border-color .15s ease,transform .15s ease}.player-card:hover{border-color:#365776;transform:translateY(-1px)}
+.lv-value{font-size:20px;font-weight:950;letter-spacing:-.4px}.value-number{font-weight:950;letter-spacing:-1px}
+.warning-panel{box-shadow:0 10px 28px rgba(0,0,0,.12);border-left-width:4px}.warning-panel li+li{margin-top:5px}
+.quality-grid .dna-note{overflow-wrap:anywhere}.team-analysis-card h3{font-size:18px}.team-insight{line-height:1.55}
+.projection-controls label{letter-spacing:.35px;min-width:0}.projection-controls input,.projection-controls select{font-size:16px;min-height:46px}.projection-card{transition:border-color .15s ease,transform .15s ease;min-width:0}.projection-card:hover{border-color:#496784;transform:translateY(-1px)}
+.projection-warning,.projection-unavailable,.projection-empty{line-height:1.55}.projection-head>*{min-width:0}.projection-head b,.projection-team>b{overflow-wrap:anywhere}
+@media(max-width:850px){.summary{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:700px){.wrap{padding:18px 14px calc(70px + env(safe-area-inset-bottom))}.hero{margin-top:20px;padding:24px 18px;border-radius:20px}h1{font-size:clamp(36px,12vw,50px);letter-spacing:-1.5px}.sub{font-size:14px}.form{display:grid;grid-template-columns:1fr}.form input,.form button{width:100%;min-width:0}.form input,.form button{min-height:52px}.summary{grid-template-columns:1fr 1fr}.summary .card:first-child{grid-column:1/-1}.section-title{font-size:20px}.card,.dna,.value-card,.player-card,.team,.explain,.team-analysis-card{border-radius:14px}.player-card{grid-template-columns:34px minmax(0,1fr) auto;padding:14px}.pv-values{max-width:95px}.projection-controls input,.projection-controls select{min-height:48px}}
+@media(max-width:430px){.projection-controls{grid-template-columns:1fr!important}.projection-controls input,.projection-controls select{width:100%;min-width:0;min-height:50px}}
+@media(max-width:390px){.summary{grid-template-columns:1fr}.summary .card:first-child{grid-column:auto}.player-card{grid-template-columns:28px minmax(0,1fr)}.pv-values{grid-column:2;text-align:left;max-width:none}}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}button,.player-card,.projection-card{transition:none}}
