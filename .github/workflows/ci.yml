@@ -53,13 +53,15 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Benchmark 2015-2024 nflverse projections with rolling folds
-        run: npm run benchmark:projections -- --seasons 2015,2016,2017,2018,2019,2020,2021,2022,2023,2024 --folds 2020,2021,2022,2023,2024 --outputDir data/reports/projection-benchmark --refresh true
+      - name: Preserve benchmark v0.1
+        run: npm run benchmark:projections -- --seasons 2015,2016,2017,2018,2019,2020,2021,2022,2023,2024 --folds 2020,2021,2022,2023,2024 --outputDir data/reports/projection-benchmark-v01 --refresh true
+      - name: Run benchmark v0.2 with ridge and calibrated evaluation
+        run: npm run benchmark:projections:v02 -- --seasons 2015,2016,2017,2018,2019,2020,2021,2022,2023,2024 --folds 2020,2021,2022,2023,2024 --outputDir data/reports/projection-benchmark-v02 --refresh true
       - name: Upload projection benchmark reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: league-vector-projection-benchmark
-          path: data/reports/projection-benchmark/
+          name: league-vector-projection-benchmark-v02
+          path: data/reports/projection-benchmark-v0*/
           if-no-files-found: error
           retention-days: 14
