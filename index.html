@@ -6,7 +6,7 @@
   <meta name="description" content="League Vector explains dynasty value and experimental projected production inside your Sleeper league.">
   <title>League Vector — League-Aware Fantasy Intelligence</title>
   <link rel="stylesheet" href="styles.css?v=0.8.3">
-  <link rel="stylesheet" href="experimental.css?v=0.3.1">
+  <link rel="stylesheet" href="experimental.css?v=0.3.2">
 </head>
 <body>
   <main class="wrap">
@@ -32,7 +32,10 @@
           <label>Search players <input id="projectionSearch" type="search" placeholder="Player name"></label>
           <label>Position <select id="projectionPosition"><option>ALL</option><option>QB</option><option>RB</option><option>WR</option><option>TE</option><option>DL</option><option>LB</option><option>DB</option></select></label>
           <label>Fantasy team <select id="projectionTeam"><option value="ALL">ALL</option></select></label>
-          <label>Sort <select id="projectionSort"><option value="points">Projected points</option><option value="rank">Position rank</option><option value="name">Player name</option><option value="confidence">Confidence</option><option value="status">Projection status</option></select></label>
+          <label>Confidence <select id="projectionConfidence"><option value="ALL">ALL</option><option>High</option><option>Medium</option><option>Low</option></select></label>
+          <label>Projection status <select id="projectionStatusFilter"><option value="ALL">ALL</option><option value="projection_ready">Projection ready</option><option value="rookie_model_required">Rookie model required</option><option value="insufficient_history">Insufficient history</option><option value="identity_unresolved">Identity unresolved</option><option value="missing_required_inputs">Missing required inputs</option><option value="data_unavailable">Data unavailable</option><option value="source_error">Source error</option></select></label>
+          <label>Scoring completeness <select id="projectionCompleteness"><option value="ALL">ALL</option><option value="complete">Complete</option><option value="partial">Partial</option><option value="unavailable">Unavailable</option></select></label>
+          <label>Sort <select id="projectionSort"><option value="points">Projected points</option><option value="rank">Position rank</option><option value="name">Player name</option><option value="confidence">Confidence</option><option value="status">Projection status</option><option value="completeness">Scoring completeness</option></select></label>
         </div>
         <h3 class="projection-subtitle">League projection board</h3><div id="experimentalProjectionRows" class="projection-grid"></div>
         <h3 class="projection-subtitle">Experimental projected starter production</h3><p class="section-sub">Team totals use only starters with complete experimental projections. Incomplete teams are not ranked as if their totals were complete. These are not win, playoff or championship probabilities.</p><div id="experimentalTeamProjection" class="projection-team-grid"></div>
@@ -43,6 +46,6 @@
       <h2 class="section-title">League Rosters</h2><div id="teams" class="teams"></div>
     </section>
   </main>
-  <script src="core-v08.js?v=0.8" defer></script><script src="data-sources-v08.js?v=0.8" defer></script><script src="app.js?v=0.8" defer></script><script src="projection-frontend-v03.js?v=0.3" defer></script><script src="projection-frontend-v03-contract.js?v=0.3.1" defer></script><script src="experimental-ui-v03.js?v=0.3.1" defer></script><script src="experimental-ui-v03-enhancements.js?v=0.3.1" defer></script>
+  <script src="core-v08.js?v=0.8" defer></script><script src="data-sources-v08.js?v=0.8" defer></script><script src="app.js?v=0.8" defer></script><script src="projection-frontend-v03.js?v=0.3.2" defer></script><script src="projection-frontend-v03-contract.js?v=0.3.1" defer></script><script src="experimental-ui-v03.js?v=0.3.1" defer></script><script src="experimental-ui-v03-enhancements.js?v=0.3.2" defer></script>
 </body>
 </html>
