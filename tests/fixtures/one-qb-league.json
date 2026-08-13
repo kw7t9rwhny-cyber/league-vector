@@ -1,0 +1,5 @@
+{
+  "total_rosters": 12,
+  "roster_positions": ["QB", "RB", "RB", "WR", "WR", "WR", "TE", "FLEX", "BN"],
+  "scoring_settings": { "pass_td": 4, "rec": 1 }
+}

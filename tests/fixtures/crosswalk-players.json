@@ -1,0 +1,7 @@
+{
+  "changed-team": { "full_name": "Renamed Quarterback", "position": "QB", "team": "SF" },
+  "duplicate-fa": { "full_name": "Duplicate Name", "position": "QB", "team": "FA" },
+  "duplicate-missing-team": { "full_name": "Duplicate Name", "position": "QB" },
+  "rookie-1": { "full_name": "Rookie Star Jr.", "position": "WR", "team": "NE", "years_exp": 0 },
+  "idp-1": { "full_name": "Test Defender", "position": "LB", "team": "PIT" }
+}

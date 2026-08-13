@@ -1,1156 +1,246 @@
-const API="https://api.sleeper.app/v1";
-const DYNASTY_DATA_URL="https://raw.githubusercontent.com/dynastyprocess/data/master/files/values-players.csv";
-const $=id=>document.getElementById(id);
-
-const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({
-"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"
-}[c]));
-
-function lid(v){
-const m=String(v).match(/\d{8,}/g);
-return m?m[m.length-1]:"";
-}
-
-async function get(url){
-const r=await fetch(url);
-if(!r.ok)throw Error("Request returned "+r.status);
-return r.json();
-}
-
-async function getText(url){
-const r=await fetch(url);
-if(!r.ok)throw Error("Market data returned "+r.status);
-return r.text();
-}
-
-function parseCSV(text){
-const rows=[];
-let row=[],field="",quoted=false;
-
-for(let i=0;i<text.length;i++){
-const c=text[i],next=text[i+1];
-
-if(c==='"'&&quoted&&next==='"'){
-field+='"';i++;continue;
-}
-
-if(c==='"'){
-quoted=!quoted;continue;
-}
-
-if(c===","&&!quoted){
-row.push(field);field="";continue;
-}
-
-if((c==="\n"||c==="\r")&&!quoted){
-if(c==="\r"&&next==="\n")i++;
-row.push(field);
-if(row.some(x=>x!==""))rows.push(row);
-row=[];field="";continue;
-}
-
-field+=c;
-}
-
-if(field||row.length){
-row.push(field);rows.push(row);
-}
-
-if(rows.length<2)return [];
-
-const headers=rows.shift().map(h=>h.trim());
-
-return rows.map(values=>
-Object.fromEntries(headers.map((h,i)=>[h,values[i]??""]))
-);
-}
-
-function normalizeName(name){
-return String(name||"")
-.toLowerCase()
-.normalize("NFD")
-.replace(/[\u0300-\u036f]/g,"")
-.replace(/\b(jr|sr|ii|iii|iv)\b\.?/g,"")
-.replace(/[^a-z0-9]/g,"");
-}
-
-function playerName(p,id){
-return p?.full_name||
-[p?.first_name,p?.last_name].filter(Boolean).join(" ")||
-`Unknown Player (${id})`;
-}
-
-function position(p){
-return p?.fantasy_positions?.[0]||p?.position||"?";
-}
-
-function cleanSlot(slot){
-const map={
-SUPER_FLEX:"SF",
-REC_FLEX:"FLEX",
-WRRB_FLEX:"FLEX",
-FLEX:"FLEX",
-IDP_FLEX:"IDP",
-DEF:"DST"
-};
-return (map[slot]||slot||"?").replace("_FLEX","");
-}
-
-function countSlots(arr){
-const out={};
-for(const slot of arr||[]){
-if(slot==="BN")continue;
-out[slot]=(out[slot]||0)+1;
-}
-return out;
-}
-
-const slotCount=(counts,slot)=>Number(counts[slot]||0);
-
-function scoringProfile(s={}){
-const chips=[];
-const rec=Number(s.rec||0);
-
-chips.push(rec>0?`${rec} PPR`:"Standard receptions");
-
-if(s.pass_td!=null)chips.push(`${s.pass_td} pt Pass TD`);
-
-if(Number(s.bonus_rec_te||0)>0){
-chips.push(`TE Premium +${s.bonus_rec_te}`);
-}else if(Number(s.rec_te||0)>rec){
-chips.push(`TE Premium ${s.rec_te} PPR`);
-}
-
-const idpKeys=Object.keys(s).filter(k=>
-/tkl|sack|int|ff|fum|def|qb_hit|pass_def|ast/.test(k)
-);
-
-if(idpKeys.length)chips.push("IDP scoring");
-
-return {chips,idpKeys};
-}
-
-function calcValueContext(league,counts){
-const teams=Number(league.total_rosters||0)||12;
-const scoring=league.scoring_settings||{};
-const teamPressure=Math.max(0,teams-12)*3;
-
-const qb=slotCount(counts,"QB");
-const sf=slotCount(counts,"SUPER_FLEX");
-const rb=slotCount(counts,"RB");
-const wr=slotCount(counts,"WR");
-const te=slotCount(counts,"TE");
-
-const flex=
-slotCount(counts,"FLEX")+
-slotCount(counts,"REC_FLEX")+
-slotCount(counts,"WRRB_FLEX");
-
-const dl=
-slotCount(counts,"DL")+
-slotCount(counts,"DE")+
-slotCount(counts,"DT");
-
-const lb=slotCount(counts,"LB");
-
-const db=
-slotCount(counts,"DB")+
-slotCount(counts,"CB")+
-slotCount(counts,"S");
-
-const idpFlex=slotCount(counts,"IDP_FLEX");
-const passTD=Number(scoring.pass_td||4);
-const ppr=Number(scoring.rec||0);
-const teBonus=Number(scoring.bonus_rec_te||0);
-const tePpr=Number(scoring.rec_te||ppr);
-
-const idpSettings=Object.keys(scoring).filter(k=>
-/tkl|sack|int|ff|fum|def|qb_hit|pass_def|ast/.test(k)
-).length;
-
-const QB=
-100+teamPressure+sf*28+
-Math.max(0,qb-1)*15+
-Math.max(0,passTD-4)*4;
-
-const RB=
-100+teamPressure+
-Math.max(0,rb-2)*7+
-flex*4+ppr*2;
-
-const WR=
-100+teamPressure+
-Math.max(0,wr-2)*7+
-flex*5+ppr*5;
-
-const TE=
-100+teamPressure+
-Math.max(0,te-1)*10+
-flex*2+
-teBonus*15+
-Math.max(0,tePpr-ppr)*15;
-
-const idpBase=
-100+teamPressure+
-Math.min(15,idpSettings*.4);
-
-return {
-QB:{
-score:Math.round(QB),
-demand:teams*(qb+sf),
-reason:sf?`${teams}-team Superflex creates major quarterback scarcity.`:`${teams}-team QB demand.`
-},
-RB:{
-score:Math.round(RB),
-demand:teams*rb,
-reason:`${rb} dedicated RB slots plus ${flex} flex slots per team.`
-},
-WR:{
-score:Math.round(WR),
-demand:teams*wr,
-reason:`${wr} dedicated WR slots plus ${flex} flex slots and ${ppr} PPR scoring.`
-},
-TE:{
-score:Math.round(TE),
-demand:teams*te,
-reason:(teBonus>0||tePpr>ppr)?"Tight ends receive premium reception scoring.":`${te} starting TE slot per team.`
-},
-DL:{
-score:Math.round(idpBase+dl*5+idpFlex*3),
-demand:teams*dl,
-reason:`${dl} dedicated DL slots plus ${idpFlex} IDP flex slots per team.`
-},
-LB:{
-score:Math.round(idpBase+lb*5+idpFlex*3),
-demand:teams*lb,
-reason:`${lb} dedicated LB slots plus ${idpFlex} IDP flex slots per team.`
-},
-DB:{
-score:Math.round(idpBase+db*5+idpFlex*3),
-demand:teams*db,
-reason:`${db} dedicated DB slots plus ${idpFlex} IDP flex slots per team.`
-}
-};
-}
-
-const LEAGUE_RULES={
-QB:{rate:.0028,maxUp:.12,maxDown:.06},
-RB:{rate:.0020,maxUp:.08,maxDown:.06},
-WR:{rate:.0024,maxUp:.10,maxDown:.06},
-TE:{rate:.0026,maxUp:.12,maxDown:.06}
-};
-
-function leagueDelta(pos,context){
-const rule=LEAGUE_RULES[pos]||{rate:.002,maxUp:.08,maxDown:.06};
-const pressure=(context[pos]?.score||100)-100;
-return Math.min(rule.maxUp,Math.max(-rule.maxDown,pressure*rule.rate));
-}
-
-function ageDelta(pos,age){
-if(!Number.isFinite(age))return 0;
-
-if(pos==="QB"){
-if(age<24)return .14;
-if(age<26)return .11;
-if(age<28)return .07;
-if(age<30)return .02;
-if(age<32)return -.03;
-if(age<34)return -.08;
-return -.14;
-}
-
-if(pos==="RB"){
-if(age<23)return .10;
-if(age<25)return .06;
-if(age<27)return 0;
-if(age<29)return -.08;
-return -.16;
-}
-
-if(pos==="WR"){
-if(age<23)return .10;
-if(age<25)return .07;
-if(age<27)return .03;
-if(age<29)return 0;
-if(age<31)return -.06;
-return -.12;
-}
-
-if(pos==="TE"){
-if(age<24)return .09;
-if(age<27)return .05;
-if(age<30)return .01;
-if(age<32)return -.05;
-return -.10;
-}
-
-return 0;
-}
-
-function buildMarketMap(rows){
-const map=new Map();
-
-for(const row of rows){
-const pos=String(row.pos||"").trim().toUpperCase();
-
-if(!["QB","RB","WR","TE"].includes(pos))continue;
-
-const base=Number(row.value_2qb||0);
-if(!base)continue;
-
-const name=normalizeName(row.player);
-if(!name)continue;
-
-map.set(`${name}|${pos}`,{
-name:row.player,
-pos,
-team:row.team,
-age:Number(row.age)||null,
-ecr:Number(row.ecr_2qb)||null,
-base,
-date:row.scrape_date||""
-});
-}
-
-return map;
-}
-
-function rankExpectedValue(ecr){
-if(!Number.isFinite(ecr)||ecr<=0)return null;
-return Math.round(10500*Math.exp(-.018*(ecr-1)));
-}
-
-function confidenceFor(base,ecr){
-const expected=rankExpectedValue(ecr);
-
-if(!expected||!base){
-return {label:"Limited signal",gap:0};
-}
-
-const gap=Math.abs(base-expected)/Math.max(base,expected);
-
-if(gap<.12)return {label:"High confidence",gap};
-if(gap<.25)return {label:"Moderate confidence",gap};
-return {label:"Market disagreement",gap};
-}
-
-function playerValuation(
-id,
-players,
-marketMap,
-context,
-tradeCounts,
-projectionScoreMap,
-replacement
-){
-const p=players[id];
-const pos=position(p);
-
-if(!["QB","RB","WR","TE"].includes(pos))return null;
-
-const name=playerName(p,id);
-
-const market=marketMap.get(
-`${normalizeName(name)}|${pos}`
-);
-
-if(!market)return null;
-
-const engine=
-window.LeagueVectorEngine;
-
-const rookie=
-engine.applyRookieFloor(
-market.base,
-p,
-market
-);
-
-const age=
-engine.compactAgeDelta(
-pos,
-market.age
-);
-
-const projection=
-projectionScoreMap[id]||null;
-
-let vorp=0;
-let projectionDelta=0;
-let projectedPoints=0;
-let replacementPoints=0;
-
-if(projection){
-projectedPoints=
-projection.points||0;
-
-replacementPoints=
-replacement?.levels?.[pos]||0;
-
-vorp=
-engine.vorpForPlayer(
-projection,
-replacement
-);
-
-projectionDelta=
-engine.projectionValueDelta(
-vorp,
-projectedPoints,
-pos
-);
-}
-
-const confidence=
-confidenceFor(
-market.base,
-market.ecr
-);
-
-const totalDelta=
-Math.min(
-.35,
-Math.max(
--.22,
-age+projectionDelta
-)
-);
-
-const adjusted=
-Math.round(
-rookie.value*
-(1+totalDelta)
-);
-
-return {
-id,
-name,
-pos,
-team:p?.team||market.team||"FA",
-age:market.age,
-ecr:market.ecr,
-base:market.base,
-date:market.date,
-
-rookieFloor:rookie.floor,
-rookieApplied:rookie.applied,
-
-projectedPoints:
-Math.round(projectedPoints*10)/10,
-
-replacementPoints:
-Math.round(replacementPoints*10)/10,
-
-vorp:
-Math.round(vorp*10)/10,
-
-projectionPct:
-Math.round(projectionDelta*100),
-
-leaguePct:
-Math.round(projectionDelta*100),
-
-agePct:
-Math.round(age*100),
-
-totalPct:
-Math.round(totalDelta*100),
-
-adjusted,
-
-confidence:
-confidence.label,
-
-tradeCount:
-tradeCounts[id]||0
-};
-}
-
-
-function valueCard(pos,data){
-const width=Math.min(
-100,
-Math.max(12,((data.score-70)/80)*100)
-);
-
-const label=
-data.score>=135?"Extreme pressure":
-data.score>=120?"High pressure":
-data.score>=108?"Elevated":
-data.score>=95?"Neutral":
-"Reduced";
-
-return `
-<div class="value-card">
-<h3>${esc(pos)}</h3>
-<div class="value-number">${data.score}</div>
-<div class="value-label">${label}</div>
-<div class="value-bar">
-<div class="value-fill" style="width:${width}%"></div>
-</div>
-<div class="value-note">
-<span class="demand">${data.demand}</span>
-dedicated league-wide starter opportunities.
-<br><br>
-${esc(data.reason)}
-</div>
-</div>`;
-}
-
-function valueExplanation(ctx){
-const ranked=Object.entries(ctx)
-.sort((a,b)=>b[1].score-a[1].score);
-
-const top=ranked[0];
-const second=ranked[1];
-
-const idpAvg=Math.round(
-(ctx.DL.score+ctx.LB.score+ctx.DB.score)/3
-);
-
-return `The strongest league-driven value pressure is currently ${top[0]} (${top[1].score}), followed by ${second[0]} (${second[1].score}). The combined IDP environment averages ${idpAvg}. v0.6 keeps league pressure separate from the player's dynasty age curve and market baseline.`;
-}
-
-function signPct(n){
-return `${n>0?"+":""}${n}%`;
-}
-
-function playerCard(v,rank){
-const totalClass=v.totalPct<0?"signal bad":"signal good";
-
-return `
-<div class="player-card">
-
-<div class="rank">#${rank}</div>
-
-<div>
-
-<div class="pv-name">
-${esc(v.name)}
-</div>
-
-<div class="pv-meta">
-${esc(v.pos)} • ${esc(v.team)}
-${v.age?` • Age ${v.age}`:""}
-${v.ecr?` • 2QB ECR ${v.ecr}`:""}
-</div>
-
-<div class="signal-row">
-
-<span class="signal">
-Market ${v.base.toLocaleString()}
-</span>
-
-<span class="${v.agePct<0?"signal bad":"signal good"}">
-Age ${signPct(v.agePct)}
-</span>
-
-<span class="signal good">
-Projection/VORP ${signPct(v.projectionPct)}
-</span>
-
-${v.rookieApplied?`
-<span class="signal good">
-Rookie floor ${v.rookieFloor.toLocaleString()}
-</span>
-`:""}
-
-${v.projectedPoints?`
-<span class="signal">
-Proj ${v.projectedPoints} pts
-</span>
-`:""}
-
-${v.vorp?`
-<span class="${v.vorp>=0?"signal good":"signal bad"}">
-VORP ${v.vorp>0?"+":""}${v.vorp}
-</span>
-`:""}
-
-<span class="${totalClass}">
-Net ${signPct(v.totalPct)}
-</span>
-
-${v.tradeCount?`
-<span class="signal">
-${v.tradeCount} local trade${v.tradeCount===1?"":"s"}
-</span>
-`:""}
-
-</div>
-</div>
-
-<div class="pv-values">
-
-<div class="lv-value">
-${v.adjusted.toLocaleString()}
-</div>
-
-<div class="market-value">
-Base ${v.base.toLocaleString()}
-</div>
-
-<div class="confidence">
-${esc(v.confidence)}
-</div>
-
-</div>
-</div>`;
-}
-
-function playerRow(id,players,slot,valuation){
-const p=players[id];
-
-return `
-<div class="player">
-
-${slot?`
-<span class="slot">
-${esc(cleanSlot(slot))}
-</span>`:""}
-
-<span class="pos">
-${esc(position(p))}
-</span>
-
-<span class="player-name">
-${esc(playerName(p,id))}
-</span>
-
-${valuation?`
-<span class="roster-value">
-LV ${valuation.adjusted.toLocaleString()}
-</span>
-`:`
-<span class="nfl-team">
-${esc(p?.team||"FA")}
-</span>
-`}
-
-</div>`;
-}
-
-async function fetchLeagueTrades(leagueId){
-const all=[];
-
-const weeks=Array.from(
-{length:18},
-(_,i)=>i+1
-);
-
-const batches=[];
-
-for(let i=0;i<weeks.length;i+=6){
-batches.push(
-weeks.slice(i,i+6)
-);
-}
-
-for(const batch of batches){
-
-const results=await Promise.all(
-batch.map(async week=>{
-try{
-return await get(
-`${API}/league/${leagueId}/transactions/${week}`
-);
-}catch{
-return [];
-}
-})
-);
-
-for(const txs of results){
-
-for(const tx of txs||[]){
-
-if(
-tx?.type==="trade" &&
-tx?.status==="complete"
-){
-all.push(tx);
-}
-
-}
-
-}
-
-}
-
-return all;
-}
-
-function buildTradeCounts(trades){
-const counts={};
-
-for(const tx of trades){
-
-const ids=new Set();
-
-for(const pid of Object.keys(tx.adds||{})){
-ids.add(pid);
-}
-
-for(const pid of Object.keys(tx.drops||{})){
-ids.add(pid);
-}
-
-for(const pid of ids){
-counts[pid]=(counts[pid]||0)+1;
-}
-
-}
-
-return counts;
-}
-
-$("go").onclick=async()=>{
-
-const id=lid(
-$("leagueId").value
-);
-
-if(!id){
-
-$("status").className="status error";
-
-$("status").textContent=
-"Enter a valid Sleeper league ID.";
-
-return;
-}
-
-$("go").disabled=true;
-
-$("status").className="status";
-
-$("status").textContent=
-"Building League Vector model…";
-
-$("results").style.display="none";
-
-try{
-
-const [
-league,
-users,
-rosters,
-players,
-dynastyCSV,
-trades
-]=await Promise.all([
-
-get(`${API}/league/${id}`),
-
-get(`${API}/league/${id}/users`),
-
-get(`${API}/league/${id}/rosters`),
-
-get(`${API}/players/nfl`),
-
-getText(DYNASTY_DATA_URL),
-
-fetchLeagueTrades(id)
-
-]);
-  const projectionRows=
-await window.LeagueVectorEngine
-  .fetchSeasonProjections(
-    Number(league.season)||2026
-  )
-  .catch(()=>[]);
-
-const userMap=Object.fromEntries(
-users.map(
-x=>[x.user_id,x]
-)
-);
-
-const marketRows=parseCSV(
-dynastyCSV
-);
-
-const marketMap=buildMarketMap(
-marketRows
-);
-
-const tradeCounts=buildTradeCounts(
-trades
-);
-
-const rosterPositions=
-league.roster_positions||[];
-
-const starterSlots=
-rosterPositions.filter(
-x=>x!=="BN"
-);
-
-const slotCounts=countSlots(
-rosterPositions
-);
-  const projectionMap=
-window.LeagueVectorEngine
-  .aggregateSeasonProjections(
-    projectionRows
-  );
-
-const projectionScores=
-window.LeagueVectorEngine
-  .buildProjectionScores(
-    players,
-    projectionMap,
-    league
-  );
-
-const replacement=
-window.LeagueVectorEngine
-  .replacementLevels(
-    projectionScores,
-    league
-  );
-
-const projectionScoreMap=
-Object.fromEntries(
-  projectionScores.map(
-    x=>[x.id,x]
-  )
-);
-
-const context=calcValueContext(
-league,
-slotCounts
-);
-
-$("name").textContent=
-league.name||"Sleeper League";
-
-$("count").textContent=
-rosters.length;
-
-$("season").textContent=
-league.season||"—";
-
-$("leagueStarters").textContent=
-starterSlots.length*rosters.length;
-
-$("lineupChips").innerHTML=
-Object.entries(slotCounts)
-.map(([slot,n])=>`
-<span class="chip ${
-slot.includes("FLEX")?"hot":""
-}">
-${n}× ${esc(cleanSlot(slot))}
-</span>
-`)
-.join("");
-
-const sf=starterSlots.some(
-x=>x==="SUPER_FLEX"
-);
-
-const idp=starterSlots.some(
-x=>[
-"DL","DE","DT",
-"LB","DB","CB","S",
-"IDP_FLEX"
-].includes(x)
-);
-
-$("lineupNote").textContent=
-`${sf?"Superflex • ":""}${idp?"IDP • ":""}${starterSlots.length} starters per team across ${rosters.length} teams.`;
-
-const profile=scoringProfile(
-league.scoring_settings||{}
-);
-
-$("scoringChips").innerHTML=
-profile.chips
-.map(
-x=>`<span class="chip hot">${esc(x)}</span>`)
-.join("");
-
-$("scoringNote").textContent=
-`${profile.idpKeys.length} defensive scoring categories detected • ${
-Object.keys(league.scoring_settings||{}).length
-} total scoring settings imported`;
-
-$("valueGrid").innerHTML=
-["QB","RB","WR","TE","DL","LB","DB"]
-.map(pos=>valueCard(pos,context[pos]))
-.join("");
-
-$("valueExplanation").textContent=
-valueExplanation(context);
-
-const rosteredIds=[
-...new Set(
-rosters.flatMap(
-r=>r.players||[]
-)
-)
-];
-
-const valuations=
-rosteredIds
-.map(pid=>
-playerValuation(
-pid,
-players,
-marketMap,
-context,
-tradeCounts,
-projectionScoreMap,
-replacement
-)
-)
-.filter(Boolean)
-.sort(
-(a,b)=>b.adjusted-a.adjusted
-);
-
-const valuationMap=
-Object.fromEntries(
-valuations.map(
-v=>[v.id,v]
-)
-);
-
-const latestDate=
-valuations
-.map(v=>v.date)
-.filter(Boolean)
-.sort()
-.at(-1)||"";
-
-const tradedPlayers=
-Object.keys(tradeCounts).length;
-
-$("playerValueStatus").textContent=
-`${valuations.length} rostered offensive players matched • ${
-trades.length
-} completed league trades scanned • ${
-tradedPlayers
-} players appeared in trades${
-latestDate
-? ` • Market snapshot ${latestDate}`
-: ""
-}.`;
-
-$("playerValues").innerHTML=
-valuations.length
-? valuations
-.slice(0,40)
-.map(
-(v,i)=>playerCard(v,i+1)
-)
-.join("")
-: `
-<div class="dna-note">
-No offensive market-value matches were found.
-</div>
-`;
-
-$("teams").innerHTML=
-rosters
-.sort(
-(a,b)=>a.roster_id-b.roster_id
-)
-.map(roster=>{
-
-const owner=
-userMap[
-roster.owner_id
-];
-
-const teamName=
-owner?.metadata?.team_name||
-owner?.display_name||
-`Roster ${roster.roster_id}`;
-
-const starters=
-(roster.starters||[])
-.filter(
-x=>x&&x!=="0"
-);
-
-const allPlayers=
-roster.players||[];
-
-const starterSet=
-new Set(starters);
-
-const bench=
-allPlayers.filter(
-x=>!starterSet.has(x)
-);
-
-const idpCount=
-allPlayers.filter(pid=>
-[
-"DL","DE","DT",
-"LB","ILB","OLB",
-"DB","CB","S"
-].includes(
-position(players[pid])
-)
-).length;
-
-const starterHTML=
-starters
-.map(
-(pid,i)=>
-playerRow(
-pid,
-players,
-starterSlots[i],
-valuationMap[pid]
-)
-)
-.join("");
-
-const benchPreview=
-bench
-.slice(0,8)
-.map(
-pid=>
-playerRow(
-pid,
-players,
-null,
-valuationMap[pid]
-)
-)
-.join("");
-
-const extraBench=
-Math.max(
-0,
-bench.length-8
-);
-
-return `
-<div class="team">
-
-<h3>
-${esc(teamName)}
-</h3>
-
-<div class="owner">
-${esc(
-owner?.display_name||
-"Unknown owner"
-)}
-• Roster ${roster.roster_id}
-</div>
-
-<div class="team-stats">
-
-<span class="pill">
-${allPlayers.length} players
-</span>
-
-<span class="pill">
-${starters.length} starters
-</span>
-
-<span class="pill">
-${bench.length} bench
-</span>
-
-<span class="pill">
-${idpCount} IDP
-</span>
-
-<span class="pill">
-${(roster.taxi||[]).length} taxi
-</span>
-
-<span class="pill">
-${(roster.reserve||[]).length} IR
-</span>
-
-</div>
-
-<div class="label">
-Starting Lineup — Slot Aware
-</div>
-
-${
-starterHTML||
-`
-<div class="more">
-No starters currently set.
-</div>
-`
-}
-
-<div class="label">
-Bench Preview
-</div>
-
-${
-benchPreview||
-`
-<div class="more">
-No bench players.
-</div>
-`
-}
-
-${
-extraBench
-? `
-<div class="more">
-+ ${extraBench} more bench players
-</div>
-`
-: ""
-}
-
-</div>
-`;
-
-})
-.join("");
-
-$("results").style.display=
-"block";
-
-$("status").className=
-"status success";
-
-$("status").textContent=
-"✓ League Vector v0.6 model calculated.";
-
-}catch(e){
-
-console.error(e);
-
-$("status").className=
-"status error";
-
-$("status").textContent=
-"Could not analyze league: "+
-e.message;
-
-}finally{
-
-$("go").disabled=
-false;
-
-}
-
-};
-
-$("leagueId")
-.addEventListener(
-"keydown",
-e=>{
-
-if(e.key==="Enter"){
-$("go").click();
-}
-
-}
-);
+(function () {
+  "use strict";
+
+  const Core = window.LeagueVectorCore;
+  const Data = window.LeagueVectorData;
+  const $ = (id) => document.getElementById(id);
+  let activeController = null;
+  let analysisSequence = 0;
+
+  const escapeHtml = (value) =>
+    String(value ?? "").replace(/[&<>"']/g, (character) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    })[character]);
+
+  function leagueIdFrom(value) {
+    const matches = String(value).match(/\d{8,}/g);
+    return matches ? matches.at(-1) : "";
+  }
+
+  function cleanSlot(slot) {
+    return ({ SUPER_FLEX: "SF", REC_FLEX: "FLEX", WRRB_FLEX: "FLEX", IDP_FLEX: "IDP", DEF: "DST" }[slot] || slot || "?").replace("_FLEX", "");
+  }
+
+  function playerName(player, id) {
+    return player?.full_name || [player?.first_name, player?.last_name].filter(Boolean).join(" ") || `Unknown Player (${id})`;
+  }
+
+  function percent(value) {
+    const rounded = Math.round(Core.number(value) * 100);
+    return `${rounded > 0 ? "+" : ""}${rounded}%`;
+  }
+
+  function setStatus(message, type = "") {
+    $("status").className = `status ${type}`.trim();
+    $("status").textContent = message;
+  }
+
+  function warning(message) {
+    const item = document.createElement("li");
+    item.textContent = message;
+    $("warningList").append(item);
+    $("analysisWarnings").hidden = false;
+  }
+
+  async function loadOverrides(signal) {
+    try {
+      return (await Data.request("data/player-overrides.json", { signal, ttlMs: 5 * 60 * 1000 })).value || {};
+    } catch { return {}; }
+  }
+
+  async function loadCrosswalk(signal) {
+    try {
+      return (await Data.request("data/player-crosswalk.json", { signal, ttlMs: 5 * 60 * 1000 })).value || {};
+    } catch { return {}; }
+  }
+
+  function scoringProfile(scoring = {}) {
+    const reception = Core.number(scoring.rec);
+    const chips = [reception > 0 ? `${reception} PPR` : "Standard receptions"];
+    if (scoring.pass_td != null) chips.push(`${scoring.pass_td} pt Pass TD`);
+    const tightEndPremium = Core.number(scoring.bonus_rec_te) + Math.max(0, Core.number(scoring.rec_te) - reception);
+    if (tightEndPremium > 0) chips.push(`TE Premium +${tightEndPremium}`);
+    if (Object.keys(scoring).some((key) => /tkl|sack|int|ff|fum|def|qb_hit|pass_def|ast/.test(key))) chips.push("IDP scoring");
+    return chips;
+  }
+
+  function valueCard(position, data) {
+    const width = Math.min(100, Math.max(12, ((data.score - 70) / 80) * 100));
+    const label = data.score >= 135 ? "Extreme pressure" : data.score >= 120 ? "High pressure" : data.score >= 108 ? "Elevated" : data.score >= 95 ? "Neutral" : "Reduced";
+    return `<article class="value-card"><h3>${escapeHtml(position)}</h3><div class="value-number">${data.score}</div><div class="value-label">${label}</div><div class="value-bar" aria-hidden="true"><div class="value-fill" style="width:${width}%"></div></div><div class="value-note"><span class="demand">${data.demand}</span> estimated league-wide starter opportunities.<br>Structural pressure ${data.structuralScore}; scoring contribution ${data.scoringScore}.</div></article>`;
+  }
+
+  function valuationCard(value, rank) {
+    const components = value.components;
+    const projectionAvailable = value.projectionAvailable;
+    return `<article class="player-card"><div class="rank">#${rank}</div><div><div class="pv-name">${escapeHtml(value.name)}</div><div class="pv-meta">${escapeHtml(value.pos)} • ${escapeHtml(value.team)}${value.age ? ` • Age ${value.age}` : ""} • ${components.marketFormat.toUpperCase()} baseline</div><div class="signal-row"><span class="signal">Market ${components.marketBaseline.toLocaleString()}</span><span class="${components.ageAdjustment < 0 ? "signal bad" : "signal good"}">Age ${percent(components.ageAdjustment)}</span><span class="${components.leagueAdjustment < 0 ? "signal bad" : "signal good"}">League structure ${percent(components.leagueAdjustment)}</span><span class="${projectionAvailable ? (components.projectionAdjustment < 0 ? "signal bad" : "signal good") : "signal warning"}">Projection ${projectionAvailable ? percent(components.projectionAdjustment) : "unavailable"}</span>${components.rookieApplied ? `<span class="signal good">Rookie floor ${components.rookieFloor.toLocaleString()}</span>` : ""}${projectionAvailable ? `<span class="signal">League VORP ${components.leagueVorp > 0 ? "+" : ""}${components.leagueVorp}</span>` : ""}${components.tradeActivity.count ? `<span class="signal">${components.tradeActivity.count} local trade${components.tradeActivity.count === 1 ? "" : "s"} • informational</span>` : ""}</div></div><div class="pv-values"><div class="lv-value">${components.finalValue.toLocaleString()}</div><div class="market-value">Net ${percent(components.totalAdjustment)}</div><div class="confidence">${escapeHtml(components.confidence.label)}</div></div></article>`;
+  }
+
+  function playerRow(id, players, slot, valuation) {
+    const player = players[id];
+    return `<div class="player">${slot ? `<span class="slot">${escapeHtml(cleanSlot(slot))}</span>` : ""}<span class="pos">${escapeHtml(Core.positionOf(player))}</span><span class="player-name">${escapeHtml(playerName(player, id))}</span>${valuation ? `<span class="roster-value">LV ${valuation.components.finalValue.toLocaleString()}</span>` : `<span class="nfl-team">${escapeHtml(player?.team || "FA")}</span>`}</div>`;
+  }
+
+  function tradeCounts(transactions) {
+    const counts = {};
+    for (const transaction of transactions || []) {
+      if (transaction?.type !== "trade" || transaction?.status !== "complete") continue;
+      const ids = new Set([...Object.keys(transaction.adds || {}), ...Object.keys(transaction.drops || {})]);
+      for (const id of ids) counts[id] = (counts[id] || 0) + 1;
+    }
+    return counts;
+  }
+
+  function teamAnalyses(rosters, players, valuationsById, pickInventory) {
+    const positionTotals = {};
+    const teams = rosters.map((roster) => {
+      const starterIds = new Set((roster.starters || []).filter((id) => id && id !== "0"));
+      const offensiveIds = (roster.players || []).filter((id) => Core.isOffense(Core.positionOf(players[id])));
+      const idpIds = (roster.players || []).filter((id) => Core.isIdp(Core.positionOf(players[id])));
+      const matched = offensiveIds.filter((id) => valuationsById[id]);
+      const sum = (ids, selector) => ids.reduce((total, id) => total + Core.number(selector(valuationsById[id])), 0);
+      const positional = {};
+      for (const pos of Core.OFFENSE) {
+        positional[pos] = sum(matched.filter((id) => Core.positionOf(players[id]) === pos), (value) => value.components.finalValue);
+        positionTotals[pos] ||= [];
+        positionTotals[pos].push(positional[pos]);
+      }
+      return {
+        roster, offensiveIds, idpIds, matched,
+        marketValue: sum(matched, (value) => value.components.marketBaseline),
+        leagueValue: sum(matched, (value) => value.components.finalValue),
+        starterValue: sum(matched.filter((id) => starterIds.has(id)), (value) => value.components.finalValue),
+        benchValue: sum(matched.filter((id) => !starterIds.has(id)), (value) => value.components.finalValue),
+        completeness: offensiveIds.length ? Math.round((matched.length / offensiveIds.length) * 100) : 100,
+        picks: pickInventory.filter((pick) => pick.ownerRosterId === roster.roster_id), positional,
+      };
+    });
+    const averages = Object.fromEntries(Object.entries(positionTotals).map(([pos, values]) => [pos, values.reduce((sum, value) => sum + value, 0) / Math.max(1, values.length)]));
+    for (const team of teams) {
+      const comparisons = Core.OFFENSE.map((pos) => ({ pos, ratio: averages[pos] ? team.positional[pos] / averages[pos] : 0 })).sort((a, b) => b.ratio - a.ratio);
+      team.strength = comparisons[0]?.pos || "—";
+      team.weakness = comparisons.at(-1)?.pos || "—";
+    }
+    return teams;
+  }
+
+  function renderTeamAnalysis(analyses, userMap) {
+    $("teamAnalysis").innerHTML = analyses.sort((a, b) => b.leagueValue - a.leagueValue).map((team) => {
+      const owner = userMap[team.roster.owner_id];
+      const name = owner?.metadata?.team_name || owner?.display_name || `Roster ${team.roster.roster_id}`;
+      const picks = team.picks
+        .sort((a, b) => Number(a.season) - Number(b.season) || a.round - b.round)
+        .map((pick) => `${pick.season} R${pick.round}${pick.originalRosterId !== team.roster.roster_id ? ` (from ${pick.originalRosterId})` : ""}`)
+        .join(" • ");
+      return `<article class="team-analysis-card"><h3>${escapeHtml(name)}</h3><div class="metric-grid"><div><span>Offensive market</span><b>${team.marketValue.toLocaleString()}</b></div><div><span>Offensive LV</span><b>${team.leagueValue.toLocaleString()}</b></div><div><span>Starters</span><b>${team.starterValue.toLocaleString()}</b></div><div><span>Bench/depth</span><b>${team.benchValue.toLocaleString()}</b></div></div><p class="team-insight">Relative strength: ${team.strength} • Relative weakness: ${team.weakness}</p><p class="team-insight">${team.picks.length} future picks tracked • ${team.completeness}% offensive match completeness</p><details class="pick-details"><summary>Future-pick inventory</summary><p>${escapeHtml(picks || "No tracked picks")}</p></details><p class="availability-warning">IDP value unavailable: ${team.idpIds.length} defensive players excluded from numeric totals.</p></article>`;
+    }).join("");
+  }
+
+  function renderRosters(rosters, players, valuationsById, userMap, starterSlots) {
+    $("teams").innerHTML = [...rosters].sort((a, b) => a.roster_id - b.roster_id).map((roster) => {
+      const owner = userMap[roster.owner_id];
+      const name = owner?.metadata?.team_name || owner?.display_name || `Roster ${roster.roster_id}`;
+      const starters = (roster.starters || []).filter((id) => id && id !== "0");
+      const starterSet = new Set(starters);
+      const bench = (roster.players || []).filter((id) => !starterSet.has(id));
+      return `<article class="team"><h3>${escapeHtml(name)}</h3><div class="owner">${escapeHtml(owner?.display_name || "Unknown owner")} • Roster ${roster.roster_id}</div><div class="team-stats"><span class="pill">${(roster.players || []).length} players</span><span class="pill">${starters.length} starters</span><span class="pill">${bench.length} bench</span><span class="pill">${(roster.taxi || []).length} taxi</span><span class="pill">${(roster.reserve || []).length} IR</span></div><div class="label">Starting lineup</div>${starters.map((id, index) => playerRow(id, players, starterSlots[index], valuationsById[id])).join("") || `<div class="more">No starters currently set.</div>`}<div class="label">Bench preview</div>${bench.slice(0, 8).map((id) => playerRow(id, players, null, valuationsById[id])).join("") || `<div class="more">No bench players.</div>`}${bench.length > 8 ? `<div class="more">+ ${bench.length - 8} more bench players</div>` : ""}</article>`;
+    }).join("");
+  }
+
+  async function analyze() {
+    const leagueId = leagueIdFrom($("leagueId").value);
+    if (!leagueId) return setStatus("Enter a valid Sleeper league ID.", "error");
+    if (activeController) activeController.abort();
+    activeController = new AbortController();
+    const sequence = ++analysisSequence;
+    const { signal } = activeController;
+    $("go").disabled = true;
+    $("results").hidden = true;
+    $("analysisWarnings").hidden = true;
+    $("warningList").replaceChildren();
+
+    try {
+      setStatus("Loading league, rosters, cached players and market data…");
+      const [bundle, marketResult, overrides, crosswalk] = await Promise.all([
+        Data.leagueBundle(leagueId, signal),
+        Data.marketData(signal),
+        loadOverrides(signal),
+        loadCrosswalk(signal),
+      ]);
+      if (sequence !== analysisSequence) return;
+      const { league, users, rosters, players, tradedPicks, state } = bundle;
+      const format = Core.marketFormat(league);
+      const context = Core.leagueContext(league);
+      const season = Number(league.season) || Number(state?.league_season) || new Date().getFullYear();
+      const maxRound = Math.max(18, Core.number(state?.leg), Core.number(league?.settings?.playoff_week_start) + 3);
+
+      setStatus("Calculating projections and scanning explicit transaction rounds…");
+      const [projectionResult, transactionResult] = await Promise.all([
+        Data.seasonProjections(season, signal, (done, total) => setStatus(`Loading projections ${done}/${total}…`)),
+        Data.transactionHistory(leagueId, maxRound, signal),
+      ]);
+      if (sequence !== analysisSequence) return;
+      if (projectionResult.status !== "complete") warning(`Projection source is ${projectionResult.status}. ${projectionResult.failures.length} of 18 weekly requests failed. Values are explicitly marked partial.`);
+      if (transactionResult.failures.length) warning(`${transactionResult.failures.length} transaction rounds failed and local trade counts may be incomplete.`);
+
+      const marketRows = Core.parseMarketRows(Core.parseCsv(marketResult.value), format);
+      const identityIndex = Core.buildIdentityIndex(marketRows);
+      const projectionMap = Core.aggregateSeasonProjections(projectionResult.rows);
+      const projectionBuild = Core.buildProjectionScores(players, projectionMap, league);
+      const projectionsById = Object.fromEntries(projectionBuild.rows.map((row) => [row.id, row]));
+      const neutralReplacement = Core.replacementLevels(projectionBuild.rows, league, true);
+      const leagueReplacement = Core.replacementLevels(projectionBuild.rows, league, false);
+      const localTradeCounts = tradeCounts(transactionResult.transactions);
+      const rosteredIds = [...new Set(rosters.flatMap((roster) => roster.players || []))];
+      const identityReport = { crosswalk: 0, exact: 0, verified: 0, manual: 0, unmatched: 0, ambiguous: 0 };
+      const valuations = [];
+      for (const id of rosteredIds) {
+        const player = players[id];
+        if (!Core.isOffense(Core.positionOf(player))) continue;
+        const match = Core.matchPlayerIdentity(id, player, identityIndex, overrides, crosswalk);
+        identityReport[match.status] = (identityReport[match.status] || 0) + 1;
+        if (!match.market) continue;
+        const components = Core.calculateValuation({ player, market: match.market, context, projection: projectionsById[id], neutralReplacement, leagueReplacement, tradeCount: localTradeCounts[id] });
+        valuations.push({ id, name: playerName(player, id), pos: Core.positionOf(player), team: player?.team || match.market.team || "FA", age: match.market.age, matchStatus: match.status, projectionAvailable: Boolean(projectionsById[id]), components });
+      }
+      valuations.sort((a, b) => b.components.finalValue - a.components.finalValue);
+      const valuationsById = Object.fromEntries(valuations.map((value) => [value.id, value]));
+      const userMap = Object.fromEntries(users.map((user) => [user.user_id, user]));
+      const starterSlots = (league.roster_positions || []).filter((slot) => slot !== "BN");
+      const rounds = Core.number(league?.settings?.draft_rounds) || 6;
+      const pickInventory = Core.buildPickInventory(rosters, tradedPicks, [season, season + 1, season + 2].map(String), rounds);
+      const analyses = teamAnalyses(rosters, players, valuationsById, pickInventory);
+
+      $("name").textContent = league.name || "Sleeper League";
+      $("count").textContent = rosters.length;
+      $("season").textContent = league.season || "—";
+      $("leagueStarters").textContent = starterSlots.length * rosters.length;
+      $("marketFormat").textContent = format === "2qb" ? "Superflex / 2QB" : "1QB";
+      $("lineupChips").innerHTML = Object.entries(Core.countSlots(league.roster_positions || [])).map(([slot, count]) => `<span class="chip ${slot.includes("FLEX") ? "hot" : ""}">${count}× ${escapeHtml(cleanSlot(slot))}</span>`).join("");
+      $("lineupNote").textContent = `${starterSlots.length} starters per team across ${rosters.length} teams. Market format selected automatically: ${format.toUpperCase()}.`;
+      $("scoringChips").innerHTML = scoringProfile(league.scoring_settings).map((chip) => `<span class="chip hot">${escapeHtml(chip)}</span>`).join("");
+      $("scoringNote").textContent = `${Object.keys(league.scoring_settings || {}).length} total settings imported; scoring coverage is reported below.`;
+      $("valueGrid").innerHTML = ["QB", "RB", "WR", "TE", "DL", "LB", "DB"].map((pos) => valueCard(pos, context.values[pos])).join("");
+      $("valueExplanation").textContent = "Structural league pressure is the direct league adjustment. League-scored projections and replacement levels are calculated separately, preventing scoring rules from being counted twice.";
+      $("identityStatus").textContent = `${valuations.length} offensive players valued • ${identityReport.crosswalk} stable-ID crosswalk • ${identityReport.exact} exact • ${identityReport.verified} team-verified • ${identityReport.manual} manual • ${identityReport.unmatched} unmatched • ${identityReport.ambiguous} ambiguous.`;
+      $("scoringCoverage").innerHTML = `<b>Applied keys:</b> ${escapeHtml(projectionBuild.coverage.used.join(", ") || "none")}<br><b>Unsupported/non-matching keys:</b> ${escapeHtml(projectionBuild.coverage.unsupported.join(", ") || "none detected")}`;
+      $("projectionStatus").textContent = `${projectionResult.status} • ${projectionResult.rows.length} weekly player rows • source is undocumented and replaceable`;
+      $("transactionStatus").textContent = `Rounds ${transactionResult.roundsScanned[0]}–${transactionResult.roundsScanned.at(-1)} scanned • ${transactionResult.transactions.filter((transaction) => transaction?.type === "trade" && transaction?.status === "complete").length} completed trades • picks shown without fabricated numeric values.`;
+      $("playerValues").innerHTML = valuations.length ? valuations.slice(0, 60).map((value, index) => valuationCard(value, index + 1)).join("") : `<p class="availability-warning">No offensive market-value matches were found.</p>`;
+      renderTeamAnalysis(analyses, userMap);
+      renderRosters(rosters, players, valuationsById, userMap, starterSlots);
+      $("dataQuality").textContent = `${projectionResult.status === "complete" ? "Full offensive projection component available" : "Partial model—projection gaps disclosed"}. IDP numeric valuation remains unavailable by design. Player cache: ${bundle.cacheSources.players}. Market cache: ${marketResult.source}.`;
+      $("results").hidden = false;
+      setStatus(`✓ League Vector v0.8 foundation calculated${projectionResult.status === "complete" ? "" : " with disclosed partial data"}.`, "success");
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+      console.error(error);
+      setStatus(`Could not analyze league: ${error.message}`, "error");
+    } finally {
+      if (sequence === analysisSequence) $("go").disabled = false;
+    }
+  }
+
+  $("go").addEventListener("click", analyze);
+  $("leagueId").addEventListener("keydown", (event) => { if (event.key === "Enter") analyze(); });
+})();

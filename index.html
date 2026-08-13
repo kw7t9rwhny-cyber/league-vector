@@ -1,109 +1,51 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>League Vector — Fantasy Intelligence</title>
-<link rel="stylesheet" href="styles.css?v=0.6">
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="League Vector explains dynasty value and experimental projected production inside your Sleeper league.">
+  <title>League Vector — League-Aware Fantasy Intelligence</title>
+  <link rel="stylesheet" href="styles.css?v=0.8.3">
+  <link rel="stylesheet" href="experimental.css?v=0.3.2">
 </head>
-
 <body>
-<div class="wrap">
-
-<div class="brand">
-LEAGUE VECTOR
-<small>League-Aware Fantasy Intelligence</small>
-</div>
-
-<div class="hero">
-<div class="eyebrow">Sleeper League Analyzer • MVP v0.7</div>
-<h1>Your league.<br>Your scoring.<br>Your edge.</h1>
-<p class="sub">
-League Vector blends dynasty market value, age curve,
-market-rank agreement, your league settings and Sleeper
-trade activity into one transparent player model.
-</p>
-<div class="form">
-<input id="leagueId" placeholder="Sleeper League ID or URL">
-<button id="go">Analyze League</button>
-</div>
-<div id="status" class="status">
-Example: 1312249622554501120
-</div>
-</div>
-
-<div id="results">
-
-<div class="summary">
-<div class="card"><span>League</span><b id="name">—</b></div>
-<div class="card"><span>Teams</span><b id="count">—</b></div>
-<div class="card"><span>Season</span><b id="season">—</b></div>
-<div class="card"><span>League Starters</span><b id="leagueStarters">—</b></div>
-</div>
-
-<h2 class="section-title">League DNA</h2>
-
-<div class="dna-grid">
-<div class="dna">
-<h3>Lineup Architecture</h3>
-<div id="lineupChips" class="chips"></div>
-<div id="lineupNote" class="dna-note"></div>
-</div>
-
-<div class="dna">
-<h3>Scoring Profile</h3>
-<div id="scoringChips" class="chips"></div>
-<div id="scoringNote" class="dna-note"></div>
-</div>
-</div>
-
-<h2 class="section-title">League Value Context</h2>
-
-<p class="section-sub">
-100 is neutral. Scores above 100 indicate league rules
-that increase positional demand compared with a typical
-12-team 1QB format.
-</p>
-
-<div id="valueGrid" class="value-grid"></div>
-
-<div class="explain">
-<h3>What League Vector sees</h3>
-<p id="valueExplanation">—</p>
-</div>
-
-<h2 class="section-title">
-Player Values — League Vector Model
-</h2>
-
-<p class="section-sub">
-v0.6 separates the signals behind each offensive value:
-market baseline, dynasty age curve, league fit and local
-Sleeper trade activity. IDP remains context-only until
-its dedicated model is added.
-</p>
-
-<div id="playerValueStatus" class="dna-note">
-Waiting for dynasty market data…
-</div>
-
-<div id="playerValues" class="player-values"></div>
-
-<div class="source-note">
-Market baseline: DynastyProcess open data. Age curve,
-league fit, confidence and Sleeper trade activity are
-League Vector calculations. Local trade activity is
-informational in v0.6 and does not change value yet.
-</div>
-
-<h2 class="section-title">League Rosters</h2>
-
-<div id="teams" class="teams"></div>
-
-</div>
-</div>
-
-  <script src="engine-v07.js?v=0.7" defer></script>
-<script src="app.js?v=0.7" defer></script>
+  <main class="wrap">
+    <header class="brand">LEAGUE VECTOR<small>League-Aware Fantasy Intelligence</small></header>
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="eyebrow">Sleeper League Analyzer • Foundation v0.8</div>
+      <h1 id="hero-title">Your league.<br>Your scoring.<br>Your edge.</h1>
+      <p class="sub">League Vector keeps dynasty value and projected production separate. Missing or unsupported data is disclosed instead of silently estimated.</p>
+      <div class="form"><label class="sr-only" for="leagueId">Sleeper league ID or URL</label><input id="leagueId" inputmode="numeric" autocomplete="off" placeholder="Sleeper League ID or URL" aria-describedby="status"><button id="go" type="button">Analyze League</button></div>
+      <div id="status" class="status" role="status" aria-live="polite">Example: 1312249622554501120</div>
+    </section>
+    <section id="results" hidden>
+      <aside id="analysisWarnings" class="warning-panel" aria-labelledby="warning-title" hidden><h2 id="warning-title">Partial-data warnings</h2><ul id="warningList"></ul></aside>
+      <div class="summary"><div class="card"><span>League</span><b id="name">—</b></div><div class="card"><span>Teams</span><b id="count">—</b></div><div class="card"><span>Season</span><b id="season">—</b></div><div class="card"><span>League starters</span><b id="leagueStarters">—</b></div><div class="card"><span>Market format</span><b id="marketFormat">—</b></div></div>
+      <h2 class="section-title">League DNA</h2><div class="dna-grid"><article class="dna"><h3>Lineup architecture</h3><div id="lineupChips" class="chips"></div><div id="lineupNote" class="dna-note"></div></article><article class="dna"><h3>Scoring profile</h3><div id="scoringChips" class="chips"></div><div id="scoringNote" class="dna-note"></div></article></div>
+      <h2 class="section-title">League Value Context</h2><p class="section-sub">100 is neutral compared with a typical 12-team 1QB structure. Structural pressure affects dynasty value directly; experimental v0.3 projections remain firewalled from dynasty valuation.</p><div id="valueGrid" class="value-grid"></div><article class="explain"><h3>What League Vector sees</h3><p id="valueExplanation">—</p></article>
+      <h2 class="section-title">Data quality and scoring coverage</h2><div class="quality-grid"><article class="dna"><h3>Identity matching</h3><p id="identityStatus" class="dna-note">—</p></article><article class="dna"><h3>Production projection status</h3><p id="projectionStatus" class="dna-note">—</p></article><article class="dna"><h3>Scoring-key audit</h3><p id="scoringCoverage" class="dna-note">—</p></article><article class="dna"><h3>Trades and picks</h3><p id="transactionStatus" class="dna-note">—</p></article></div><p id="dataQuality" class="source-note"></p>
+      <section id="experimentalProjectionPanel" class="experimental-panel" aria-labelledby="experimental-title" hidden>
+        <div class="experimental-title-row"><div><div class="eyebrow">LEAGUE VECTOR PROJECTION — EXPERIMENTAL</div><h2 id="experimental-title" class="section-title">2026 projected production</h2></div><span class="exp-badge">EXPERIMENTAL</span></div>
+        <p class="section-sub">League Vector predicts football statistics, then applies this Sleeper league's supported scoring settings. Experimental production projections do not feed dynasty value, replacement level, VORP, rookie floor, confidence adjustment or final dynasty value.</p>
+        <p id="experimentalProjectionStatus" class="projection-state" role="status" aria-live="polite">Waiting for league analysis…</p><p id="projectionMeta" class="source-note"></p>
+        <div class="projection-controls">
+          <label>Search players <input id="projectionSearch" type="search" placeholder="Player name"></label>
+          <label>Position <select id="projectionPosition"><option>ALL</option><option>QB</option><option>RB</option><option>WR</option><option>TE</option><option>DL</option><option>LB</option><option>DB</option></select></label>
+          <label>Fantasy team <select id="projectionTeam"><option value="ALL">ALL</option></select></label>
+          <label>Confidence <select id="projectionConfidence"><option value="ALL">ALL</option><option>High</option><option>Medium</option><option>Low</option></select></label>
+          <label>Projection status <select id="projectionStatusFilter"><option value="ALL">ALL</option><option value="projection_ready">Projection ready</option><option value="rookie_model_required">Rookie model required</option><option value="insufficient_history">Insufficient history</option><option value="identity_unresolved">Identity unresolved</option><option value="missing_required_inputs">Missing required inputs</option><option value="data_unavailable">Data unavailable</option><option value="source_error">Source error</option></select></label>
+          <label>Scoring completeness <select id="projectionCompleteness"><option value="ALL">ALL</option><option value="complete">Complete</option><option value="partial">Partial</option><option value="unavailable">Unavailable</option></select></label>
+          <label>Sort <select id="projectionSort"><option value="points">Projected points</option><option value="rank">Position rank</option><option value="name">Player name</option><option value="confidence">Confidence</option><option value="status">Projection status</option><option value="completeness">Scoring completeness</option></select></label>
+        </div>
+        <h3 class="projection-subtitle">League projection board</h3><div id="experimentalProjectionRows" class="projection-grid"></div>
+        <h3 class="projection-subtitle">Experimental projected starter production</h3><p class="section-sub">Team totals use only starters with complete experimental projections. Incomplete teams are not ranked as if their totals were complete. These are not win, playoff or championship probabilities.</p><div id="experimentalTeamProjection" class="projection-team-grid"></div>
+        <section id="projectionDiagnostics" class="projection-diagnostics" hidden aria-labelledby="projection-diagnostics-title"><h3 id="projection-diagnostics-title">Projection diagnostics</h3><p class="section-sub">Development-only identity, scoring and model diagnostics. Enable with <code>?debug=1</code>.</p><div id="projectionDiagnosticsRows"></div></section>
+      </section>
+      <h2 class="section-title">DYNASTY VALUE — v0.8 Formula</h2><p class="section-sub">Dynasty value answers “What is this player worth?” Final value = rookie-adjusted market baseline × (1 + age adjustment + structural league adjustment + existing production adjustment). The experimental v0.3 display above is not an input.</p><div id="playerValues" class="player-values"></div><p class="source-note">Offensive market baseline: DynastyProcess open data. Existing valuation projection adapter: undocumented Sleeper source, treated as replaceable and explicitly monitored. IDP dynasty numeric values remain unavailable until a defensible licensed source is connected.</p>
+      <h2 class="section-title">Dynasty Team Analysis</h2><p class="section-sub">Numeric dynasty totals cover matched offensive players only. IDP exclusions and completeness are shown on every team.</p><div id="teamAnalysis" class="team-analysis"></div>
+      <h2 class="section-title">League Rosters</h2><div id="teams" class="teams"></div>
+    </section>
+  </main>
+  <script src="core-v08.js?v=0.8" defer></script><script src="data-sources-v08.js?v=0.8" defer></script><script src="app.js?v=0.8" defer></script><script src="projection-frontend-v03.js?v=0.3.2" defer></script><script src="projection-frontend-v03-contract.js?v=0.3.1" defer></script><script src="experimental-ui-v03.js?v=0.3.1" defer></script><script src="experimental-ui-v03-enhancements.js?v=0.3.2" defer></script>
 </body>
 </html>

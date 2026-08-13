@@ -1,0 +1,5 @@
+{
+  "total_rosters": 14,
+  "roster_positions": ["QB", "RB", "WR", "TE", "SUPER_FLEX", "DL", "DL", "DL", "LB", "LB", "LB", "DB", "DB", "DB", "IDP_FLEX", "IDP_FLEX", "BN"],
+  "scoring_settings": { "pass_td": 6, "rec": 1, "idp_tkl": 1, "sack": 4, "int": 5 }
+}
