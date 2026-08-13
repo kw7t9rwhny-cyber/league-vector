@@ -1,0 +1,15 @@
+const test=require('node:test');const assert=require('node:assert/strict');const Idp=require('../idp-scoring-context-v01.js');
+function row(position,season,stats){return{position,season,games:17,per_game:stats};}
+const profiles=Idp.buildHistoricalProfiles([
+row('DL',2024,{solo_tackles:2,assisted_tackles:1,tackles_for_loss:1,sacks:.7,qb_hits:1.2,interceptions:.02,passes_defended:.15,forced_fumbles:.1,fumble_recoveries:.05,defensive_td:.01,safeties:.01}),
+row('LB',2024,{solo_tackles:5,assisted_tackles:2,tackles_for_loss:.6,sacks:.2,qb_hits:.4,interceptions:.08,passes_defended:.35,forced_fumbles:.08,fumble_recoveries:.05,defensive_td:.01,safeties:0}),
+row('DB',2024,{solo_tackles:3.8,assisted_tackles:1.1,tackles_for_loss:.2,sacks:.08,qb_hits:.12,interceptions:.18,passes_defended:.75,forced_fumbles:.06,fumble_recoveries:.04,defensive_td:.02,safeties:0}),
+row('DL',2025,{solo_tackles:2.1,assisted_tackles:1.1,tackles_for_loss:1.1,sacks:.75,qb_hits:1.3,interceptions:.01,passes_defended:.12,forced_fumbles:.11,fumble_recoveries:.04,defensive_td:.01,safeties:.01}),
+row('LB',2025,{solo_tackles:5.2,assisted_tackles:2.1,tackles_for_loss:.65,sacks:.22,qb_hits:.45,interceptions:.09,passes_defended:.4,forced_fumbles:.09,fumble_recoveries:.06,defensive_td:.01,safeties:0}),
+row('DB',2025,{solo_tackles:3.9,assisted_tackles:1.2,tackles_for_loss:.22,sacks:.07,qb_hits:.1,interceptions:.2,passes_defended:.8,forced_fumbles:.05,fumble_recoveries:.04,defensive_td:.02,safeties:0}),
+],{minGames:8});
+test('IDP historical profile builder preserves all three position groups',()=>{assert.equal(profiles.length,6);assert.deepEqual([...new Set(profiles.map(x=>x.position))].sort(),['DB','DL','LB']);});
+test('tackle-heavy scoring favors LB relative to the other defensive groups',()=>{const x=Idp.scoringContext(profiles,{idp_tkl_solo:2,idp_tkl_ast:1});assert.equal(x.status,'available');assert.ok(x.positions.LB.scoring_pressure>x.positions.DL.scoring_pressure);assert.ok(x.positions.LB.scoring_pressure>x.positions.DB.scoring_pressure);});
+test('sack and pressure heavy scoring favors DL',()=>{const x=Idp.scoringContext(profiles,{idp_sack:8,idp_tkl_loss:3,idp_qb_hit:2,idp_tkl_solo:.5});assert.ok(x.positions.DL.scoring_pressure>x.positions.LB.scoring_pressure);assert.ok(x.positions.DL.scoring_pressure>x.positions.DB.scoring_pressure);});
+test('interception and pass-defense heavy scoring favors DB',()=>{const x=Idp.scoringContext(profiles,{idp_int:10,idp_pass_def:4,idp_tkl_solo:.5});assert.ok(x.positions.DB.scoring_pressure>x.positions.DL.scoring_pressure);assert.ok(x.positions.DB.scoring_pressure>x.positions.LB.scoring_pressure);});
+test('structural and scoring context remain separate',()=>{const x=Idp.scoringContext(profiles,{idp_tkl_solo:2,idp_tkl_ast:1}),combined=Idp.applyStructuralContext({DL:{structuralScore:124},LB:{structuralScore:124},DB:{structuralScore:124}},x);assert.equal(combined.DL.structural_pressure,124);assert.equal(combined.LB.overall_context,124+x.positions.LB.scoring_adjustment);assert.notEqual(combined.LB.scoring_pressure,124);});
