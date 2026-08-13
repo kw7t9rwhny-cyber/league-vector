@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="description" content="League Vector explains how dynasty market value changes inside your Sleeper league.">
   <title>League Vector — League-Aware Fantasy Intelligence</title>
-  <link rel="stylesheet" href="styles.css?v=0.8">
+  <link rel="stylesheet" href="styles.css?v=0.8.3">
 </head>
 <body>
   <main class="wrap">
@@ -57,6 +57,19 @@
       </div>
       <p id="dataQuality" class="source-note"></p>
 
+      <section id="experimentalProjectionPanel" class="experimental-panel" aria-labelledby="experimental-title" hidden>
+        <div class="experimental-title-row"><div><div class="eyebrow">League Vector Projection • Experimental</div><h2 id="experimental-title" class="section-title">2026 projected production</h2></div><span class="exp-badge">EXPERIMENTAL</span></div>
+        <p class="section-sub">League Vector predicts football statistics, then scores the same stat line using this Sleeper league's supported scoring settings. These projections do not affect dynasty values.</p>
+        <p id="experimentalProjectionStatus" class="projection-state" role="status" aria-live="polite">Waiting for league analysis…</p>
+        <p id="projectionMeta" class="source-note"></p>
+        <div class="projection-controls"><label>Search players <input id="projectionSearch" type="search" placeholder="Player name"></label><label>Position <select id="projectionPosition"><option>ALL</option><option>QB</option><option>RB</option><option>WR</option><option>TE</option><option>DL</option><option>LB</option><option>DB</option></select></label></div>
+        <h3 class="projection-subtitle">League projection board</h3>
+        <div id="experimentalProjectionRows" class="projection-grid"></div>
+        <h3 class="projection-subtitle">Experimental projected starter production</h3>
+        <p class="section-sub">Team totals use only starters with complete experimental projections. They are not win, playoff or championship probabilities.</p>
+        <div id="experimentalTeamProjection" class="projection-team-grid"></div>
+      </section>
+
       <h2 class="section-title">Player Values — v0.8 Formula</h2>
       <p class="section-sub">Final value = rookie-adjusted market baseline × (1 + age adjustment + structural league adjustment + neutral-benchmark projection adjustment). Local trades and confidence are informational.</p>
       <div id="playerValues" class="player-values"></div>
@@ -74,5 +87,7 @@
   <script src="core-v08.js?v=0.8" defer></script>
   <script src="data-sources-v08.js?v=0.8" defer></script>
   <script src="app.js?v=0.8" defer></script>
+  <script src="projection-frontend-v03.js?v=0.3" defer></script>
+  <script src="experimental-ui-v03.js?v=0.3" defer></script>
 </body>
 </html>
