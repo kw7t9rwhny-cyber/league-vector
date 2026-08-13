@@ -42,3 +42,24 @@ jobs:
           path: data/reports/
           if-no-files-found: error
           retention-days: 14
+
+  projection-benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Benchmark 2015-2024 nflverse projections with rolling folds
+        run: npm run benchmark:projections -- --seasons 2015,2016,2017,2018,2019,2020,2021,2022,2023,2024 --folds 2020,2021,2022,2023,2024 --outputDir data/reports/projection-benchmark --refresh true
+      - name: Upload projection benchmark reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: league-vector-projection-benchmark
+          path: data/reports/projection-benchmark/
+          if-no-files-found: error
+          retention-days: 14
