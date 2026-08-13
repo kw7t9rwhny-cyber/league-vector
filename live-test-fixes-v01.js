@@ -164,6 +164,15 @@
     enhanceIdpDynastyMessages(document);
   }
 
+  function ensureDynastySearchLoaded(document) {
+    if (document.querySelector('script[data-league-vector-dynasty-search="1"]')) return;
+    const script = document.createElement("script");
+    script.src = "dynasty-search-v01.js?v=0.1";
+    script.defer = true;
+    script.dataset.leagueVectorDynastySearch = "1";
+    document.head.append(script);
+  }
+
   function install(document) {
     if (!Core || Core.__liveTestFixV01Installed) return;
     const originalLeagueContext = Core.leagueContext.bind(Core);
@@ -173,6 +182,7 @@
     const runEnhancements = () => applyUserFacingEnhancements(document);
     if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", runEnhancements, { once: true });
     else runEnhancements();
+    ensureDynastySearchLoaded(document);
     const observer = new MutationObserver(runEnhancements);
     observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
   }
@@ -185,6 +195,7 @@
     uniqueCategories,
     parseCoverageText,
     applyUserFacingEnhancements,
+    ensureDynastySearchLoaded,
     install,
   };
 });
