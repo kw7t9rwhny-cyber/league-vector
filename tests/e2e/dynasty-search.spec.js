@@ -100,13 +100,7 @@ test("production dynasty search is usable at iPhone-sized viewport", async ({ pa
   expect(box.height).toBeGreaterThanOrEqual(40);
   expect(box.x).toBeGreaterThanOrEqual(0);
   expect(box.x + box.width).toBeLessThanOrEqual(390);
-
-  const uncovered = await search.evaluate((input) => {
-    const rect = input.getBoundingClientRect();
-    const top = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
-    return top === input || input.contains(top);
-  });
-  expect(uncovered).toBe(true);
+  await search.click({ trial: true });
 
   await search.fill("Josh Allen");
   await expect(page.locator("#playerValues .player-card", { hasText: "Josh Allen" })).toBeVisible();
