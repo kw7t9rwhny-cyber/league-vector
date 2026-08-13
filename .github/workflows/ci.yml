@@ -21,3 +21,24 @@ jobs:
       - run: npm run validate
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
+
+  historical-data-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Ingest 2022-2024 nflverse and current Sleeper identity data
+        run: npm run ingest:nflverse -- --seasons 2022,2023,2024 --outputDir data/reports --refresh true
+      - name: Upload historical audit reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: league-vector-historical-audit
+          path: data/reports/
+          if-no-files-found: error
+          retention-days: 14
