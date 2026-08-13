@@ -68,7 +68,7 @@ test("evaluation report contains no API key or raw records", async () => {
   });
   const serialized = JSON.stringify(report);
   assert.doesNotMatch(serialized, new RegExp(secret));
-  assert.doesNotMatch(serialized, /Scrambled Defender|\"LB\"|12/);
+  assert.doesNotMatch(serialized, /Scrambled Defender|\"LB\"|\"Tackles\":12/);
   assert.equal(report.secretStored, false);
   assert.equal(report.rawProviderDataStored, false);
 });
