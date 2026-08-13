@@ -103,13 +103,12 @@ async function analyze(page) {
   await page.goto("/");
   await page.getByLabel("Sleeper league ID or URL").fill(`https://sleeper.com/leagues/${LEAGUE_ID}`);
   await page.getByRole("button", { name: "Analyze League" }).click();
-  await expect(page.getByRole("status")).toHaveText(/League Vector v0\.8 foundation calculated/, { timeout: 15_000 });
+  await expect(page.locator("#status")).toHaveText(/League Vector v0\.8 foundation calculated/, { timeout: 15_000 });
 }
 
 test("renders a complete 1QB analysis without unsafe markup or numeric display errors", async ({ page }) => {
   const counts = await mockData(page);
   await analyze(page);
-
   await expect(page.locator("#marketFormat")).toHaveText("1QB");
   await expect(page.locator("#identityStatus")).toContainText("2 offensive players valued");
   await expect(page.locator("#identityStatus")).toContainText("1 ambiguous");
@@ -131,6 +130,8 @@ test("shows League Vector v0.3 experimental projections with truthful scoring co
   await expect(page.locator("#experimentalProjectionRows")).toContainText("Test Runner");
   await expect(page.locator("#experimentalProjectionRows")).toContainText("Test Defender");
   await expect(page.locator("#experimentalProjectionRows")).toContainText("bonus_pass_yd_400");
+  await expect(page.getByLabel("Fantasy team")).toBeVisible();
+  await expect(page.getByLabel("Sort")).toBeVisible();
   await page.locator("#experimentalProjectionRows details").first().locator("summary").click();
   await expect(page.locator("#experimentalProjectionRows")).toContainText(/Receiving|Rushing|Passing|Tackles/);
   await expect(page.locator("#experimentalTeamProjection")).toContainText("Alpha & Co");
@@ -140,7 +141,6 @@ test("shows League Vector v0.3 experimental projections with truthful scoring co
 test("shows a visible partial-data state when the projection adapter fails", async ({ page }) => {
   await mockData(page, { superflex: true, projectionFailure: true });
   await analyze(page);
-
   await expect(page.locator("#marketFormat")).toHaveText("Superflex / 2QB");
   await expect(page.locator("#analysisWarnings")).toBeVisible();
   await expect(page.locator("#warningList")).toContainText("Projection source is unavailable");
@@ -155,7 +155,7 @@ test("remains usable at a mobile viewport and submits from the keyboard", async 
   const input = page.getByLabel("Sleeper league ID or URL");
   await input.fill(LEAGUE_ID);
   await input.press("Enter");
-  await expect(page.getByRole("status")).toHaveText(/calculated/, { timeout: 15_000 });
+  await expect(page.locator("#status")).toHaveText(/calculated/, { timeout: 15_000 });
   await expect(page.locator("#results")).toBeVisible();
   await expect(page.locator("#experimentalProjectionPanel")).toBeVisible();
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
