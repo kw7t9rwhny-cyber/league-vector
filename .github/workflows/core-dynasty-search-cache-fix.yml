@@ -1,0 +1,63 @@
+name: Core dynasty search cache fix
+
+on:
+  push:
+    branches:
+      - codex/dynasty-search-live-fix-v02
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/dynasty-search-live-fix-v02
+      - name: Apply cache-safe dynasty search wiring
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          index = Path('index.html')
+          text = index.read_text()
+          old = '<script src="core-v08.js?v=0.8" defer></script><script src="idp-scoring-context-v01.js?v=0.1" defer></script><script src="live-test-fixes-v01.js?v=0.1" defer></script><script src="data-sources-v08.js?v=0.8" defer></script>'
+          new = '<script src="core-v08.js?v=0.8" defer></script><script src="idp-scoring-context-v01.js?v=0.1" defer></script><script src="live-test-fixes-v01.js?v=0.2" defer></script><script src="dynasty-search-v01.js?v=0.2" defer></script><script src="data-sources-v08.js?v=0.8" defer></script>'
+          if old not in text:
+              raise SystemExit('expected production script sequence not found')
+          index.write_text(text.replace(old, new, 1))
+
+          fixes = Path('live-test-fixes-v01.js')
+          text = fixes.read_text()
+          start = text.index('  function ensureDynastySearchLoaded(document) {')
+          end = text.index('\n\n  function install(document) {', start)
+          text = text[:start] + text[end+2:]
+          text = text.replace('    ensureDynastySearchLoaded(document);\n', '')
+          text = text.replace('    ensureDynastySearchLoaded,\n', '')
+          fixes.write_text(text)
+          PY
+      - name: Add cache contract regression
+        run: |
+          cat > tests/dynasty-search-assets.test.js <<'EOF'
+          const test = require('node:test');
+          const assert = require('node:assert/strict');
+          const fs = require('node:fs');
+
+          test('production dynasty search assets are explicit and cache-busted', () => {
+            const html = fs.readFileSync('index.html', 'utf8');
+            const fixes = fs.readFileSync('live-test-fixes-v01.js', 'utf8');
+            assert.match(html, /live-test-fixes-v01\.js\?v=0\.2/);
+            assert.match(html, /dynasty-search-v01\.js\?v=0\.2/);
+            assert.doesNotMatch(html, /live-test-fixes-v01\.js\?v=0\.1/);
+            assert.equal((html.match(/dynasty-search-v01\.js\?v=0\.2/g) || []).length, 1);
+            assert.doesNotMatch(fixes, /ensureDynastySearchLoaded/);
+          });
+          EOF
+      - name: Commit branch fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html live-test-fixes-v01.js tests/dynasty-search-assets.test.js
+          git commit -m 'fix: cache-bust live dynasty search assets'
+          git push origin HEAD:codex/dynasty-search-live-fix-v02
