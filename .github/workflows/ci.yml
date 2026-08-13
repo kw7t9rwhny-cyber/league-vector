@@ -78,11 +78,26 @@ jobs:
       - run: npm ci
       - name: Build v0.3 benchmark and experimental 2026 projections
         run: npm run projection:v03 -- --seasons 2015,2016,2017,2018,2019,2020,2021,2022,2023,2024,2025 --folds 2020,2021,2022,2023,2024,2025 --outputDir data/reports/projection-v03 --refresh true
+      - name: Build compact browser projection asset
+        run: npm run build:projection-frontend -- --input data/reports/projection-v03/2026-projections.json --output data/experimental/2026-projections.json
+      - name: Assemble static experimental preview
+        run: |
+          mkdir -p site-preview/data/experimental
+          cp index.html styles.css experimental.css core-v08.js data-sources-v08.js app.js projection-frontend-v03.js experimental-ui-v03.js site-preview/
+          cp data/experimental/2026-projections.json site-preview/data/experimental/
       - name: Upload projection v0.3 reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: league-vector-projection-v03
           path: data/reports/projection-v03/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload experimental site preview
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: league-vector-experimental-site-preview
+          path: site-preview/
           if-no-files-found: error
           retention-days: 14
