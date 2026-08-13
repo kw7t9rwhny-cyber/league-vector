@@ -43,6 +43,8 @@ npm run test:e2e
 
 They cover successful one-QB analysis, superflex projection failure, unsupported scoring disclosure, ambiguous identities, IDP completeness warnings, imported-text escaping and mobile keyboard/layout behavior.
 
+To evaluate a SportsDataIO trial safely in Codex Cloud, keep the key in the environment's Secrets section and run `npm run evaluate:sportsdataio` from the setup script. The command writes only a sanitized access/schema report to `/tmp/league-vector-sportsdataio-evaluation.json`; see `docs/DATA_SOURCES.md` for details.
+
 ## Player crosswalk
 
 `data/player-crosswalk.json` maps verified Sleeper IDs to stable market/provider IDs. It is intentionally empty until mappings have been verified. Stable mappings take priority over name/team fallback and stale mappings are reported rather than ignored.

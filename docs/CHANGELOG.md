@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.8 foundation — SportsDataIO evaluation
+
+- Added a secret-safe SportsDataIO trial evaluator for player profiles, offensive projections and IDP projections.
+- Added schema-only reporting that excludes API keys and raw provider data.
+- Documented the Codex Cloud setup-phase workflow and free-trial limitations.
+
 ## v0.8 foundation
 
 - Selected 1QB versus 2QB market columns from lineup structure.

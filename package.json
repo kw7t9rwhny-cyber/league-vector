@@ -5,7 +5,8 @@
   "description": "League-aware Sleeper dynasty analysis frontend",
   "scripts": {
     "audit:crosswalk": "node scripts/audit-crosswalk.js",
-    "check": "node scripts/lint.js && node --check core-v08.js && node --check data-sources-v08.js && node --check app.js && node --check playwright.config.js && node --check scripts/audit-crosswalk.js && node --check scripts/serve.js",
+    "check": "node scripts/lint.js && node --check core-v08.js && node --check data-sources-v08.js && node --check app.js && node --check playwright.config.js && node --check scripts/audit-crosswalk.js && node --check scripts/evaluate-sportsdataio.js && node --check scripts/serve.js",
+    "evaluate:sportsdataio": "node scripts/evaluate-sportsdataio.js",
     "test": "node --test tests/*.test.js",
     "test:e2e": "playwright test",
     "validate": "npm run check && npm test"
