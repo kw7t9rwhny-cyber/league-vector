@@ -98,15 +98,15 @@ function persistenceByPosition(rows, maxLag=3) {
 }
 function relevanceSurvival(rows) {
   const thresholds=positionSeasonThresholds(rows), map=byKey(rows), result={};
+  const maxSeason=Math.max(...rows.map(x=>x.season));
   for (const position of POSITIONS) {
     const base=rows.filter(r=>r.model_position===position && Number.isFinite(r.reference_points));
-    const exposure=base.filter(r=>map.has(`${r.gsis_id}|${r.season+1}`));
-    const eligible=base.filter(r=>r.season < Math.max(...rows.map(x=>x.season)));
+    const eligible=base.filter(r=>r.season < maxSeason);
     const stats={position, player_seasons:base.length, next_season_exposure_n:eligible.length};
     for (const label of ['p50','p75']) {
       const starters=eligible.filter(r=>r.reference_points >= thresholds.get(`${position}|${r.season}`)?.[label]);
       const survivors=starters.filter(r=>{
-        const n=map.get(`${r.gsis_id}|${r.season+1}`));
+        const n=map.get(`${r.gsis_id}|${r.season+1}`);
         if (!n || n.model_position!==position) return false;
         const t=thresholds.get(`${position}|${n.season}`)?.[label];
         return Number.isFinite(t) && n.reference_points >= t;
@@ -203,8 +203,6 @@ function multiYearSurplusArchitecture() {
 
 async function run(options={}) {
   const age=await Age.run(options);
-  // Rebuild the same player-season rows once so persistence research is based on the exact age-contract source.
-  // Age.run intentionally exposes aggregates only, so callers may pass prebuilt playerSeasons in tests.
   const rows=options.playerSeasons || [];
   if (!rows.length) {
     return {
