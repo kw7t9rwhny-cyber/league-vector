@@ -1,7 +1,7 @@
 {
-  "candidate_version": "idp-missing-stat-coverage-v0.1-sack-yards",
+  "candidate_version": "idp-missing-stat-coverage-v0.1-sack-yards-dl-lb",
   "category": "idp_sack_yd",
-  "classification": "C_PROJECTABLE_WITH_NEW_VALIDATED_MODEL",
+  "classification": "B_PROJECTABLE_NOW_FOR_DL_LB_G_MORE_RESEARCH_REQUIRED_OVERALL",
   "research_base_head": "5550c83380432abce3ae0e68cc9d2daa0e720ea2",
   "input_snapshot_sha256": "d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188",
   "selection_period": [2020, 2021, 2022, 2023, 2024],
@@ -10,21 +10,21 @@
     "family": "ridge",
     "alpha": 10,
     "target": "def_sack_yards",
-    "position_families": ["DL", "LB", "DB"],
+    "supported_position_families": ["DL", "LB"],
+    "unsupported_position_families": ["DB"],
     "features": ["prior_sacks", "prior_sack_yards", "prior_games", "prior_solo_tackles"],
     "training_rule": "target season Y may use only seasons before Y",
     "output_rule": "finite model prediction, sanitized nonnegative",
-    "missing_data_rule": "fail closed; never coerce unavailable/non-numeric source state to zero"
+    "missing_data_rule": "fail closed; never coerce unavailable/non-numeric source state to zero",
+    "position_gate": "DB remains unsupported because Ridge worsens DB MAE despite improved RMSE/rank"
   },
   "development_evidence": {
-    "all_position_zero_mae": 9.4861,
-    "all_position_ridge_mae": 8.0582,
-    "all_position_zero_rmse": 17.7539,
-    "all_position_ridge_rmse": 12.2297,
     "dl_zero_mae": 16.5580,
     "dl_ridge_mae": 12.9023,
+    "dl_fold_wins_vs_zero": "5/5",
     "lb_zero_mae": 12.2340,
     "lb_ridge_mae": 10.1140,
+    "lb_fold_wins_vs_zero": "5/5",
     "db_zero_mae": 1.8907,
     "db_ridge_mae": 2.7300,
     "db_zero_rmse": 5.5366,
@@ -32,19 +32,27 @@
     "db_ridge_spearman": 0.288
   },
   "founder_scoring_weight": 0.1,
-  "deterministic_evidence": {
-    "analysis_result_sha256": "13896f3d6bb0c6ed0d05b2fb5fc76f45760748251f6135ef0e4d291568f823c5",
-    "validated_report_head_workflow": 31832107192,
-    "validated_report_head": "8797097a563fd1938983ce02cc5ad18e171b33d1",
-    "duplicate_runs_required_byte_identical": true
+  "threshold_probability_research_only": {
+    "bonus_sack_2p": {"brier_improves_all_folds": true, "expected_count_mae_beats_zero": false},
+    "idp_pass_def_3p": {"brier_improves_all_folds": true, "expected_count_mae_beats_zero": false}
   },
   "firewalls": {
     "experimental": true,
     "production_projection_eligible": false,
     "idp_dynasty_value_available": false,
     "dynasty_value": null,
-    "combined_offense_idp_dynasty_rankings_available": false
+    "combined_offense_idp_dynasty_rankings_available": false,
+    "global_founder_scoring_rankable": false
   },
   "non_candidates": ["bonus_sack_2p","fum_rec_td","idp_blk_kick","idp_fum_ret_yd","idp_int_ret_yd","idp_pass_def_3p","st_ff","st_fum_rec","st_td"],
-  "qa_focus": ["reproduce frozen input hash and deterministic outputs","verify no zero-fill or missing-state coercion","verify chronological folds and 2025 retrospective-only policy","independently reconstruct DL/LB/DB sack-yard metrics","stress DB tradeoff where MAE worsens but RMSE/rank improve","verify PR #30 completeness gate remains fail-closed for the other nine keys","verify no production or dynasty eligibility flag changes"]
+  "qa_focus": [
+    "reproduce frozen input hash and deterministic outputs",
+    "verify no zero-fill or missing-state coercion",
+    "verify chronological folds and 2025 retrospective-only policy",
+    "independently reconstruct DL/LB sack-yard metrics and 5/5 fold wins",
+    "verify DB remains unsupported and cannot silently receive a zero or DL/LB model",
+    "verify bonus probability models are not exposed as scoring projections",
+    "verify PR #30 completeness gate remains fail-closed for full Founder scoring",
+    "verify no production or dynasty eligibility flag changes"
+  ]
 }
