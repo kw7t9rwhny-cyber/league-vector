@@ -14,7 +14,10 @@ const safeContract = {
 
 async function mount(page, contract = safeContract) {
   await page.goto("/");
-  await page.evaluate((input) => window.renderLeagueVectorIdpRankings(input), contract);
+  await page.evaluate((input) => {
+    document.getElementById("results").hidden = false;
+    return window.renderLeagueVectorIdpRankings(input);
+  }, contract);
 }
 
 async function openIdp(page) {
