@@ -6,6 +6,7 @@ const Ingest=require('./ingest-historical-data.js');
 const Foundation=require('../idp-foundation-research-v03.js');
 const Age=require('./idp-age-curves-v03.js');
 const Dynasty=require('./idp-dynasty-value-research-v01.js');
+const Horizon=require('./idp-dynasty-horizon-v01.js');
 
 function parseArgs(values){const out={seasons:Age.DEFAULT_SEASONS.join(','),output:'data/reports/idp-dynasty-value-v01/idp-dynasty-value-research.json'};for(let i=0;i<values.length;i+=1)if(values[i].startsWith('--')){out[values[i].slice(2)]=values[i+1];i+=1;}return out;}
 function ensureDir(dir){fs.mkdirSync(dir,{recursive:true});}
@@ -64,8 +65,15 @@ async function run(options={}){
   report.finer_role_coverage=historical.roleCoverage;
   report.experience_contract=historical.experienceCoverage.player_seasons_with_valid_experience>0?'Experience is computed only from a valid explicit rookie_year/entry_year in the normalized player bio. Missing metadata remains null.':'BLOCKED: the current normalized player-bio source provides no valid rookie_year/entry_year coverage for these IDP rows; experience is not inferred from first observed season.';
   report.source_contract='nflverse normalized weekly REG IDP observations using the existing approved-with-attribution research ingestion contract; no current depth chart is used retrospectively.';
+  report.multi_horizon_relevance_survival=Horizon.multiHorizonRelevanceSurvival(historical.playerSeasons,3);
+  report.age_decline_evidence=Horizon.ageDeclineEvidence(historical.playerSeasons,20);
+  report.position_horizon_readiness=Horizon.horizonReadiness(report.production_persistence,report.multi_horizon_relevance_survival,report.uncertainty);
+  report.finer_role_split_readiness=Horizon.roleSplitReadiness(historical.roleCoverage,250);
+  report.sensitivity_readiness=Horizon.sensitivityReadiness();
+  report.multi_year_surplus_candidate_architecture=Horizon.surplusArchitecture();
+  report.idp_dynasty_value_available=false;
   return report;
 }
-async function main(){const args=parseArgs(process.argv.slice(2));const seasons=args.seasons.split(',').map(Number).filter(Number.isInteger);const result=await run({seasons,cacheDir:args.cache,refresh:args.refresh==='true'});const output=path.resolve(process.cwd(),args.output);ensureDir(path.dirname(output));fs.writeFileSync(output,JSON.stringify(result,null,2)+'\n');console.log(`IDP_DYNASTY_RESEARCH_SUMMARY ${JSON.stringify({sample:result.sample,persistence:result.production_persistence,survival:result.fantasy_relevance_survival,uncertainty:result.uncertainty,experience_contract:result.experience_contract,finer_role_coverage:result.finer_role_coverage})}`);console.log(output);}
+async function main(){const args=parseArgs(process.argv.slice(2));const seasons=args.seasons.split(',').map(Number).filter(Number.isInteger);const result=await run({seasons,cacheDir:args.cache,refresh:args.refresh==='true'});const output=path.resolve(process.cwd(),args.output);ensureDir(path.dirname(output));fs.writeFileSync(output,JSON.stringify(result,null,2)+'\n');console.log(`IDP_DYNASTY_RESEARCH_SUMMARY ${JSON.stringify({sample:result.sample,persistence:result.production_persistence,survival:result.multi_horizon_relevance_survival,uncertainty:result.uncertainty,horizon_readiness:result.position_horizon_readiness,experience_contract:result.experience_contract,finer_role_coverage:result.finer_role_coverage,finer_role_split_readiness:result.finer_role_split_readiness})}`);console.log(output);}
 if(require.main===module)main().catch(error=>{console.error(error.stack||error.message);process.exit(1);});
 module.exports={parseArgs,safeExperience,roleCoverage,buildHistoricalPlayerSeasons,run};
