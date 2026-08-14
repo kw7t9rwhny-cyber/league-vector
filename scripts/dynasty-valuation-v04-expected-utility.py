@@ -16,6 +16,8 @@ CACHE=Path(sys.argv[1] if len(sys.argv)>1 else '.cache/lv-dynasty-v04')
 OUT=Path(sys.argv[2] if len(sys.argv)>2 else 'data/reports/dynasty-v04/expected-utility.json')
 mod.CACHE=CACHE
 DISCOUNTS={'moderate':.80,'mild':.90,'none':1.0}
+EVAL_YEARS=[2020,2021,2022]
+MAX_H=4
 
 
 def state_fit(a,y,pos,h,state):
@@ -32,11 +34,11 @@ def state_fit(a,y,pos,h,state):
 
 def build_uncertainty_predictions(a):
     rows=[];bank={}
-    for y in mod.EVAL_YEARS:
+    for y in EVAL_YEARS:
       for pos in mod.POS:
         feats=pm.FEATURES[pos];base=a[(a.season.eq(y))&(a.position_group.eq(pos))].copy()
         if base.empty:continue
-        for h in range(1,6):
+        for h in range(1,MAX_H+1):
           tf=f'y{h}_fantasy';trc=f'y{h}_receptions';tr=a[(a.position_group.eq(pos))&((a.season+h)<y)].copy()
           if len(tr)<60:continue
           tr['rel']=(tr[tf]>=mod.RELEVANCE[pos]).astype(int)
@@ -69,6 +71,7 @@ def state_value(row,cfg,rep,state,bank):
 
 
 def candidate(a,p,bank,cn,horizon=3,discount=.80,rep_scale=1.0,distribution=True):
+    if horizon>MAX_H:return pd.DataFrame()
     cfg=mod.CONFIGS[cn];rows=[];pp=p[p.valuation_season.le(int(a.season.max())-horizon)].copy()
     for y in sorted(pp.valuation_season.unique()):
       acc={};ok=True
@@ -143,7 +146,7 @@ def comparisons(a,p,bank):
         for _,x in m.sort_values('delta',ascending=False).head(12).iterrows():
           out['player_examples'].append({'config':cn,'player_id':x.player_id,'position':x.pos,'age':x.age,'expected_positive_value':float(x.pred),
             'clipped_value':float(x.clipped),'delta':float(x.delta),'realized':float(x.actual),'components':x.components})
-      for H in [2,3,4,5]:
+      for H in [2,3,4]:
         z=candidate(a,p,bank,cn,H,.80,1.,True);yrs=[] if z.empty else sorted(int(v) for v in z.valuation_season.unique())
         out['horizon_availability'].append({'config':cn,'horizon':H,'valuation_years':yrs,'available':bool(yrs)})
         for dn,d in DISCOUNTS.items():
@@ -151,6 +154,7 @@ def comparisons(a,p,bank):
           for y,g in ([] if z.empty else z.groupby('valuation_season')):
             out['sensitivity'].append({'config':cn,'horizon':H,'discount':dn,'replacement_scale':1.0,'valuation_season':int(y),'n':int(len(g)),
               'spearman':mod.sp(g.actual,g.pred),'zero_share':float((g.pred<=1e-9).mean())})
+      out['horizon_availability'].append({'config':cn,'horizon':5,'valuation_years':[],'available':False,'reason':'not leakage-safe identifiable from frozen 2015-2025 history with required state-specific training and fully observed target'})
       for rs in [.90,1.,1.10]:
         z=candidate(a,p,bank,cn,3,.80,rs,True);g=z[z.valuation_season.eq(2022)] if not z.empty else z
         if not g.empty:out['sensitivity'].append({'config':cn,'horizon':3,'discount':'moderate','replacement_scale':rs,'valuation_season':2022,
@@ -160,8 +164,9 @@ def comparisons(a,p,bank):
 
 def main():
     w,players,manifest=mod.load();a=mod.aggregate(w,players);p,bank=build_uncertainty_predictions(a)
-    result={'version':'dynasty-valuation-v04-expected-utility-v2','snapshot_sha256':manifest['snapshot_sha256'],
+    result={'version':'dynasty-valuation-v04-expected-utility-v3','snapshot_sha256':manifest['snapshot_sha256'],
       'formula':'sum_t discount_t * E[max(scored_points_t - league_replacement_t, 0)] using chronology-safe relevance/non-relevance mixture distributions',
+      'chronology':{'valuation_years':EVAL_YEARS,'max_modeled_horizon':MAX_H,'h5':'explicitly unavailable/not identifiable from frozen history'},
       'replacement':'expanding historical median actual point-in-time replacement using seasons strictly before valuation year; realized target uses target-season pool only',
       'market_anchor':{'weight':0.0,'status':'not_testable_without_leakage_safe_historical_market_snapshots'},
       'depth_chart_history':{'used':False,'limitation':'No historical point-in-time opportunity/depth-chart state is backfilled with hindsight.'},
