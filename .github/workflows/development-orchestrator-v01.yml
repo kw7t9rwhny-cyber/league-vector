@@ -1,4 +1,4 @@
-name: Development Orchestrator Stage 1+2+3A
+name: Development Orchestrator Stage 1+2+3A+3B
 
 on:
   pull_request:
@@ -30,8 +30,32 @@ jobs:
         run: node --check scripts/development-orchestrator-v03a.js
       - name: Stage 3A deterministic dry-run/adversarial tests
         run: node --test tests/development-orchestrator-v03a.test.js
+      - name: Stage 3B syntax check
+        run: node --check scripts/development-orchestrator-v03b.js
+      - name: Stage 3B deterministic guarded-executor/adversarial tests
+        run: node --test tests/development-orchestrator-v03b.test.js
       - name: Validate Stage 1 schema is readable
         run: node scripts/development-orchestrator-v01.js
+      - name: Prove Stage 3B Actions execution remains disabled
+        env:
+          LEAGUE_VECTOR_ORCHESTRATOR_EXECUTE: "0"
+          LEAGUE_VECTOR_STAGE3B_ACTIVATED: "0"
+          GITHUB_EVENT_NAME_FOR_TEST: ${{ github.event_name }}
+          GITHUB_REF_NAME_FOR_TEST: ${{ github.ref_name }}
+        run: |
+          node - <<'NODE'
+          const s=require('./scripts/development-orchestrator-v03b.js');
+          const env={
+            LEAGUE_VECTOR_ORCHESTRATOR_EXECUTE: process.env.LEAGUE_VECTOR_ORCHESTRATOR_EXECUTE,
+            LEAGUE_VECTOR_STAGE3B_ACTIVATED: process.env.LEAGUE_VECTOR_STAGE3B_ACTIVATED,
+            GITHUB_EVENT_NAME: process.env.GITHUB_EVENT_NAME_FOR_TEST,
+            GITHUB_REF_NAME: process.env.GITHUB_REF_NAME_FOR_TEST,
+            GITHUB_HEAD_REPO_FORK: 'false'
+          };
+          const gate=s.executionGate(env);
+          if(gate.allowed) process.exit(1);
+          console.log(JSON.stringify(gate));
+          NODE
       - name: Dogfood Stage 2 against live GitHub state (read only)
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -60,12 +84,36 @@ jobs:
           if (text.includes('QA PASS — tested head') || text.includes('QA FAIL — tested head')) process.exit(1);
           console.log(JSON.stringify(p.counts));
           NODE
-      - name: Upload Stage 3A Command Center dry-run preview
+      - name: Stage 3B live safety dogfood — no write adapter, no execute
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          LEAGUE_VECTOR_ORCHESTRATOR_EXECUTE: "0"
+          LEAGUE_VECTOR_STAGE3B_ACTIVATED: "0"
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const plans=JSON.parse(fs.readFileSync('/tmp/orchestrator-stage3a-plan.json','utf8')).plans || [];
+          if(!plans.length){ console.log('no structured live plan to dry-run through executor'); process.exit(0); }
+          fs.writeFileSync('/tmp/stage3b-plan.json', JSON.stringify(plans[0]));
+          NODE
+          if [ -f /tmp/stage3b-plan.json ]; then
+            node scripts/development-orchestrator-v03b.js --plan /tmp/stage3b-plan.json --json > /tmp/orchestrator-stage3b-audit.json
+            node - <<'NODE'
+            const a=require('/tmp/orchestrator-stage3b-audit.json');
+            if(a.mode!=='dry-run') process.exit(1);
+            if(a.mutations_attempted.length||a.mutations_completed.length) process.exit(1);
+            console.log(JSON.stringify({pr:a.pr,result:a.post_write_verification,abort:a.aborted_reason}));
+            NODE
+          fi
+      - name: Upload Stage 3A/3B dry-run evidence
         uses: actions/upload-artifact@v4
         with:
-          name: development-orchestrator-stage3a-preview
-          path: /tmp/orchestrator-stage3a-plan.json
-          if-no-files-found: error
+          name: development-orchestrator-stage3a-stage3b-preview
+          path: |
+            /tmp/orchestrator-stage3a-plan.json
+            /tmp/orchestrator-stage3b-audit.json
+          if-no-files-found: warn
           retention-days: 7
 
   pr-metadata-audit:
@@ -92,8 +140,8 @@ jobs:
           print("orchestrator metadata is non-contradictory")
           PY
 
-# Security contract: Stage 1, Stage 2, and Stage 3A are intentionally read-only.
-# Stage 3A produces mutation PLANS and workflow artifacts only; it has no GitHub write client.
-# No pull_request_target. No privileged untrusted execution. No labels, assignments,
-# comments, branches, PRs, merges, deployments, Founder decisions, paid-service calls,
-# business/legal actions, or production-model promotion are mutated by this workflow.
+# Security contract: Stage 1, Stage 2, Stage 3A, and the Stage 3B candidate workflow remain read-only.
+# Stage 3B execute capability is tested only with mocked/local adapters; this workflow has no write token scope,
+# never sets the activation gate, and never invokes --execute. No pull_request_target. No labels, assignments,
+# comments, branches, PRs, merges, deployments, Founder decisions, paid-service calls, business/legal actions,
+# production-model promotion, Prospective Archive writes, or football/product changes are performed here.
