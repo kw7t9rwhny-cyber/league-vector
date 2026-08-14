@@ -25,7 +25,7 @@ jobs:
           mkdir -p .cache/lv-rookie-v01
           cp -R /tmp/lv-control/unpacked/.cache/lv-v04-canonical/. .cache/lv-rookie-v01/
           cp /tmp/lv-control/unpacked/data/reports/projection-v04-canonical/snapshot-manifest.json .cache/lv-rookie-v01/snapshot-manifest.json
-      - name: Verify snapshot
+      - name: Verify frozen snapshot
         run: python -c "import json; m=json.load(open('.cache/lv-rookie-v01/snapshot-manifest.json')); assert m['snapshot_sha256']=='d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188'"
       - name: Install pinned research dependencies
         run: python -m pip install pandas==2.2.3 numpy==2.2.3 scipy==1.15.2 scikit-learn==1.6.1
@@ -36,8 +36,31 @@ jobs:
           python scripts/projection-rookie-v01.py .cache/lv-rookie-v01 data/reports/projection-rookie-v01/run-b.json
           cmp data/reports/projection-rookie-v01/run-a.json data/reports/projection-rookie-v01/run-b.json
           sha256sum data/reports/projection-rookie-v01/run-a.json > data/reports/projection-rookie-v01/result.sha256
+      - name: Enforce provenance and chronology gates
+        run: |
+          python - <<'PY'
+          import json
+          r=json.load(open('data/reports/projection-rookie-v01/run-a.json'))
+          assert r['input_snapshot_sha256']=='d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188'
+          assert r['development_cohorts']==[2018,2019,2020,2021,2022,2023,2024]
+          assert r['retrospective_observed']==2025
+          assert all(x['season']<2025 for x in r['fold_results'])
+          i=r['identity_audit']; d=r['draft_integrity_audit']
+          assert i['status']=='PASS' and i['source_to_metadata_unmatched_rows']==0 and i['metadata_duplicate_gsis_id']==0
+          assert d['status']=='PASS_FAIL_CLOSED'
+          assert d['confirmed_undrafted_rows']==0
+          assert d['eligible_missing_draft_metadata']==0
+          assert d['eligible_draft_year_mismatch']==0
+          assert d['eligible_duplicate_player_seasons']==0
+          assert d['eligible_development_by_position']=={'QB':54,'RB':132,'WR':194,'TE':86}
+          assert all(v['all_claimed_fold_wins_reconstructed'] for v in r['claim_reconstruction'].values())
+          assert r['flags']['production_projection_eligible'] is False
+          assert r['flags']['dynasty_value_eligible'] is False
+          print('rookie provenance/chronology gates PASS')
+          PY
       - uses: actions/upload-artifact@v4
         with:
           name: league-vector-projection-rookie-v01
           path: data/reports/projection-rookie-v01/
+          if-no-files-found: error
           retention-days: 30
