@@ -14,6 +14,14 @@ RUNNER = ROOT / "scripts" / "run-prospective-opportunity-archive.py"
 runner_spec = importlib.util.spec_from_file_location("prospective_archive_runner", RUNNER)
 runner = importlib.util.module_from_spec(runner_spec)
 runner_spec.loader.exec_module(runner)
+WORKFLOW = ROOT / ".github" / "workflows" / "prospective-opportunity-archive.yml"
+
+
+def capture_authorized(event_name, ref, default_branch="main"):
+    return (
+        ref == f"refs/heads/{default_branch}"
+        and event_name in {"schedule", "push", "workflow_dispatch"}
+    )
 
 
 class ProspectiveArchiveTests(unittest.TestCase):
@@ -104,6 +112,42 @@ class ProspectiveArchiveTests(unittest.TestCase):
             runner.should_run_auto(dt.datetime(2027, 1, 15, tzinfo=dt.timezone.utc), 2026)
         with self.assertRaisesRegex(RuntimeError, "season phase not configured"):
             runner.should_run_auto(dt.datetime(2027, 8, 1, tzinfo=dt.timezone.utc), 2027)
+
+    def test_workflow_write_authorization_contract(self):
+        workflow = WORKFLOW.read_text()
+        self.assertIn("permissions: {}", workflow)
+        self.assertIn("contents: read", workflow)
+        self.assertEqual(workflow.count("contents: write"), 1)
+        self.assertIn(
+            "github.ref == format('refs/heads/{0}', github.event.repository.default_branch)",
+            workflow,
+        )
+        self.assertIn(
+            "(github.event_name == 'schedule' || github.event_name == 'push' || github.event_name == 'workflow_dispatch')",
+            workflow,
+        )
+        self.assertNotIn("pull_request_target", workflow)
+        self.assertIn("git add data/opportunity-archive", workflow)
+        self.assertNotIn("git push --force", workflow)
+
+    def test_workflow_dispatch_default_branch_may_capture(self):
+        self.assertTrue(capture_authorized("workflow_dispatch", "refs/heads/main"))
+
+    def test_workflow_dispatch_non_default_branch_cannot_capture(self):
+        self.assertFalse(capture_authorized("workflow_dispatch", "refs/heads/research/opportunity"))
+        self.assertFalse(capture_authorized("workflow_dispatch", "refs/heads/feature/archive-test"))
+
+    def test_workflow_dispatch_tag_cannot_capture(self):
+        self.assertFalse(capture_authorized("workflow_dispatch", "refs/tags/archive-v0.1"))
+
+    def test_pull_request_remains_read_only_no_capture(self):
+        self.assertFalse(capture_authorized("pull_request", "refs/pull/31/merge"))
+        self.assertFalse(capture_authorized("pull_request", "refs/heads/main"))
+
+    def test_schedule_and_default_branch_push_remain_valid(self):
+        self.assertTrue(capture_authorized("schedule", "refs/heads/main"))
+        self.assertTrue(capture_authorized("push", "refs/heads/main"))
+        self.assertFalse(capture_authorized("push", "refs/heads/research/opportunity"))
 
     def test_observation_write_refuses_overwrite(self):
         with tempfile.TemporaryDirectory() as td:
