@@ -1,0 +1,45 @@
+name: Dynasty Valuation v0.2 Research
+on:
+  push:
+    branches: [codex/dynasty-valuation-research-v02]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - name: Restore validated frozen projection snapshot
+        env: {GH_TOKEN: '${{ github.token }}'}
+        run: |
+          mkdir -p /tmp/lv-control
+          curl -L --fail-with-body -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" https://api.github.com/repos/${{ github.repository }}/actions/artifacts/9205731274/zip -o /tmp/lv-control/control.zip
+          unzip -q /tmp/lv-control/control.zip -d /tmp/lv-control/unpacked
+          mkdir -p .cache
+          cp -R /tmp/lv-control/unpacked/.cache/lv-v04-canonical .cache/lv-dynasty-v02
+          cp /tmp/lv-control/unpacked/data/reports/projection-v04-canonical/snapshot-manifest.json .cache/lv-dynasty-v02/snapshot-manifest.json
+      - name: Verify frozen snapshot
+        run: python - <<'PY'
+          import json,pathlib
+          m=json.loads(pathlib.Path('.cache/lv-dynasty-v02/snapshot-manifest.json').read_text())
+          assert m['snapshot_sha256']=='d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188'
+          print(m['snapshot_sha256'])
+          PY
+      - name: Install pinned dependencies
+        run: python -m pip install pandas==2.2.3 numpy==2.2.3 scipy==1.15.2 scikit-learn==1.6.1
+      - name: Run twice deterministically
+        run: |
+          python scripts/dynasty-valuation-v02.py .cache/lv-dynasty-v02 data/reports/dynasty-v02/run-a.json
+          python scripts/dynasty-valuation-v02.py .cache/lv-dynasty-v02 data/reports/dynasty-v02/run-b.json
+          cmp data/reports/dynasty-v02/run-a.json data/reports/dynasty-v02/run-b.json
+          sha256sum data/reports/dynasty-v02/run-a.json > data/reports/dynasty-v02/result.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: league-vector-dynasty-valuation-v02
+          path: data/reports/dynasty-v02/
+          retention-days: 30
