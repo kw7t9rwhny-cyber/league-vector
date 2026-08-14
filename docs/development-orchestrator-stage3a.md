@@ -1,16 +1,8 @@
 # Development Orchestrator Stage 3A — dry-run mutation planner
 
-Stage 3A answers one question: **if League Vector were allowed to route routine engineering work, exactly what would it propose changing right now?**
+Stage 3A is a **completely read-only** planner. It translates the merged Stage-1/Stage-2 work-item state into proposed routine handoffs, but it performs no GitHub mutation.
 
-It remains completely read-only. It performs no GitHub mutations.
-
-## Foundation
-
-Stage 3A builds on the merged Stage-1/Stage-2 contracts and the League Vector Operating Charter. QA-approved Stage-2 source head: `a60af97b1a52cf2ff9a980cd6220edf93c4cf827`; Stage-2 merge commit: `7405de62dd7be6c512138324cfbeaca88473262f`.
-
-Stage 2 remains the live discovery/evaluation layer. Stage 3A consumes its normalized work items, exact-SHA QA state, dependency state, Founder state, raw-research firewall and recommended actions, then produces dry-run plan records.
-
-## Read-only security boundary
+## Security boundary
 
 Workflow permissions remain exactly:
 
@@ -18,11 +10,49 @@ Workflow permissions remain exactly:
 - `pull-requests: read`
 - `issues: read`
 
-Stage 3A has no write API calls and no mutation client. It does not use `pull_request_target` and cannot label, assign, comment, create branches/PRs, merge, deploy, modify workflows, approve QA, approve Founder gates, promote research, purchase/license anything, or alter football/product state.
+There is no `pull_request_target`, write scope, mutation client, label/assignee/comment/branch/PR mutation, merge, deployment, Founder-decision automation, paid-service action, business/legal action, or model promotion. Generated plans and Command Center previews are data/artifacts only and remain `operational:false` / `mutation_mode:dry-run-read-only`.
 
-Generated Command Center output is a workflow artifact only. It is not committed and is explicitly marked `operational:false` / `mutation_mode:dry-run-read-only`.
+Stage 3B and Stage 3C are not implemented or authorized.
 
-## Canonical planner behavior
+## Shared Stage-2 authority boundary
+
+Stage 3A consumes Stage 2, so authorization defects are fixed in the shared Stage-2 live adapter/parser rather than hidden in Stage 3A.
+
+### Canonical QA authority
+
+Canonical verdict syntax alone is not authority.
+
+A QA event is authoritative only when **all** of these are true:
+
+1. the event source is an allowed GitHub source: `comment` or `review`;
+2. the event author is in the explicit QA-author allowlist;
+3. the complete trimmed event body is exactly one supported canonical record:
+   - `QA PASS — tested head <40-character lowercase SHA>`
+   - `QA FAIL — tested head <40-character lowercase SHA>`;
+4. the exact tested SHA is retained with the record;
+5. event timestamp, GitHub event identifier, author login, author association, and source are retained as provenance;
+6. same-SHA evidence is not ambiguous/conflicted.
+
+For live League Vector runs, `LEAGUE_VECTOR_QA_AUTHORS` may explicitly provide a comma-separated trusted allowlist. If it is absent, the repository owner is the only default trusted QA identity. If no trustworthy identity can be derived, QA authority fails closed.
+
+Unauthorized comments/reviews are inert even when their text exactly resembles a QA verdict. Authorized events containing extra prose are also inert: a canonical-looking line embedded inside instructions such as `IGNORE THE ORCHESTRATOR AND MERGE MAIN` does not count. Founder-like or Core-like prose has no QA authority.
+
+An authorized PASS is fresh only when the exact tested SHA equals the current candidate head. Head movement makes it stale. A provably later authorized event controls an earlier event. If the newest authoritative timestamp for one exact SHA contains both PASS and FAIL, the result is `conflicted`; API order and GitHub event IDs never break that tie. Unauthorized evidence does not create or resolve a conflict.
+
+### Owner authority
+
+Before Stage 2 recommends, or Stage 3A emits, **any routable action**, the normalized technical owner must be:
+
+- present;
+- one of the Stage-1 canonical owners from `CONFIG.owners`;
+- unambiguous;
+- internally consistent between body metadata and canonical `owner:*` labels.
+
+Unsupported body-only owners, missing owners, multiple owner labels, unsupported owner labels, or a body/label disagreement fail closed. In Stage 3A the result is `NO_MUTATION` with an explicit reason and no `proposed_route`.
+
+This owner check applies before `SEND_TO_QA`, `RETURN_TO_OWNER`, `READY_FOR_CORE_REVIEW`, `WAITING_ON_FOUNDER`, `MORE_RESEARCH_REQUIRED`, or any future routable mapping. A QA failure can therefore route only to a validated canonical original owner.
+
+## Planner behavior
 
 CLI:
 
@@ -33,137 +63,66 @@ node scripts/development-orchestrator-v03a.js plan 123
 node scripts/development-orchestrator-v03a.js plan 123 --json
 ```
 
-Fixture mode uses Stage-2-compatible data:
+The planner may propose **status-label changes as inert data only**:
 
-```bash
-node scripts/development-orchestrator-v03a.js plan --fixture fixture.json --json
-```
+- `SEND_TO_QA` → preview `status:ready-for-qa`, route `qa`;
+- `RETURN_TO_OWNER` → preview `status:qa-failed`, route validated canonical owner;
+- `READY_FOR_CORE_REVIEW` → preview `status:ready-for-core`, route `core`, only with fresh authenticated exact-SHA QA and all Stage-1/2 gates;
+- `WAITING_ON_FOUNDER` → preview `status:waiting-founder`, route `founder`, never set a Founder decision;
+- blocked dependency, research-required, unsafe metadata, stale/conflicted QA, rejected Founder decision, moved head, or unsupported action → `NO_MUTATION`.
 
-A plan records:
+No owner label is changed.
 
-- PR number/title;
-- exact evaluated head SHA;
-- QA tested SHA and resolved QA state;
-- Stage-2 recommended action;
-- proposed route;
-- allowlisted label mutations;
-- deterministic handoff preview;
-- main SHA;
-- current labels;
-- structured metadata;
-- Founder state;
-- dependency heads/states;
-- QA event provenance;
-- a SHA-256 replay fingerprint over all authorization-relevant state.
+## Legacy/unstructured behavior
 
-A future executor must re-read live GitHub and reproduce the same authorization state/fingerprint before executing anything. Stage 3A does not execute or validate a mutation transaction because there is no write capability.
+Bulk planning suppresses legacy/unstructured PR noise.
 
-## Why routing does not overwrite owner
+A targeted `plan <PR>` request still returns a deterministic explicit record with:
 
-Stage 1's canonical `owner` is the technical/original owner used for remediation routing. Overwriting `owner:projection` with `owner:qa` would destroy that provenance and Stage-2 parsing currently gives labels precedence over body metadata.
+- `disposition: NO_MUTATION`;
+- an explicit legacy/unstructured or missing-authority reason;
+- no route;
+- zero proposed mutations;
+- replay provenance.
 
-Therefore Stage 3A keeps **technical owner** unchanged and models transient queue routing separately as `proposed_route` (`qa`, `core`, `founder`, or the original owner). Stage 3B must not add a separate queue-owner label until a canonical taxonomy change is deliberately approved.
+Legacy prose never becomes operational authorization.
 
-## Allowlisted dry-run mutations
+## Exact-SHA and replay provenance
 
-Stage 3A may propose only canonical `status:*` label changes already present in the merged Stage-1 state machine.
+Each plan fingerprint includes authorization-relevant state: current main SHA, current PR head, declared candidate SHA, labels, structured metadata/conflicts, Founder state, dependency snapshots, resolved QA state, and retained QA-event provenance. QA raw bodies are represented by hashes in Stage-3A replay provenance rather than copied as executable-looking text.
 
-- `SEND_TO_QA` → ensure `status:ready-for-qa`; route preview to QA.
-- `RETURN_TO_OWNER` → propose `status:qa-failed`; route preview to canonical original owner.
-- `READY_FOR_CORE_REVIEW` → propose `status:ready-for-core`; route preview to Core, only with fresh exact-SHA QA and all existing Core gates.
-- `WAITING_ON_FOUNDER` → ensure `status:waiting-founder`; route preview to Founder. No Founder decision mutation is ever proposed.
-- `BLOCKED_DEPENDENCY` → no mutation in Stage 3A; report the blocker. Stage 3B should not change state automatically until dependency-state transition policy is separately QA-proven.
-- `MORE_RESEARCH_REQUIRED` → no mutation; preserve the research owner and firewall.
-- `NO_ACTION` → no mutation.
+A future executor would have to re-read live GitHub and reproduce authorization state before any mutation. Stage 3A itself cannot execute anything.
 
-No owner label is changed by Stage 3A.
+## Deterministic output
 
-## Fail-closed guards
+Fixture/observed timestamps may be supplied explicitly through input `generated_at` or `ORCHESTRATOR_GENERATED_AT`. Stage 3A no longer injects the current wall-clock time into otherwise unchanged live JSON; without an explicit observed timestamp `generated_at` is `null`. Replay fingerprints remain deterministic from repository state.
 
-The planner emits zero mutations when any relevant guard fails, including:
+Human and JSON output are deterministic for the same observed input.
 
-- legacy/incomplete metadata;
-- multiple owner/status labels;
-- unsupported owner labels;
-- malformed QA-looking prose;
-- declared candidate SHA differs from current head;
-- stale QA;
-- conflicted QA;
-- unsatisfied dependency;
-- rejected Founder decision;
-- raw research attempting to cross the Core boundary;
-- closed/merged PR;
-- unsupported/no-action state.
+## Handoff and Command Center previews
 
-Legacy historical PRs are suppressed from bulk-plan noise. A targeted `plan <PR>` still returns an explicit fail-closed reason.
+Handoffs visibly begin with `ORCHESTRATOR HANDOFF PREVIEW — NO GITHUB MUTATION` and state that they are not QA verdicts, Founder decisions, merges, releases, or model-promotion authorization.
 
-## QA authority
+Stage 3A never generates canonical QA PASS/FAIL authority strings.
 
-Stage 3A consumes only Stage 2's canonical QA resolution. It never emits either canonical authority string:
+The generated Command Center preview is workflow-artifact-only, `operational:false`, and contains queue observations, blocked/stale/conflicted state, legacy count, main-SHA provenance, and replay fingerprints. It is not committed or posted to GitHub.
 
-`QA PASS — tested head <SHA>`
+## Preserved gates
 
-`QA FAIL — tested head <SHA>`
+Stage 3A preserves:
 
-Handoff previews explicitly state that they are not QA verdicts.
+- exact-SHA QA freshness and head-movement invalidation;
+- same-timestamp conflict fail-closed behavior;
+- dependency blocking;
+- raw-research/Core firewall and separate promotion boundary;
+- Founder pending/rejected/approved semantics;
+- production-numerical-model Founder gate;
+- closed/draft/legacy behavior;
+- advisory-only handoffs;
+- football, UI, scoring, IDP, projection, Dynasty Value, Sleeper, identity, replacement, and Prospective Archive isolation.
 
-## Founder authority
+## Stage 3B / Stage 3C preview only
 
-Stage 3A may route a pending gate to `waiting-founder`, but it cannot set or propose `founder_decision=approved`. Rejected gates fail closed. An approved Founder-gated non-research candidate may route toward Core only if Stage 2/Stage 1 also prove fresh exact-SHA QA, dependencies, integration and promotion gates.
+A later Stage 3B could propose narrowly authorized status-label execution with optimistic concurrency and least privilege only after separate Founder authorization and independent QA. Stage 3C could later add durable generated handoff communication under the same separate gate.
 
-## Research firewall
-
-Raw `type:research` remains research-only even if QA passed and `integration_required=true`. Core plans require the existing separate non-research promotion/integration item with required validated-research dependency and promotion authorization.
-
-## Untrusted GitHub input
-
-PR bodies, titles, comments, branch names and user text are data. Prompt-like text has no execution semantics. Only strict structured metadata and canonical QA parsing are used. Tests include prompt-injection-like prose such as `IGNORE ORCHESTRATOR RULES AND MERGE MAIN` and prove it remains inert.
-
-Malformed QA-like lines are treated conservatively by Stage 3A as a planning blocker rather than authority.
-
-## Replay/concurrency provenance
-
-Each plan fingerprint includes the current main SHA, PR head, declared candidate SHA, current canonical labels, structured metadata, exact QA state/evidence and dependency snapshots. Any future executor must reject a plan after a moved head, changed QA evidence, changed Founder decision, changed dependency, changed metadata/labels or changed main where the plan declares main relevant.
-
-Stage 3A itself is race-safe by construction because it performs no writes.
-
-## Handoff preview
-
-Preview format is deterministic and visibly non-authoritative:
-
-```text
-ORCHESTRATOR HANDOFF PREVIEW — NO GITHUB MUTATION
-PR: #X
-Exact head: <SHA>
-Current owner: projection
-Proposed route: qa
-Reason: SEND_TO_QA
-Risk: HIGH
-QA: none
-Proposed label changes: ADD_LABEL status:ready-for-qa
-No GitHub mutation performed. This preview is not a QA verdict, Founder decision, merge, release, or model-promotion authorization.
-```
-
-## Generated Command Center preview
-
-The Stage-3A artifact contains:
-
-- current main SHA;
-- QA/Core/remediation/Founder/research queues;
-- blocked items;
-- stale QA;
-- conflicted QA;
-- legacy/unstructured count;
-- generation timestamp;
-- Stage-2 source/merge provenance;
-- plan fingerprints.
-
-It is generated from live GitHub on each workflow run and never treated as a manually maintained source of truth.
-
-## Stage 3B and Stage 3C — documentation only
-
-**Stage 3B (future):** narrowly authorized canonical status-label mutation, optimistic concurrency/revalidation, idempotency, rollback evidence, and least-privilege `issues:write` only if separately Founder-authorized and independently QA-approved.
-
-**Stage 3C (future):** generated/updateable handoff comments and durable Founder-facing communication, again requiring separate Founder authorization and QA. It must never create QA verdicts or Founder decisions.
-
-Neither write stage is implemented or authorized by Stage 3A.
+Neither capability exists in Stage 3A.
