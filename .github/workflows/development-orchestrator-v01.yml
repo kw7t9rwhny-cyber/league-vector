@@ -91,20 +91,10 @@ jobs:
           LEAGUE_VECTOR_ORCHESTRATOR_EXECUTE: "0"
           LEAGUE_VECTOR_STAGE3B_ACTIVATED: "0"
         run: |
-          node - <<'NODE'
-          const fs=require('fs');
-          const plans=JSON.parse(fs.readFileSync('/tmp/orchestrator-stage3a-plan.json','utf8')).plans || [];
-          if(!plans.length){ console.log('no structured live plan to dry-run through executor'); process.exit(0); }
-          fs.writeFileSync('/tmp/stage3b-plan.json', JSON.stringify(plans[0]));
-          NODE
+          node -e 'const fs=require("fs"); const p=JSON.parse(fs.readFileSync("/tmp/orchestrator-stage3a-plan.json","utf8")); const plans=p.plans||[]; if(plans.length) fs.writeFileSync("/tmp/stage3b-plan.json",JSON.stringify(plans[0])); else console.log("no structured live plan to dry-run through executor");'
           if [ -f /tmp/stage3b-plan.json ]; then
             node scripts/development-orchestrator-v03b.js --plan /tmp/stage3b-plan.json --json > /tmp/orchestrator-stage3b-audit.json
-            node - <<'NODE'
-            const a=require('/tmp/orchestrator-stage3b-audit.json');
-            if(a.mode!=='dry-run') process.exit(1);
-            if(a.mutations_attempted.length||a.mutations_completed.length) process.exit(1);
-            console.log(JSON.stringify({pr:a.pr,result:a.post_write_verification,abort:a.aborted_reason}));
-            NODE
+            node -e 'const a=require("/tmp/orchestrator-stage3b-audit.json"); if(a.mode!=="dry-run"||a.mutations_attempted.length||a.mutations_completed.length) process.exit(1); console.log(JSON.stringify({pr:a.pr,result:a.post_write_verification,abort:a.aborted_reason}));'
           fi
       - name: Upload Stage 3A/3B dry-run evidence
         uses: actions/upload-artifact@v4
