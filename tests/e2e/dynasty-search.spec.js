@@ -30,12 +30,7 @@ async function mockSearchLeague(page) {
     }
     if (url.pathname.endsWith("/data/experimental/2026-projections.json")) {
       return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
-        v: "lv-projection-frontend-v0.3",
-        m: "lv-projection-system-v0.3",
-        d: "2026-08-13T12:00:00Z",
-        through: 2025,
-        aliases: [],
-        r: [],
+        v: "lv-projection-frontend-v0.3", m: "lv-projection-system-v0.3", d: "2026-08-13T12:00:00Z", through: 2025, aliases: [], r: [],
       }) });
     }
     if (url.hostname !== "api.sleeper.app") return route.continue();
@@ -63,50 +58,59 @@ async function analyze(page) {
   await expect(page.locator("#status")).toHaveText(/League Vector v0\.8 foundation calculated/, { timeout: 15000 });
 }
 
-test("production dynasty search works on desktop without changing dynasty value", async ({ page }) => {
+test("production dynasty search stays visible while rankings start collapsed and auto-open on search", async ({ page }) => {
   await analyze(page);
   const search = page.getByLabel("Search dynasty players");
-  await expect(search).toBeVisible();
-
+  const disclosure = page.locator("#dynastyRankingsDisclosure");
   const joshCard = page.locator("#playerValues .player-card", { hasText: "Josh Allen" });
   const cmcCard = page.locator("#playerValues .player-card", { hasText: "Christian McCaffrey" });
+
+  await expect(search).toBeVisible();
+  await expect(page.locator("#dynastySearchStatus")).toHaveText("2 currently ranked dynasty players.");
+  await expect(disclosure).not.toHaveAttribute("open", "");
+  await expect(joshCard).toBeHidden();
+  await expect(cmcCard).toBeHidden();
+
+  await page.getByText("Show dynasty rankings", { exact: true }).click();
+  await expect(disclosure).toHaveAttribute("open", "");
   await expect(joshCard).toBeVisible();
   await expect(cmcCard).toBeVisible();
   const valueBefore = await joshCard.locator(".lv-value").textContent();
 
+  await page.getByText("Hide dynasty rankings", { exact: true }).click();
+  await expect(disclosure).not.toHaveAttribute("open", "");
   await search.fill("jOsH aLlEn");
+  await expect(disclosure).toHaveAttribute("open", "");
   await expect(joshCard).toBeVisible();
   await expect(cmcCard).toBeHidden();
   await expect(joshCard.locator(".lv-value")).toHaveText(valueBefore);
 
   await search.fill("not-a-real-player");
-  await expect(page.locator("[data-dynasty-search-empty]"))
-    .toHaveText("No dynasty players match “not-a-real-player”.");
-
+  await expect(page.locator("[data-dynasty-search-empty]")).toHaveText("No dynasty players match “not-a-real-player”.");
   await search.fill("");
   await expect(joshCard).toBeVisible();
   await expect(cmcCard).toBeVisible();
   await expect(joshCard.locator(".lv-value")).toHaveText(valueBefore);
 });
 
-test("production dynasty search is usable at iPhone-sized viewport", async ({ page }) => {
+test("production dynasty search is usable at iPhone-sized viewport without horizontal overflow", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await analyze(page);
   const search = page.getByLabel("Search dynasty players");
+  const disclosure = page.locator("#dynastyRankingsDisclosure");
   await expect(search).toBeVisible();
+  await expect(disclosure).not.toHaveAttribute("open", "");
 
   const box = await search.boundingBox();
   expect(box).not.toBeNull();
   expect(box.height).toBeGreaterThanOrEqual(40);
   expect(box.x).toBeGreaterThanOrEqual(0);
   expect(box.x + box.width).toBeLessThanOrEqual(390);
-  await search.click({ trial: true });
 
   await search.fill("Josh Allen");
+  await expect(disclosure).toHaveAttribute("open", "");
   await expect(page.locator("#playerValues .player-card", { hasText: "Josh Allen" })).toBeVisible();
   await expect(page.locator("#playerValues .player-card", { hasText: "Christian McCaffrey" })).toBeHidden();
-  await search.fill("");
-  await expect(page.locator("#playerValues .player-card", { hasText: "Christian McCaffrey" })).toBeVisible();
 
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(1);
