@@ -1,0 +1,54 @@
+name: Development Orchestrator v0.1
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled, edited]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+
+jobs:
+  contract-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Syntax check
+        run: node --check scripts/development-orchestrator-v01.js
+      - name: Deterministic orchestrator tests
+        run: node --test tests/development-orchestrator-v01.test.js
+      - name: Validate schema is readable
+        run: node scripts/development-orchestrator-v01.js
+
+  pr-metadata-audit:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail closed on contradictory orchestrator labels
+        env:
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: |
+          python3 - <<'PY'
+          import json, os, sys
+          labels = set(json.loads(os.environ['LABELS']))
+          statuses = sorted(x for x in labels if x.startswith('status:'))
+          owners = sorted(x for x in labels if x.startswith('owner:'))
+          risks = sorted(x for x in labels if x.startswith('risk:'))
+          errors = []
+          if len(statuses) > 1: errors.append(f"multiple status labels: {statuses}")
+          if len(owners) > 1: errors.append(f"multiple owner labels: {owners}")
+          if len(risks) > 1: errors.append(f"multiple risk labels: {risks}")
+          if errors:
+              print("; ".join(errors))
+              sys.exit(1)
+          print("orchestrator metadata is non-contradictory")
+          PY
+
+# Security contract: this workflow intentionally has read-only permissions.
+# It never runs pull_request_target, never executes privileged untrusted code,
+# never merges, never deploys, and never mutates labels or Founder gates in v0.1.
