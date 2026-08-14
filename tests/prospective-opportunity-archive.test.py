@@ -5,10 +5,15 @@ import pathlib
 import tempfile
 import unittest
 
-SCRIPT = pathlib.Path(__file__).resolve().parents[1] / "scripts" / "prospective-opportunity-archive.py"
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+SCRIPT = ROOT / "scripts" / "prospective-opportunity-archive.py"
 spec = importlib.util.spec_from_file_location("prospective_archive", SCRIPT)
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
+RUNNER = ROOT / "scripts" / "run-prospective-opportunity-archive.py"
+runner_spec = importlib.util.spec_from_file_location("prospective_archive_runner", RUNNER)
+runner = importlib.util.module_from_spec(runner_spec)
+runner_spec.loader.exec_module(runner)
 
 
 class ProspectiveArchiveTests(unittest.TestCase):
@@ -65,6 +70,14 @@ class ProspectiveArchiveTests(unittest.TestCase):
         self.assertTrue(mod.should_run_auto(tuesday))
         self.assertFalse(mod.should_run_auto(wednesday))
         self.assertTrue(mod.should_run_auto(august))
+
+    def test_explicit_2026_season_phase(self):
+        self.assertEqual(runner.season_type_at(dt.datetime(2026, 8, 14, tzinfo=dt.timezone.utc), 2026), "PRE")
+        self.assertEqual(runner.season_type_at(dt.datetime(2026, 9, 10, 0, 20, tzinfo=dt.timezone.utc), 2026), "REG")
+        with self.assertRaisesRegex(RuntimeError, "regular-season archive window ended"):
+            runner.season_type_at(dt.datetime(2027, 1, 15, tzinfo=dt.timezone.utc), 2026)
+        with self.assertRaisesRegex(RuntimeError, "season phase not configured"):
+            runner.season_type_at(dt.datetime(2027, 8, 1, tzinfo=dt.timezone.utc), 2027)
 
     def test_observation_write_refuses_overwrite(self):
         with tempfile.TemporaryDirectory() as td:
