@@ -32,6 +32,7 @@ jobs:
           unzip -q /tmp/lv-control/control.zip -d /tmp/lv-control/unpacked
           mkdir -p .cache data/reports/projection-v04-cycle2/control
           cp -R /tmp/lv-control/unpacked/.cache/lv-v04-canonical .cache/lv-v04-cycle2
+          cp /tmp/lv-control/unpacked/data/reports/projection-v04-canonical/snapshot-manifest.json .cache/lv-v04-cycle2/snapshot-manifest.json
           cp /tmp/lv-control/unpacked/data/reports/projection-v04-canonical/run-a/candidate-player-seasons.json data/reports/projection-v04-cycle2/control/candidate-player-seasons.json
           cp /tmp/lv-control/unpacked/data/reports/projection-v04-canonical/run-a/output-hashes.json data/reports/projection-v04-cycle2/control/output-hashes.json
       - name: Verify exact control snapshot and candidate output hash
