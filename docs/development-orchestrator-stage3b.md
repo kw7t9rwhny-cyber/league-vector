@@ -1,4 +1,4 @@
-# Development Orchestrator Stage 3B v0.2 — guarded label executor
+# Development Orchestrator Stage 3B v0.3 — guarded label executor
 
 Stage 3B introduces **future** capability to execute the narrow status/owner-label mutations produced by QA-approved Stage 3A plans. This candidate remains **inactive and completely read only in checked-in GitHub Actions**. It contains no real GitHub write adapter.
 
@@ -49,40 +49,68 @@ A server-applied/client-error ambiguity is never reported as success. If the exe
 
 Rollback is **not** automatic authority to mutate.
 
-Before every inverse operation Stage 3B:
+Before every inverse operation Stage 3B re-fetches live state, reconstructs the exact expected partial transaction state, verifies exact head/open state, all protected structured metadata, singleton-conflict state, QA evidence, Founder state, dependency snapshots and the exact Stage-3B-owned Orchestrator label effect. Same/conflicting Orchestrator human changes, head/QA/Founder/dependency races, ambiguous state or unverifiable post-state stop rollback and force `failed-or-partial` with `manual_review_required=true`.
 
-- re-fetches live state;
-- reconstructs the exact expected partial transaction state;
-- verifies exact head and open state;
-- verifies all protected structured metadata, singleton-conflict state, QA evidence, Founder state and dependency snapshots;
-- verifies the current Orchestrator status/owner labels exactly match the state Stage 3B itself should have produced;
-- verifies the label effect being inverted is still present/absent exactly as expected;
-- refuses rollback if a same-label or conflicting Orchestrator human change occurred.
+Unrelated non-Orchestrator labels may coexist with a provably safe rollback because rollback protection never overwrites unrelated labels.
 
-Unrelated non-Orchestrator labels may coexist with a provably safe rollback because rollback protection compares the authority state and Orchestrator-owned transaction labels rather than overwriting unrelated labels.
+## Activation trust boundary
 
-After every inverse operation, Stage 3B re-reads again and verifies the protected post-state. If any rollback precondition or postcondition cannot be proven, rollback stops, `manual_review_required=true`, and the executor reports `failed-or-partial`. It never guesses or overwrites concurrent human state.
+Stage 3B v0.3 separates **trusted repository provenance** from **runtime/environment assertions**.
+
+### Trusted provenance
+
+For a future execute path, repository authority must be obtained independently through the injected adapter's `readActivationProvenance(repository)` contract. The checked-in `GitHubReadOnlyAdapter` implements this as a read-only call to GitHub's repository metadata API and returns only:
+
+- provenance source: `github-repository-api`;
+- canonical `repository_full_name`;
+- actual repository `default_branch`;
+- actual repository `fork` boolean.
+
+These are authorization facts. They cannot be replaced by caller-supplied environment variables.
+
+Trusted provenance fails closed if the provenance object is missing, the source is missing, repository identity is malformed or differs from the requested repository, default branch is missing/empty/malformed, or fork state is not an actual boolean.
+
+### Runtime/environment assertions
+
+The following remain execution-context observations, not repository authority:
+
+- `GITHUB_REPOSITORY`;
+- `GITHUB_EVENT_NAME`;
+- `GITHUB_REF`;
+- `GITHUB_REF_TYPE`;
+- `GITHUB_REF_NAME`;
+- `GITHUB_DEFAULT_BRANCH` if present;
+- `GITHUB_HEAD_REPO_FORK` if present;
+- the explicit Stage-3B request/activation flags.
+
+Runtime values can restrict execution but cannot create trusted repository facts. If runtime repository/default/fork assertions conflict with independently trusted repository provenance, execution is denied. Malformed fork assertions are denied. Missing required runtime event/ref/repository context is denied.
 
 ## Exact default-branch authentication
 
-The mocked/test execute path requires all of:
+Execute eligibility requires all of:
 
-- `LEAGUE_VECTOR_ORCHESTRATOR_EXECUTE=1`;
-- `LEAGUE_VECTOR_STAGE3B_ACTIVATED=1`;
-- GitHub event exactly `workflow_dispatch`;
-- repository default-branch provenance supplied as `GITHUB_DEFAULT_BRANCH`;
-- `GITHUB_REF === refs/heads/<default branch>`;
+- explicit execute request;
+- explicit Stage-3B activation flag;
+- valid trusted repository provenance;
+- runtime repository identity matching the trusted repository;
+- event exactly `workflow_dispatch`;
+- `GITHUB_REF === refs/heads/<trusted default branch>`;
 - `GITHUB_REF_TYPE === branch`;
-- `GITHUB_REF_NAME === <default branch>`;
-- non-fork execution.
+- `GITHUB_REF_NAME === <trusted default branch>`;
+- trusted repository fork state exactly `false`;
+- no conflicting runtime default-branch or fork assertion.
 
-A tag named `main`, another branch, push, schedule, pull request, missing activation/request flag, missing default-branch provenance or fork execution all fail closed.
+Therefore `GITHUB_DEFAULT_BRANCH=feature` cannot authorize `refs/heads/feature` when GitHub repository metadata says the default branch is `main`. A tag named `main`, another branch, push, schedule, pull request, missing trusted default-branch provenance, malformed trusted branch data or conflicting event/runtime metadata all fail closed.
 
-The checked-in workflow never supplies the activation flags as `1` and never invokes Stage 3B with `--execute`.
+## Non-fork authentication
+
+Non-fork authority comes only from the independently fetched trusted repository `fork` boolean. Missing, string-valued, malformed or otherwise unknown fork provenance fails closed. A caller assertion such as `GITHUB_HEAD_REPO_FORK=false` can never override trusted `fork=true`; conflicts deny execution.
+
+Pull-request execution remains forbidden because execute eligibility requires `workflow_dispatch`. A future same-repository default-branch manual dispatch is eligible only in mocked/test execution after every other gate succeeds; this candidate still has no real write adapter.
 
 ## Current zero-write boundary
 
-This candidate still exposes only `GitHubReadOnlyAdapter`, which can re-read live repository state. There is **no** real `addLabel`/`removeLabel` GitHub adapter checked in.
+This candidate exposes only `GitHubReadOnlyAdapter`. It can re-read live repository state and read GitHub repository metadata. There is **no** real `addLabel`/`removeLabel` GitHub adapter checked in.
 
 Workflow permissions remain exactly:
 
@@ -92,31 +120,38 @@ Workflow permissions remain exactly:
 
 There is no `pull_request_target`, no `issues:write`, no `pull-requests:write`, no `contents:write`, and no `actions:write`.
 
+The checked-in workflow never invokes Stage 3B with `--execute` and never sets either activation flag to `1`.
+
 Stage 3B does not comment, assign, create PRs/branches, merge, deploy, make Founder decisions, promote models/research, invoke paid services, modify Prospective Archive data or modify production football behavior.
 
 ## Preserved authority
 
-Stage 3B continues to inherit and re-evaluate:
-
-- authenticated verdict-only QA evidence;
-- exact-SHA freshness and stale/head-movement invalidation;
-- same-timestamp conflicting QA fail-closed behavior;
-- canonical owner and duplicate-singleton metadata contracts;
-- raw-research/Core firewall and explicit promotion boundary;
-- Founder pending/rejected/approved semantics;
-- dependency blocking;
-- malicious GitHub prose inertness;
-- deterministic Stage-3A replay provenance.
+Stage 3B continues to inherit and re-evaluate authenticated verdict-only QA evidence, exact-SHA freshness, stale/head-movement invalidation, same-timestamp conflicting QA fail-closed behavior, canonical owner and duplicate-singleton metadata contracts, raw-research/Core firewall, explicit promotion boundary, Founder gates, dependency blocking, malicious GitHub prose inertness and deterministic Stage-3A replay provenance.
 
 ## Audit output
 
-Audit records include executor version/mode, PR/head/fingerprint, expected-before and desired-after states, mutations attempted/completed, per-write revalidation results, rollback attempts/completions, rollback revalidation results, manual-review requirement, post-write verification and abort reason. Tokens/secrets are never included.
+Audit records include executor version/mode, PR/head/fingerprint, expected-before and desired-after states, the sanitized activation-gate decision/provenance classification, mutations attempted/completed, per-write revalidation results, rollback attempts/completions, rollback revalidation results, manual-review requirement, post-write verification and abort reason. Tokens/secrets are never included.
 
 ## Adversarial coverage
 
-The test suite includes two-mutation transactions where, after mutation 1, each of the following independently changes: type to research, body owner, duplicate Owner metadata, duplicate Founder metadata, Founder decision, promotion metadata, status/risk/integration metadata, dependency **status** with unchanged dependency IDs, authenticated QA PASS to FAIL, QA conflict, candidate head SHA, current main SHA, relevant Orchestrator labels, fresh Stage-3A disposition and remaining mutation list. Mutation 2 must never execute in every case.
+In addition to the previously passing two-mutation transaction and rollback race suite, Stage 3B v0.3 explicitly tests:
 
-Rollback tests cover unrelated human labels, same/conflicting Orchestrator status changes, head movement, QA/Founder/dependency changes and ambiguous server-applied writes. Unsafe rollback always becomes `failed-or-partial` with manual review required.
+- untrusted environment attempting to redefine the trusted default branch;
+- trusted default branch differing from environment assertions;
+- trusted default branch missing, empty or malformed;
+- tag named `main`;
+- trusted non-fork provenance;
+- trusted fork provenance;
+- missing or malformed trusted fork provenance;
+- untrusted non-fork assertion conflicting with trusted fork state;
+- malformed fork assertions;
+- missing trusted provenance adapter/object;
+- trusted repository identity conflict;
+- runtime repository identity conflict/missing context;
+- fork pull-request context;
+- valid same-repository default-branch `workflow_dispatch` in the mock executor only.
+
+All prior full per-write Stage-2/Stage-3A replan, exact remaining mutation suffix, current-main/dependency-status/singleton metadata race, raw-research, authenticated QA, Founder, rollback, ambiguous-write, idempotency, canonical-label and deterministic-audit tests remain required.
 
 ## Activation boundary
 
