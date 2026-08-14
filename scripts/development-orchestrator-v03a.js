@@ -76,9 +76,9 @@ function ownerAuthority(item, rawPr) {
 
 function provenanceFor(item, rawPr, byId, mainSha) {
   const snapshot = {
-    schema:"lv-stage3a-plan-provenance-v0.2", main_sha:mainSha||null, pr:item.id,
+    schema:"lv-stage3a-plan-provenance-v0.3", main_sha:mainSha||null, pr:item.id,
     head_sha:item.head_sha||null, declared_candidate_sha:item.declared_candidate_sha||null,
-    labels:labelNames(rawPr), metadata:{ owner:item.owner||null, risk:item.risk||null, status:item.status||null, type:item.type||null, priority:item.priority||null, integration_required:item.integration_required, promotion_type:item.promotion_type||null, promotion_authorized:item.promotion_authorized, founder_decision_required:item.founder_decision_required, founder_gate:item.founder_gate||null, founder_decision:item.founder_decision||null, dependencies:item.dependencies||[], conflicts:item.metadata_conflicts||[] },
+    labels:labelNames(rawPr), metadata:{ owner:item.owner||null, risk:item.risk||null, status:item.status||null, type:item.type||null, priority:item.priority||null, integration_required:item.integration_required, promotion_type:item.promotion_type||null, promotion_authorized:item.promotion_authorized, founder_decision_required:item.founder_decision_required, founder_gate:item.founder_gate||null, founder_decision:item.founder_decision||null, dependencies:item.dependencies||[], conflicts:item.metadata_conflicts||[], body_occurrences:item.metadata_body_occurrences||{} },
     qa:{ state:qaState(item), tested_sha:item.qa_tested_sha||null, current_event:item.current_qa_verdict||null, latest_event:item.latest_qa_verdict||null, event_provenance:qaEventProvenance(rawPr) },
     dependencies:dependencySnapshot(item,byId)
   };
@@ -103,9 +103,9 @@ function noOpPlan(item,rawPr,byId,mainSha,reason,detail=null) {
 function planItem(item,rawPr,byId,mainSha) {
   if (!item||!rawPr) throw new Error("missing_plan_item");
   if (!item.open) return noOpPlan(item,rawPr,byId,mainSha,"closed_or_merged_pr");
+  if (!item.structured) return noOpPlan(item,rawPr,byId,mainSha,"legacy_or_unstructured_metadata",{missing:item.missing_metadata||[],conflicts:item.metadata_conflicts||[]});
   const owner=ownerAuthority(item,rawPr);
   if (!owner.valid) return noOpPlan(item,rawPr,byId,mainSha,owner.reason,owner.detail||null);
-  if (!item.structured) return noOpPlan(item,rawPr,byId,mainSha,"legacy_or_unstructured_metadata",{missing:item.missing_metadata||[],conflicts:item.metadata_conflicts||[]});
   const statusLabels=labelsWithPrefix(rawPr,"status");
   if (statusLabels.length>1) return noOpPlan(item,rawPr,byId,mainSha,"ambiguous_status_labels",statusLabels);
   const malformed=malformedAuthorizedQaEvidence(rawPr);
@@ -137,7 +137,7 @@ function planItem(item,rawPr,byId,mainSha) {
 
 function commandCenterPreview(data,queues,plans,generatedAt) {
   const compact=(item)=>({pr:item.id,title:item.title,owner:item.owner||null,risk:item.risk||null,status:item.status||null,head_sha:item.head_sha||null,qa_state:qaState(item),recommended_action:item.recommended_action});
-  return { schema:"lv-command-center-stage3a-preview-v0.2",operational:false,mutation_mode:"dry-run-read-only",generated_at:generatedAt,provenance:{main_sha:data.main_sha||null,stage2_source:"merged-main-shared-authority-layer",plan_fingerprints:plans.map((p)=>({pr:p.pr,fingerprint:p.provenance.fingerprint}))},qa_queue:queues.qa.map(compact),core_queue:queues.core.map(compact),remediation_queue:queues.remediation.map(compact),founder_queue:queues.founder.map(compact),research_queue:queues.research.map(compact),blocked:queues.items.filter((x)=>x.open&&x.structured&&!x.dependencies_satisfied).map(compact),stale_qa:queues.items.filter((x)=>x.open&&x.qa_stale).map(compact),conflicted_qa:queues.items.filter((x)=>x.open&&x.qa_conflicted_current).map(compact),legacy_unstructured_count:queues.legacy.length };
+  return { schema:"lv-command-center-stage3a-preview-v0.3",operational:false,mutation_mode:"dry-run-read-only",generated_at:generatedAt,provenance:{main_sha:data.main_sha||null,stage2_source:"merged-main-shared-authority-layer",plan_fingerprints:plans.map((p)=>({pr:p.pr,fingerprint:p.provenance.fingerprint}))},qa_queue:queues.qa.map(compact),core_queue:queues.core.map(compact),remediation_queue:queues.remediation.map(compact),founder_queue:queues.founder.map(compact),research_queue:queues.research.map(compact),blocked:queues.items.filter((x)=>x.open&&x.structured&&!x.dependencies_satisfied).map(compact),stale_qa:queues.items.filter((x)=>x.open&&x.qa_stale).map(compact),conflicted_qa:queues.items.filter((x)=>x.open&&x.qa_conflicted_current).map(compact),legacy_unstructured_count:queues.legacy.length };
 }
 
 function derivePlan(data) {
@@ -145,7 +145,7 @@ function derivePlan(data) {
   const keepReasons=new Set(["qa_evidence_stale","qa_evidence_conflicted","blocked_dependency","founder_decision_rejected","candidate_head_moved","missing_owner","unsupported_owner","owner_metadata_conflict","owner_label_body_conflict","ambiguous_owner_labels","unsupported_owner_label"]);
   const plans=queues.items.filter((x)=>x.open&&x.structured).map((x)=>planItem(x,rawById[x.id],byId,data.main_sha||null)).filter((p)=>p.disposition!=="NO_MUTATION"||keepReasons.has(p.reason));
   const generatedAt=data.generated_at||process.env.ORCHESTRATOR_GENERATED_AT||null;
-  return { schema:"lv-development-orchestrator-stage3a-plan-v0.2",source:"stage2-live-github-plus-stage3a-read-only-planner",mutation_mode:"dry-run-read-only",main_sha:data.main_sha||null,generated_at:generatedAt,plans,command_center_preview:commandCenterPreview(data,queues,plans,generatedAt),counts:{would_mutate:plans.filter((p)=>p.disposition==="WOULD_MUTATE").length,would_route_only:plans.filter((p)=>p.disposition==="WOULD_ROUTE_ONLY").length,blocked_or_no_mutation:plans.filter((p)=>p.disposition==="NO_MUTATION").length,legacy_unstructured_suppressed:queues.legacy.length},queues };
+  return { schema:"lv-development-orchestrator-stage3a-plan-v0.3",source:"stage2-live-github-plus-stage3a-read-only-planner",mutation_mode:"dry-run-read-only",main_sha:data.main_sha||null,generated_at:generatedAt,plans,command_center_preview:commandCenterPreview(data,queues,plans,generatedAt),counts:{would_mutate:plans.filter((p)=>p.disposition==="WOULD_MUTATE").length,would_route_only:plans.filter((p)=>p.disposition==="WOULD_ROUTE_ONLY").length,blocked_or_no_mutation:plans.filter((p)=>p.disposition==="NO_MUTATION").length,legacy_unstructured_suppressed:queues.legacy.length},queues };
 }
 function humanPlan(plan) {
   const lines=[`PR #${plan.pr} — ${plan.title}`,`Exact evaluated head: ${plan.evaluated_head_sha||"unknown"}`,`QA: ${plan.qa_state}${plan.qa_tested_sha?` (${plan.qa_tested_sha})`:""}`,`Stage-2 action: ${plan.stage2_recommended_action}`,`Disposition: ${plan.disposition}`,`Reason: ${plan.reason}`,`Route: ${plan.proposed_route||"none"}`,`Replay fingerprint: ${plan.provenance.fingerprint}`];
