@@ -32,8 +32,8 @@ jobs:
         run: python -m pip install pandas==2.2.3 numpy==2.2.3 scipy==1.15.2 scikit-learn==1.6.1
       - name: Run twice and prove deterministic output
         run: |
-          python scripts/projection-young-role-growth-v01.py .cache/lv-young-v01 data/reports/projection-young-role-growth-v01/control/candidate-player-seasons.json data/reports/projection-young-role-growth-v01/run-a.json
-          python scripts/projection-young-role-growth-v01.py .cache/lv-young-v01 data/reports/projection-young-role-growth-v01/control/candidate-player-seasons.json data/reports/projection-young-role-growth-v01/run-b.json
+          python scripts/projection-young-role-growth-v01-fixed.py .cache/lv-young-v01 data/reports/projection-young-role-growth-v01/control/candidate-player-seasons.json data/reports/projection-young-role-growth-v01/run-a.json
+          python scripts/projection-young-role-growth-v01-fixed.py .cache/lv-young-v01 data/reports/projection-young-role-growth-v01/control/candidate-player-seasons.json data/reports/projection-young-role-growth-v01/run-b.json
           cmp data/reports/projection-young-role-growth-v01/run-a.json data/reports/projection-young-role-growth-v01/run-b.json
           sha256sum data/reports/projection-young-role-growth-v01/run-a.json > data/reports/projection-young-role-growth-v01/result.sha256
       - uses: actions/upload-artifact@v4
