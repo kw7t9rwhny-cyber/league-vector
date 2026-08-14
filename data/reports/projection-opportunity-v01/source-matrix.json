@@ -1,0 +1,75 @@
+{
+  "version": "projection-opportunity-v01-source-audit",
+  "research_question": "Can point-in-time preseason role information improve validated v0.4 opportunity and fantasy projections?",
+  "validated_control_sha": "6d931abadbcb06e910bf953d941902c7c2cd1638",
+  "branch_base_sha": "7ee8dbabea1188f1b9413cfaf0a17b3b6164006b",
+  "sources": [
+    {
+      "provider": "nflverse weekly rosters",
+      "historical_depth": "2002-present",
+      "fields": ["season", "week", "team", "position", "depth_chart_position", "status", "gsis_id", "sportradar_id", "fantasy_data_id", "years_exp"],
+      "ordered_depth": false,
+      "point_in_time_cutoff_proven": false,
+      "license": "nflverse-data CC BY 4.0; underlying NFL Shield v2 provenance requires production-rights review",
+      "commercial_status": "research-use candidate; production provenance review required",
+      "best_use": ["team changes", "roster status", "PUP/reserve status", "identity", "possible vacated-opportunity research after cutoff validation"],
+      "blocking_issue": "No audited ordered starter depth and no proven final-preseason as-of semantics"
+    },
+    {
+      "provider": "Sportradar NFL Weekly Depth Charts",
+      "historical_depth": "season/week-addressable endpoint; documented season selector spans many historical seasons",
+      "fields": ["season", "season_type", "week", "team_id", "position", "depth", "player_id"],
+      "ordered_depth": true,
+      "point_in_time_cutoff_proven": "requires confirmation that historical responses preserve pregame snapshot rather than later revision",
+      "license": "trial/production vendor API; production reserved for customers",
+      "commercial_status": "FOUNDER DECISION REQUIRED",
+      "best_use": ["historical starter transitions", "depth order", "preseason/Week-1 snapshot research"],
+      "blocking_issue": "API access, commercial terms, and historical snapshot semantics require vendor confirmation"
+    },
+    {
+      "provider": "SportsDataIO NFL Depth Charts",
+      "historical_depth": "live/current documented; historical replay/snapshot availability must be confirmed",
+      "fields": ["TeamID", "PlayerID", "PositionCategory", "Position", "DepthOrder", "Updated", "injury/list context"],
+      "ordered_depth": true,
+      "point_in_time_cutoff_proven": false,
+      "license": "commercial subscription; field-level restrictions exist in data dictionary",
+      "commercial_status": "FOUNDER DECISION REQUIRED",
+      "best_use": ["live 2026 overlay", "ordered role", "injury/list context", "potential historical snapshots if vendor confirms"],
+      "blocking_issue": "Public docs do not establish historical point-in-time reconstruction"
+    },
+    {
+      "provider": "FantasyPros API",
+      "historical_depth": "commercial historical/bulk access offered generally; historical NFL depth-chart snapshots not established",
+      "fields": ["players", "injuries", "rankings/projections depending license"],
+      "ordered_depth": "not established for required NFL historical use",
+      "point_in_time_cutoff_proven": false,
+      "license": "free/premium non-commercial; commercial agreement required; competitive-use terms require review",
+      "commercial_status": "not preferred without explicit contract",
+      "best_use": [],
+      "blocking_issue": "Historical depth-chart archive and competitive commercial rights not established"
+    }
+  ],
+  "required_snapshot_contract": [
+    "data_as_of",
+    "provider_snapshot_id",
+    "season",
+    "season_type",
+    "week_or_preseason_cutoff",
+    "provider_player_id",
+    "gsis_id",
+    "team",
+    "normalized_position",
+    "depth_order",
+    "roster_status",
+    "injury_status",
+    "source_quality"
+  ],
+  "selection_evidence": "pre-2025 chronological only",
+  "retrospective_observed": 2025,
+  "flags": {
+    "experimental": true,
+    "production_projection_eligible": false,
+    "dynasty_value_eligible": false
+  },
+  "readiness": "MORE CURRENT OPPORTUNITY RESEARCH REQUIRED"
+}
