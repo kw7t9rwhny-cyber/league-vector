@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Experimental only; production_dynasty_value_eligible=false
-import json, math, sys
+import json, sys
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -48,13 +48,21 @@ def predictions(a):
    for h in range(1,6):
     tr=a[(a.position_group==pos)&(a.season+h<y)&a[f'y{h}'].notna()].copy()
     if len(tr)<60 or base.empty:continue
-    tr['rel']=(tr[f'y{h}']>=threshold(pos)).astype(int);pm=ridge();pm.fit(tr[FEATS],tr[f'y{h}']);lm=logit();lm.fit(tr[FEATS],tr.rel);pp=np.maximum(0,pm.predict(base[FEATS]));ss=lm.predict_proba(base[FEATS])[:,1]
-    for i,(_,r) in enumerate(base.iterrows()):rows.append({'player_id':r.player_id,'season':y,'pos':pos,'age':r.age,'experience':r.experience,'current':r.fantasy,'h':h,'pred':float(pp[i]),'survival':float(ss[i]),'actual':None if pd.isna(r[f'y{h}']) else float(r[f'y{h}'])})
+    tr['rel']=(tr[f'y{h}']>=threshold(pos)).astype(int)
+    # Survival and conditional production are intentionally separate. Fitting points on
+    # all rows and then multiplying by survival double-counts role loss.
+    reltr=tr[tr.rel.eq(1)].copy()
+    if len(reltr)<40 or tr.rel.nunique()<2:continue
+    pm=ridge();pm.fit(reltr[FEATS],reltr[f'y{h}'])
+    lm=logit();lm.fit(tr[FEATS],tr.rel)
+    conditional=np.maximum(0,pm.predict(base[FEATS]));ss=lm.predict_proba(base[FEATS])[:,1]
+    for i,(_,r) in enumerate(base.iterrows()):
+     rows.append({'player_id':r.player_id,'season':y,'pos':pos,'age':r.age,'experience':r.experience,'current':r.fantasy,'h':h,'conditional_pred':float(conditional[i]),'survival':float(ss[i]),'expected_pred':float(conditional[i]*ss[i]),'actual':None if pd.isna(r[f'y{h}']) else float(r[f'y{h}'])})
  return pd.DataFrame(rows)
 def score(d,cfg):
- x=d.copy();x['pred_scored']=x.pred;x['actual_scored']=x.actual
+ x=d.copy();x['conditional_scored']=x.conditional_pred;x['expected_scored']=x.expected_pred;x['actual_scored']=x.actual
  if cfg['te_bonus']:
-  te=x.pos.eq('TE');x.loc[te,'pred_scored']*=1+0.12*cfg['te_bonus'];x.loc[te,'actual_scored']*=1+0.12*cfg['te_bonus']
+  te=x.pos.eq('TE');f=1+0.12*cfg['te_bonus'];x.loc[te,'conditional_scored']*=f;x.loc[te,'expected_scored']*=f;x.loc[te,'actual_scored']*=f
  return x
 def repl(d,cfg,col):
  teams=cfg['teams'];sel=set();levels={}
@@ -80,10 +88,15 @@ def evaluate(p):
    for dn,disc in DISCOUNTS.items():
     players={}
     for h in range(1,H+1):
-     dh=s[s.h.eq(h)].copy();levels=repl(dh,cfg,'pred_scored')
+     dh=s[s.h.eq(h)].copy();levels=repl(dh,cfg,'expected_scored')
      for _,r in dh.iterrows():
       k=(r.player_id,r.season,r.pos,r.age,r.experience);players.setdefault(k,{'pred':0,'actual':0,'y1':0,'current':r.current})
-      w=disc**(h-1);surv=1 if h==1 else r.survival;players[k]['pred']+=w*surv*max(0,r.pred_scored-levels[r.pos]);players[k]['actual']+=w*(0 if pd.isna(r.actual_scored) else max(0,r.actual_scored-levels[r.pos]));players[k]['y1']+=max(0,r.pred_scored-levels[r.pos]) if h==1 else 0
+      w=disc**(h-1)
+      # expected_scored already equals P(relevant) * E[points | relevant].
+      surplus=max(0,r.expected_scored-levels[r.pos])
+      players[k]['pred']+=w*surplus
+      players[k]['actual']+=w*(0 if pd.isna(r.actual_scored) else max(0,r.actual_scored-levels[r.pos]))
+      players[k]['y1']+=surplus if h==1 else 0
     z=pd.DataFrame([{'player_id':k[0],'season':k[1],'pos':k[2],'age':k[3],'experience':k[4],**v} for k,v in players.items()]);rs=[];b1=[];bc=[]
     for _,g in z.groupby('season'):rs.append(sp(g.actual,g.pred));b1.append(sp(g.actual,g.y1));bc.append(sp(g.actual,g.current))
     out.append({'config':cn,'horizon':H,'discount':dn,'n':len(z),'mean_season_spearman':float(np.nanmean(rs)),'y1_surplus_spearman':float(np.nanmean(b1)),'current_points_spearman':float(np.nanmean(bc)),'gain_vs_y1':float(np.nanmean(rs)-np.nanmean(b1))})
@@ -98,10 +111,15 @@ def archetypes(p):
   for age in [ya,oa]:
    path=[]
    for h in range(1,5):
-    q=d[(d.h.eq(h))&d.age.between(age-1,age+1)];surv=float(q.survival.median()) if len(q) else .5;ratio=float((q.pred/q.current.replace(0,np.nan)).median()) if len(q) else .7;path.append({'h':h,'survival':surv,'conditional_ratio':ratio,'expected_points':p1*(1 if h==1 else ratio*surv)})
+    q=d[(d.h.eq(h))&d.age.between(age-1,age+1)]
+    surv=float(q.survival.median()) if len(q) else .5
+    cond_ratio=float((q.conditional_pred/q.current.replace(0,np.nan)).median()) if len(q) else .7
+    path.append({'h':h,'survival':surv,'conditional_ratio':cond_ratio,'expected_points':p1*cond_ratio*surv})
    paths[age]=path
-  out.append({'position':pos,'equal_y1_points':p1,'young_age':ya,'old_age':oa,'young_path':paths[ya],'old_path':paths[oa]})
+  out.append({'position':pos,'equal_current_points':p1,'young_age':ya,'old_age':oa,'young_path':paths[ya],'old_path':paths[oa]})
  return out
 def main():
- w,players,m=load();a=aggregate(w,players);p=predictions(a);ev,se=evaluate(p);o={'version':'dynasty-valuation-research-v02','input_snapshot_sha256':m['snapshot_sha256'],'evaluation':ev,'sensitivity':se,'archetypes':archetypes(p),'flags':{'experimental':True,'production_dynasty_value_eligible':False,'idp_numeric_eligible':False},'limitations':['No historical market snapshots in frozen repository: market-anchor variants cannot be chronologically backtested.','TE-premium future scoring uses a sensitivity proxy, not a promotable future stat-line model.','Zero-history rookies require separate rookie projection contract.','Display value-scale mapping deferred until raw football-utility validation is stronger.']};OUT.parent.mkdir(parents=True,exist_ok=True);OUT.write_text(json.dumps(o,indent=2,sort_keys=True)+'\n');print(json.dumps(o,indent=2,sort_keys=True))
+ w,players,m=load();a=aggregate(w,players);p=predictions(a);ev,se=evaluate(p)
+ o={'version':'dynasty-valuation-research-v02-survival-fixed','input_snapshot_sha256':m['snapshot_sha256'],'evaluation':ev,'sensitivity':se,'archetypes':archetypes(p),'flags':{'experimental':True,'production_dynasty_value_eligible':False,'idp_numeric_eligible':False},'limitations':['No historical market snapshots in frozen repository: market-anchor variants cannot be chronologically backtested.','TE-premium future scoring uses a sensitivity proxy, not a promotable future stat-line model.','Zero-history rookies require separate rookie projection contract.','Display value-scale mapping deferred until raw football-utility validation is stronger.','Realized-surplus validation uses ex-ante predicted replacement thresholds; a separate full-player-pool contemporaneous replacement audit is still required.']}
+ OUT.parent.mkdir(parents=True,exist_ok=True);OUT.write_text(json.dumps(o,indent=2,sort_keys=True)+'\n');print(json.dumps(o,indent=2,sort_keys=True))
 if __name__=='__main__':main()
