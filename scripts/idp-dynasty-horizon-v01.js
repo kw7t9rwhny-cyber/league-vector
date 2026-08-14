@@ -48,9 +48,9 @@ function horizonReadiness(persistence,multiSurvival,uncertainty){
 }
 
 function roleSplitReadiness(roleCoverage,minStablePlayerSeasons=250){
-  const supported=['EDGE','INTERIOR_DL','IDL','DT','DE','OFF_BALL_LB','ILB','OLB','CB','S'];
+  const supported=['EDGE','INTERIOR','INTERIOR_DL','IDL','DT','DE','OFF_BALL','OFF_BALL_LB','ILB','OLB','CB','S'];
   const counts=roleCoverage?.stable_role_player_seasons||{};
-  const groups={EDGE:['EDGE','DE'],INTERIOR_DL:['INTERIOR_DL','IDL','DT'],OFF_BALL_LB:['OFF_BALL_LB','ILB'],CB:['CB'],S:['S']};
+  const groups={EDGE:['EDGE','DE'],INTERIOR_DL:['INTERIOR','INTERIOR_DL','IDL','DT'],OFF_BALL_LB:['OFF_BALL','OFF_BALL_LB','ILB'],CB:['CB'],S:['S']};
   const out={};
   for(const [group,aliases] of Object.entries(groups)){const n=aliases.reduce((s,a)=>s+(counts[a]||0),0);out[group]={stable_player_seasons:n,status:n>=minStablePlayerSeasons?'SAMPLE_GATE_ONLY':'INSUFFICIENT_STABLE_SAMPLE',empirically_justified:false,note:'Even a passing sample gate does not authorize role-split dynasty modeling without stable point-in-time role provenance and chronological performance gain over DL/LB/DB.'};}
   return {minimum_stable_player_seasons:minStablePlayerSeasons,normalized_roles_considered:supported,groups:out,production_role_inference_authorized:false};
