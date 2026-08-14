@@ -112,7 +112,8 @@ button{
 button:disabled{opacity:.65;cursor:wait}
 
 button:focus-visible,
-input:focus-visible{
+input:focus-visible,
+summary:focus-visible{
   outline:3px solid #fff2c7;
   outline-offset:3px;
 }
@@ -507,6 +508,39 @@ input:focus-visible{
 .pick-details summary{cursor:pointer;color:#ffd37b;font-weight:700}
 .pick-details p{line-height:1.5;margin:8px 0 0}
 
+.mobile-disclosure{
+  margin:0 0 12px;
+  border:1px solid var(--line);
+  border-radius:15px;
+  background:var(--panel);
+  overflow:hidden;
+}
+
+.mobile-disclosure>summary{
+  min-height:56px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding:14px 16px;
+  cursor:pointer;
+  list-style:none;
+  -webkit-tap-highlight-color:transparent;
+}
+
+.mobile-disclosure>summary::-webkit-details-marker{display:none}
+.mobile-disclosure>summary::marker{content:""}
+
+.disclosure-copy{min-width:0}
+.disclosure-copy b{display:block;font-size:14px}
+.disclosure-copy small{display:block;margin-top:3px;color:var(--muted);font-size:11px;line-height:1.35}
+.disclosure-action{flex:0 0 auto;color:var(--accent);font-size:12px;font-weight:850;text-align:right}
+.when-open{display:none}
+.mobile-disclosure[open] .when-closed{display:none}
+.mobile-disclosure[open] .when-open{display:inline}
+.disclosure-content{padding:0 16px 16px}
+.rankings-disclosure .disclosure-content{padding-top:2px}
+
 @media(max-width:850px){
   .value-grid{grid-template-columns:repeat(2,1fr)}
   .summary{grid-template-columns:repeat(3,1fr)}
@@ -524,4 +558,7 @@ input:focus-visible{
   }
 
   .hero{padding:24px}
+  .mobile-disclosure>summary{min-height:60px;padding:14px}
+  .disclosure-content{padding:0 12px 12px}
+  .disclosure-action{max-width:130px}
 }

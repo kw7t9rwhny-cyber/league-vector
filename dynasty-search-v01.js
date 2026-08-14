@@ -4,12 +4,15 @@
   const input = document.getElementById("dynastySearch");
   const list = document.getElementById("playerValues");
   const status = document.getElementById("dynastySearchStatus");
+  const disclosure = document.getElementById("dynastyRankingsDisclosure");
   if (!input || !list || !status) return;
 
   function applySearch() {
     const query = input.value.trim().toLocaleLowerCase();
     const cards = [...list.querySelectorAll(".player-card")];
     let visible = 0;
+
+    if (query && disclosure) disclosure.open = true;
 
     for (const card of cards) {
       const name = card.querySelector(".pv-name")?.textContent?.trim() || "";
@@ -37,7 +40,7 @@
     } else if (query) {
       status.textContent = `${visible} of ${cards.length} currently ranked dynasty players match.`;
     } else {
-      status.textContent = `${cards.length} currently ranked dynasty players shown.`;
+      status.textContent = `${cards.length} currently ranked dynasty players.`;
     }
   }
 
