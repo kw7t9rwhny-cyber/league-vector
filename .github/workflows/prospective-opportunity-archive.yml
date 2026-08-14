@@ -6,6 +6,7 @@ on:
       - codex/prospective-opportunity-archive-v01
     paths:
       - 'scripts/prospective-opportunity-archive.py'
+      - 'scripts/run-prospective-opportunity-archive.py'
       - 'tests/prospective-opportunity-archive.test.py'
       - 'docs/prospective-opportunity-archive.md'
       - 'data/opportunity-archive/README.md'
@@ -62,7 +63,7 @@ jobs:
           if [[ -n "$MILESTONE" ]]; then
             args+=(--milestone "$MILESTONE")
           fi
-          python scripts/prospective-opportunity-archive.py "${args[@]}" | tee /tmp/prospective-opportunity-capture.json
+          python scripts/run-prospective-opportunity-archive.py "${args[@]}" | tee /tmp/prospective-opportunity-capture.json
           status=${PIPESTATUS[0]}
           echo "status=$status" >> "$GITHUB_OUTPUT"
           exit 0
