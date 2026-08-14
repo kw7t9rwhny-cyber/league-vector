@@ -1,0 +1,90 @@
+name: IDP Missing-Stat Coverage v0.2
+on:
+  push:
+    branches: [codex/idp-missing-stat-coverage-v02]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONHASHSEED: '0'
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+      NUMEXPR_NUM_THREADS: '1'
+      LC_ALL: C.UTF-8
+      LANG: C.UTF-8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned research dependencies
+        run: python -m pip install pandas==2.2.3 numpy==2.2.3 scipy==1.15.2 scikit-learn==1.6.1 statsmodels==0.14.4
+      - name: Prove missing-state contract
+        run: python scripts/idp-missing-stat-coverage-v02.py --self-test
+      - name: Restore frozen historical snapshot twice
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rm -rf /tmp/v02-control /tmp/v02-a /tmp/v02-b /tmp/v02-unpacked
+          mkdir -p /tmp/v02-control /tmp/v02-a /tmp/v02-b /tmp/v02-unpacked
+          curl -L --fail-with-body -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" https://api.github.com/repos/${{ github.repository }}/actions/artifacts/9205731274/zip -o /tmp/v02-control/control.zip
+          unzip -q /tmp/v02-control/control.zip -d /tmp/v02-unpacked
+          for dest in /tmp/v02-a /tmp/v02-b; do
+            cp -R /tmp/v02-unpacked/.cache/lv-v04-canonical/. "$dest/"
+            cp /tmp/v02-unpacked/data/reports/projection-v04-canonical/snapshot-manifest.json "$dest/snapshot-manifest.json"
+          done
+      - name: Build deterministic v0.2 evidence twice
+        run: |
+          rm -rf data/reports/idp-missing-stat-coverage-v02/evidence
+          mkdir -p data/reports/idp-missing-stat-coverage-v02/evidence
+          python scripts/idp-missing-stat-coverage-v02.py /tmp/v02-a data/reports/idp-missing-stat-coverage-v02/evidence/run-a.json
+          python scripts/idp-missing-stat-coverage-v02.py /tmp/v02-b data/reports/idp-missing-stat-coverage-v02/evidence/run-b.json
+          cmp data/reports/idp-missing-stat-coverage-v02/evidence/run-a.json data/reports/idp-missing-stat-coverage-v02/evidence/run-b.json
+          cp data/reports/idp-missing-stat-coverage-v02/evidence/run-a.json data/reports/idp-missing-stat-coverage-v02/evidence/canonical-result.json
+          SHA="$(sha256sum data/reports/idp-missing-stat-coverage-v02/evidence/canonical-result.json | awk '{print $1}')"
+          printf '%s  canonical-result.json\n' "$SHA" > data/reports/idp-missing-stat-coverage-v02/evidence/canonical-result.sha256
+          SHA="$SHA" python - <<'PY'
+          import json, os
+          from pathlib import Path
+          p=Path('data/reports/idp-missing-stat-coverage-v02/evidence')
+          r=json.loads((p/'canonical-result.json').read_text())
+          m={'evidence_contract_version':'idp-missing-stat-coverage-v0.2','canonical_result':{'file':'canonical-result.json','sha256':os.environ['SHA'],'byte_determinism_claim':True,'input_snapshot_sha256':r['research_base']['frozen_input_sha256']},'ephemeral_workflow_metadata':{'github_head_sha':os.environ['GITHUB_SHA'],'github_run_id':os.environ['GITHUB_RUN_ID'],'github_run_attempt':os.environ['GITHUB_RUN_ATTEMPT']}}
+          (p/'evidence-manifest.json').write_text(json.dumps(m,indent=2,sort_keys=True)+'\n')
+          PY
+      - name: Verify negative readiness and frozen firewalls
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          r=json.loads(Path('data/reports/idp-missing-stat-coverage-v02/evidence/canonical-result.json').read_text())
+          assert r['research_base']['qa_approved_head']=='fe936d37f346e3e8b027e33964e272dd34b04e9b'
+          assert r['research_base']['frozen_input_sha256']=='d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188'
+          assert r['chronology']['development_seasons']==[2020,2021,2022,2023,2024]
+          assert r['chronology']['retrospective_observed']==2025 and r['chronology']['tuning_uses_2025'] is False
+          for cat in ['idp_int_ret_yd','bonus_sack_2p','idp_pass_def_3p','fum_rec_td','idp_fum_ret_yd','idp_blk_kick','st_td']:
+            assert r['readiness'][cat]['classification']=='UNSUPPORTED — ZERO BASELINE WINS'
+            for pos in ['DL','LB','DB']:
+              gate=r['readiness'][cat]['position_scoring_gate'][pos]
+              assert gate['zero_baseline_wins_mean'] is True
+              assert gate['best_nonzero']['wins_vs_zero']==0
+          assert r['readiness']['st_ff']['classification']=='UNSUPPORTED — DATA BLOCKED'
+          assert r['readiness']['st_fum_rec']['classification']=='UNSUPPORTED — DATA BLOCKED'
+          assert r['global_scoring_gate']['founder_like_scoring_rankable'] is False
+          assert r['global_scoring_gate']['idp_sack_yd_globally_supported'] is False
+          f=r['firewalls']
+          assert f['experimental'] is True and f['production_projection_eligible'] is False
+          assert f['idp_dynasty_value_available'] is False and f['dynasty_value'] is None
+          assert f['combined_offense_idp_dynasty_rankings_available'] is False
+          assert f['core_integration_authorized'] is False and f['ui_authorized'] is False and f['production_authorized'] is False
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: league-vector-idp-missing-stat-coverage-v02
+          path: data/reports/idp-missing-stat-coverage-v02/evidence/
+          retention-days: 30
