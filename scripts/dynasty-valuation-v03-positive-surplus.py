@@ -29,27 +29,34 @@ def expected_positive(mean,rep,resid):
  return float(np.maximum(0.0,mean+resid-rep).mean())
 
 def build(a,pred,cn,horizon=3,discount=.80,distribution=True):
- cfg=mod.CONFIGS[cn];rows=[]
- for y in sorted(pred.valuation_season.unique()):
-  acc={}
+ cfg=mod.CONFIGS[cn];rows=[];max_obs=int(a.season.max())
+ pp=pred[pred.valuation_season.le(max_obs-horizon)].copy()
+ for y in sorted(pp.valuation_season.unique()):
+  acc={};ok=True
   for h in range(1,horizon+1):
-   dh=pred[(pred.valuation_season.eq(y))&pred.h.eq(h)].copy()
-   if dh.empty:continue
+   dh=pp[(pp.valuation_season.eq(y))&pp.h.eq(h)].copy()
+   if dh.empty:ok=False;break
    dh['pred_fantasy']=dh.expected_conditional_fantasy;dh['pred_receptions']=dh.expected_conditional_receptions
    dh['pred_scored']=mod.scoring(dh,cfg,'pred');dh['actual_scored']=mod.scoring(dh,cfg,'actual')
-   levels=r.forecast_levels(a,cfg,y,h,'fixed','expanding_historical_median')
-   actual_levels=mod.actual_replacement_by_target(a,cfg,y+h,'fixed')
-   resid={p:fit_residuals(a,y,p,h,pm.FEATURES[p]) for p in mod.POS}
+   levels={}
+   for pos in mod.POS:
+    lvl,n=r.historical_level(a,cn,cfg,int(y),pos,'fixed','expanding_historical_median')
+    if lvl is None:ok=False;break
+    levels[pos]=float(lvl)
+   if not ok:break
+   actual_levels=mod.actual_replacement_by_target(a,cfg,int(y)+h,'fixed')
+   resid={p:fit_residuals(a,int(y),p,h,pm.FEATURES[p]) for p in mod.POS}
    w=discount**(h-1)
    for _,x in dh.iterrows():
     k=(x.player_id,x.pos,x.age,x.experience)
     if k not in acc:acc[k]={'pred':0.0,'actual':0.0,'y1':0.0,'current':float(x.current),'components':[]}
-    rep=float(levels.get(x.pos,0.0));mu=float(x.pred_scored)
+    rep=levels[x.pos];mu=float(x.pred_scored)
     ps=expected_positive(mu,rep,resid[x.pos]) if distribution else max(0.0,mu-rep)
     av=0.0 if pd.isna(x.actual_scored) else max(0.0,float(x.actual_scored)-float(actual_levels.get(x.pos,0.0)))
     acc[k]['pred']+=w*ps;acc[k]['actual']+=w*av
     if h==1:acc[k]['y1']=ps
     acc[k]['components'].append({'h':h,'weight':w,'mean_points':mu,'replacement':rep,'expected_positive_surplus':ps,'residual_n':int(len(resid[x.pos]))})
+  if not ok:continue
   for k,v in acc.items():rows.append({'valuation_season':y,'player_id':k[0],'pos':k[1],'age':k[2],'experience':k[3],**v})
  return pd.DataFrame(rows)
 
