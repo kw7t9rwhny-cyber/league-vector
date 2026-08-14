@@ -20,6 +20,8 @@ jobs:
       - run: npm ci
       - name: Freeze exact nflverse input snapshot and hashes
         run: node scripts/projection-v04-freeze-inputs.js .cache/lv-v04-canonical
+      - name: Audit identity and true-zero vs missing semantics
+        run: node scripts/projection-v04-snapshot-audit.js .cache/lv-v04-canonical data/reports/projection-v04-canonical/snapshot-audit.json
       - name: Canonical run A
         run: node scripts/projection-v04-canonical.js data/reports/projection-v04-canonical/run-a .cache/lv-v04-canonical
       - name: Canonical run B
