@@ -37,7 +37,9 @@
     "QB", "RB", "FB", "WR", "TE", "FLEX", "REC_FLEX", "WRRB_FLEX", "SUPER_FLEX", "K", "P",
   ]);
 
-  function finite(value) { return Number.isFinite(Number(value)); }
+  function finite(value) {
+    return value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
+  }
   function round(value, digits = 3) {
     if (!finite(value)) return null;
     const scale = 10 ** digits;
@@ -146,9 +148,6 @@
     return slot.eligibility.some((position) => eligibility.includes(position));
   }
 
-  // Current-season-only signed assignment. Unlike the older research helper, this
-  // intentionally preserves negative projected points because custom scoring can
-  // make required starters negative and lineup demand still has to be satisfied.
   function maximumWeightAssignmentSigned(players, config) {
     const slots = expandedSlots(config);
     const normalized = (players || []).map((player, index) => ({
@@ -223,8 +222,6 @@
     let low = minPoints - span - 1;
     let high = maxPoints + span + 1;
 
-    // If the synthetic player enters even at an extremely poor score, demand is
-    // deeper than the safely rankable pool and no finite replacement threshold exists.
     if (selectedAt(low)) {
       return { status: "unavailable", value: null, reason: "insufficient_current_pool_for_replacement" };
     }
