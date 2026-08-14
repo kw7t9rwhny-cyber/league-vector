@@ -4,56 +4,98 @@ Status: **RESEARCH ONLY — NOT READY FOR QA AS A NUMERIC DYNASTY MODEL**
 
 Permanent firewall: `idp_dynasty_value_available=false`.
 
-Production current-season IDP ranking is owned by Core/QA and is not modified by this branch.
+Production current-season IDP ranking, PR #32, production UI, combined offense+IDP rankings, and `main` are outside this branch.
 
-## Position matrix
+Empirical checkpoint source head: `d5e86dc08bfd23ec686393c1cdb86dc95a763416`.
 
-| Position | Current-season ranking | Multi-year projection | Dynasty surplus | Production Dynasty Value |
-| --- | --- | --- | --- | --- |
-| DL | Core/QA-owned; out of scope here | RESEARCH PARTIAL — NOT READY | NOT READY | NOT READY |
-| LB | Core/QA-owned; out of scope here | RESEARCH PARTIAL — NOT READY | NOT READY | NOT READY |
-| DB | Core/QA-owned; out of scope here | RESEARCH PARTIAL — NOT READY | NOT READY | NOT READY |
+The checkpoint workflow ran the full 2015–2025 historical analysis twice with a commit-derived timestamp and required byte-identical JSON before upload. Workflow run `31833395177` passed validation, deterministic comparison, research-status checks, and the Dynasty Value firewall.
+
+## Position readiness matrix
+
+| Position | Multi-year production evidence | Y+1 / Y+2 / Y+3 p50 relevance survival | Horizon | Uncertainty | Numeric Dynasty Value |
+| --- | --- | --- | --- | --- | --- |
+| DL | SUPPORTED FOR CHRONOLOGICAL BACKTEST | 0.6801 / 0.5946 / 0.5189 | UNFROZEN | YoY total-point delta SD 36.9698 | BLOCKED |
+| LB | SUPPORTED FOR CHRONOLOGICAL BACKTEST | 0.6977 / 0.5727 / 0.4551 | UNFROZEN | YoY total-point delta SD 46.8158 | BLOCKED |
+| DB | SUPPORTED FOR CHRONOLOGICAL BACKTEST | 0.6756 / 0.5350 / 0.4307 | UNFROZEN | YoY total-point delta SD 39.5259 | BLOCKED |
+
+These survival values mean **production-percentile fantasy relevance**, not starter/depth/role survival. A player who is absent or no longer in the same DL/LB/DB model group at the target horizon does not count as production-relevant. No historical starter or depth role is inferred from fantasy points.
 
 ## DL
 
-Evidence supports meaningful production persistence through three observed lags. Total-point Spearman persistence is 0.6100 at one year, 0.5586 at two years and 0.4679 at three years. Among currently studied broad positions, DL retains the strongest three-year rank persistence. p50 production-relevance survival is 0.6801 and p75 survival is 0.6194.
+DL total-point rank persistence remains the strongest at the three-year lag in this broad-position sample: Spearman 0.6100 at Year+1, 0.5586 at Year+2, and 0.4679 at Year+3. p75 relevance survival is 0.6194 / 0.5503 / 0.4510 across Year+1/+2/+3.
 
-This is enough to justify building and chronologically testing a DL-specific multi-year production model. It is not enough to freeze a dynasty horizon. Historical role survival, true opportunity transitions, scoring-specific persistence, and multi-year replacement remain incomplete.
+This supports a DL-specific chronological multi-year forecast experiment. It does **not** justify freezing a three-year dynasty horizon. Horizon inclusion must improve unseen-season ranking/error after age, survival, scoring, replacement, and uncertainty are handled without leakage.
 
 ## LB
 
-LB has the strongest one-year persistence: total-point Spearman 0.6441 and points-per-observed-week Spearman 0.6385. Persistence decays more sharply by year three (total-point Spearman 0.4202), and LB has the largest year-over-year total-point volatility in the current sample (standard deviation 46.8158). p50 production-relevance survival is 0.6977 while p75 survival is 0.5950.
+LB has the strongest one-year broad-position rank persistence at 0.6441, declining to 0.5230 at Year+2 and 0.4202 at Year+3. p75 relevance survival is 0.5950 / 0.4984 / 0.3752. LB also has the largest observed Year-over-Year total-point delta standard deviation, 46.8158.
 
-This argues for an LB-specific horizon/uncertainty model rather than sharing DL assumptions. Multi-year projection research should continue, but no horizon or dynasty survival curve is frozen.
+The combination of strong near-term persistence, faster multi-year decay, and higher volatility argues for an LB-specific horizon and uncertainty treatment rather than an offensive or DL default. The horizon remains **UNFROZEN**.
 
 ## DB
 
-DB one-year total-point rank persistence is meaningful at 0.5971, but two- and three-year persistence are lower at 0.4599 and 0.4139. p75 next-season production-relevance survival is 0.5320, the weakest high-end persistence among DL/LB/DB in this evidence checkpoint. Year-over-year total-point volatility remains substantial.
+DB broad-position rank persistence is 0.5971 / 0.4599 / 0.4139 at Year+1/+2/+3. High-end p75 relevance survival falls from 0.5320 to 0.3917 to 0.3328, the weakest three-year high-end survival among the three broad groups in this checkpoint.
 
-DB therefore supports multi-year modeling research, but current evidence does not justify a production dynasty horizon or surplus value.
+DB therefore supports multi-year research, but current evidence especially cautions against a long default horizon without chronological validation.
 
-## Age
+## Age and decline evidence
 
-Historical age is valid player-season age at the September 1 season cutoff. It is suitable for position-specific age research. The current evidence shows later-career participation and conditional production deterioration across all three broad groups, with different shapes. These diagnostics must be tested prospectively before becoming model multipliers.
+Historical age remains player-season age at the September 1 season cutoff. A descriptive, survivor-conditioned scan finds the earliest two-age run of negative conditional next-season points-per-observed-week change at age 25 for DL, age 25 for LB, and age 24 for DB in this sample.
+
+These are **not** production decline ages, causal aging breakpoints, dynasty multipliers, retirement curves, or role-survival estimates. Selection, opportunity, injury, team context, and role transitions are not resolved by this history. Age effects must be fitted and validated inside a chronological forecast rather than hard-coded from these descriptive cut points.
 
 ## Experience
 
-Experience curves are **BLOCKED** in this checkpoint. The normalized player-bio source contains zero valid `rookie_year` / `entry_year` values for the empirical IDP player-season population. Missing experience is preserved as null and is not inferred from first observed season.
+Experience remains **BLOCKED**. Across 25,035 normalized player bios, the current source provides zero valid `rookie_year` / `entry_year` values for the empirical IDP population. Missing experience remains null; first observed season is never substituted for NFL experience.
 
-## Scoring, starter count, FLEX and hybrid sensitivity
+## Finer role splits
 
-Starter-count sensitivity is clearly material because replacement changes substantially as league size and starter demand increase. Scoring sensitivity is also structurally established: tackle-heavy, pressure-heavy and interception/pass-defense-heavy settings change positional scoring differently.
+The normalized history supplies enough stable within-season role hints to pass a **sample-size gate only** for all requested candidate families:
 
-However, historical multi-year persistence/survival coefficients have not yet been re-estimated under arbitrary target Sleeper scoring. IDP FLEX and hybrid effects are supported by the current constrained-assignment architecture, but retrospective hybrid/FLEX effects are blocked until point-in-time historical position eligibility exists. Current Sleeper hybrid labels may not be applied backward.
+| Candidate split | Stable player-seasons | Sample gate (250) | Empirically justified for dynasty modeling? |
+| --- | ---: | --- | --- |
+| EDGE | 1,621 | PASS ONLY | NO |
+| Interior DL | 1,478 | PASS ONLY | NO |
+| Off-ball LB | 297 | PASS ONLY | NO |
+| CB | 1,904 | PASS ONLY | NO |
+| S | 388 | PASS ONLY | NO |
 
-## What is impossible with current approved history
+Overall, 6,283 of 9,439 player-seasons have one normalized non-missing role hint and 3,156 are unspecified-only. These labels are not equivalent to licensed point-in-time depth/starter roles. A finer split can advance only if provenance is stable enough for the intended claim **and** a leakage-safe chronological comparison demonstrates predictive benefit over DL/LB/DB. Production role inference remains unauthorized.
 
-The current dataset cannot establish historical defensive snap opportunity, starter/reserve status, depth order, backup-to-starter transitions, starter-to-backup transitions, or true role survival. Tackles, fantasy points, observed weeks and production percentiles are not substitutes for those concepts.
+## Scoring sensitivity
 
-A future opportunity source can plug into the prepared adapter using stable player identity plus point-in-time season/week and fields for team, eligibility, depth/role, starter/depth order, defensive snaps where licensed, timestamp and provenance.
+The same 90,819 historical weekly observations were re-scored under four fixed research profiles. All required stat cells were complete for all four profiles. The profiles are perturbation tests, not proposed production defaults.
+
+At Year+1, broad-position rank persistence remains meaningful but changes with scoring. For example, DL Spearman ranges from 0.5964 in the tackle-heavy profile to 0.6189 in the pressure-heavy profile; LB ranges from 0.6335 to 0.6574; DB ranges from 0.5927 to 0.5995.
+
+Replacement moves much more. For a 12-team / two-dedicated-starter sensitivity case, DL replacement is 98.0 in balanced reference scoring, 91.5 tackle-heavy, 119.5 pressure-heavy, and 75.25 coverage/big-play. LB is 143.75 / 157.5 / 142.5 / 121.75; DB is 108.5 / 129.0 / 83.0 / 113.5.
+
+Therefore historical production persistence is somewhat robust to these profile changes, while the amount of league-specific surplus over replacement is materially scoring-sensitive. Any future Dynasty Value must re-score history and future projections from the **exact target Sleeper settings** rather than transfer one reference coefficient set.
+
+## Starter count, IDP FLEX, and hybrid sensitivity
+
+League size and dedicated starter count can be varied deterministically as replacement-demand sensitivity. This is supported research and does not require historical depth charts.
+
+Historical IDP FLEX and hybrid-position effects remain blocked because point-in-time historical eligibility is unavailable. Current Sleeper hybrid labels may be used for current constrained assignment, but they may never be projected backward to create historical eligibility.
+
+## Candidate multi-year surplus architecture
+
+The research candidate is:
+
+`sum_h discount_position(h) × P(fantasy_relevant at h | information available at valuation time) × max(0, expected league-scored points_h - league replacement_h)`
+
+A signed-surplus alternative without zero clipping must also be tested. Neither form is selected yet. The architecture is **ARCHITECTURE ONLY** and emits no numeric Dynasty Value.
+
+The evidence supports keeping survival probability as an explicit term rather than assuming a player remains relevant throughout a fixed horizon. However, survival cannot simply be multiplied into an offensive-style horizon: each DL/LB/DB horizon, discount treatment, production forecast, and uncertainty model must be selected by chronological out-of-sample evidence.
+
+## Current blockers
+
+Historical point-in-time starter/depth role authority, historical point-in-time hybrid eligibility, valid experience metadata, chronological multi-year forecast validation, position-specific horizon validation, discount-function validation, exact target-league scoring refits, uncertainty calibration, and any future offense-vs-IDP normalization remain unresolved.
+
+No production numeric IDP Dynasty Value, combined offense+IDP ranking, production UI, or activation is authorized by this checkpoint.
 
 ## Next research gate
 
-The next defensible step is a leakage-safe chronological multi-year projection benchmark by DL/LB/DB. It should compare separately chosen candidate horizons, age effects, historical production persistence and uncertainty on unseen seasons. Experience remains excluded until valid metadata exists. Scoring-specific refits should be tested before any dynasty coefficients are frozen.
+Build a leakage-safe expanding-window or rolling-origin multi-year forecasting harness separately for DL/LB/DB. Candidate models should compare naive persistence baselines against age-aware production history, explicit production-relevance survival, scoring-specific re-fits, and uncertainty. Evaluate Year+1/+2/+3 contributions independently so a horizon is included only when it improves unseen-season performance.
 
-Dynasty surplus remains blocked until position-specific multi-year projections, fantasy-relevance survival, league-specific future replacement and horizon/discount treatment are validated. Production Dynasty Value remains blocked beyond that until the model receives independent high-risk QA and the firewall is explicitly authorized to change.
+Finer-role variants may be tested as challengers, but broad DL/LB/DB remains the baseline and no finer role is accepted merely because its sample count is large.
