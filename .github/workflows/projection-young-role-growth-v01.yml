@@ -30,12 +30,18 @@ jobs:
         run: python -c "import json; m=json.load(open('.cache/lv-young-v01/snapshot-manifest.json')); assert m['snapshot_sha256']=='d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188'"
       - name: Install pinned research dependencies
         run: python -m pip install pandas==2.2.3 numpy==2.2.3 scipy==1.15.2 scikit-learn==1.6.1
-      - name: Run twice and prove deterministic output
+      - name: Run point-model benchmark twice
         run: |
           python scripts/projection-young-role-growth-v01-fixed.py .cache/lv-young-v01 data/reports/projection-young-role-growth-v01/control/candidate-player-seasons.json data/reports/projection-young-role-growth-v01/run-a.json
           python scripts/projection-young-role-growth-v01-fixed.py .cache/lv-young-v01 data/reports/projection-young-role-growth-v01/control/candidate-player-seasons.json data/reports/projection-young-role-growth-v01/run-b.json
           cmp data/reports/projection-young-role-growth-v01/run-a.json data/reports/projection-young-role-growth-v01/run-b.json
           sha256sum data/reports/projection-young-role-growth-v01/run-a.json > data/reports/projection-young-role-growth-v01/result.sha256
+      - name: Run two-stage role benchmark twice
+        run: |
+          python scripts/projection-young-two-stage-v01.py .cache/lv-young-v01 data/reports/projection-young-role-growth-v01/control/candidate-player-seasons.json data/reports/projection-young-role-growth-v01/two-stage-a.json
+          python scripts/projection-young-two-stage-v01.py .cache/lv-young-v01 data/reports/projection-young-role-growth-v01/control/candidate-player-seasons.json data/reports/projection-young-role-growth-v01/two-stage-b.json
+          cmp data/reports/projection-young-role-growth-v01/two-stage-a.json data/reports/projection-young-role-growth-v01/two-stage-b.json
+          sha256sum data/reports/projection-young-role-growth-v01/two-stage-a.json > data/reports/projection-young-role-growth-v01/two-stage.sha256
       - uses: actions/upload-artifact@v4
         with:
           name: league-vector-projection-young-role-growth-v01
