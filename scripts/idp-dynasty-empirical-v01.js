@@ -22,7 +22,7 @@ function roleCoverage(observations){
     entry.roles.set(role,(entry.roles.get(role)||0)+1);
     byPlayerSeason.set(key,entry);
   }
-  const roleCounts={}, stableRoleCounts={}, unstableByPosition={DL:0,LB:0,DB:0}, stableByPosition={DL:0,LB:0,DB:0};
+  const roleCounts={},stableRoleCounts={},unstableByPosition={DL:0,LB:0,DB:0},stableByPosition={DL:0,LB:0,DB:0};
   let stable=0,unstable=0,unspecifiedOnly=0;
   for(const entry of byPlayerSeason.values()){
     const nonMissing=[...entry.roles.entries()].filter(([role])=>role!=='UNSPECIFIED');
@@ -55,7 +55,19 @@ async function buildHistoricalPlayerSeasons(options={}){
   let validExperienceRows=0;
   for(const row of playerSeasons){const rookieYear=playerBio.get(row.gsis_id)?.bio?.rookie_year;row.experience_season=safeExperience(rookieYear,row.season);if(Number.isInteger(row.experience_season))validExperienceRows+=1;}
   const biosWithRookieYear=[...playerBio.values()].filter(p=>Number.isInteger(p?.bio?.rookie_year)&&p.bio.rookie_year>=1900).length;
-  return {seasons,retrievedAt,observations:observations.length,playerSeasons,experienceCoverage:{player_bios:playerBio.size,bios_with_valid_rookie_year:biosWithRookieYear,player_seasons_with_valid_experience:validExperienceRows},roleCoverage:roleCoverage(observations)};
+  return {seasons,retrievedAt,observations:observations.length,normalizedObservations:observations,playerSeasons,experienceCoverage:{player_bios:playerBio.size,bios_with_valid_rookie_year:biosWithRookieYear,player_seasons_with_valid_experience:validExperienceRows},roleCoverage:roleCoverage(observations)};
+}
+function scoringSensitivityEvidence(observations){
+  const profiles={};
+  for(const [name,weights] of Object.entries(Horizon.SCORING_PROFILES)){
+    const scored=Horizon.buildScoredPlayerSeasons(observations,weights);
+    if(scored.coverage.status!=='COMPLETE'){
+      profiles[name]={weights,coverage:scored.coverage,status:'BLOCKED_INCOMPLETE_REQUIRED_STATS',production_metrics:null};
+      continue;
+    }
+    profiles[name]={weights,coverage:scored.coverage,status:'RESEARCH_PROFILE_ONLY',production_metrics:{persistence:Dynasty.persistenceByPosition(scored.rows,3),relevance_survival:Horizon.multiHorizonRelevanceSurvival(scored.rows,3),replacement_sensitivity:Dynasty.replacementSensitivity(scored.rows)}};
+  }
+  return {status:'RESEARCH_PROFILE_RESCORING_ONLY',profiles,note:'These fixed profiles test sensitivity of persistence, relevance and replacement to scoring weights. They are not production defaults or a substitute for exact imported Sleeper league settings.'};
 }
 async function run(options={}){
   const historical=await buildHistoricalPlayerSeasons(options);
@@ -69,11 +81,12 @@ async function run(options={}){
   report.age_decline_evidence=Horizon.ageDeclineEvidence(historical.playerSeasons,20);
   report.position_horizon_readiness=Horizon.horizonReadiness(report.production_persistence,report.multi_horizon_relevance_survival,report.uncertainty);
   report.finer_role_split_readiness=Horizon.roleSplitReadiness(historical.roleCoverage,250);
+  report.scoring_profile_sensitivity=scoringSensitivityEvidence(historical.normalizedObservations);
   report.sensitivity_readiness=Horizon.sensitivityReadiness();
   report.multi_year_surplus_candidate_architecture=Horizon.surplusArchitecture();
   report.idp_dynasty_value_available=false;
   return report;
 }
-async function main(){const args=parseArgs(process.argv.slice(2));const seasons=args.seasons.split(',').map(Number).filter(Number.isInteger);const result=await run({seasons,cacheDir:args.cache,refresh:args.refresh==='true',generatedAt:args['generated-at']});const output=path.resolve(process.cwd(),args.output);ensureDir(path.dirname(output));fs.writeFileSync(output,JSON.stringify(result,null,2)+'\n');console.log(`IDP_DYNASTY_RESEARCH_SUMMARY ${JSON.stringify({sample:result.sample,persistence:result.production_persistence,survival:result.multi_horizon_relevance_survival,uncertainty:result.uncertainty,horizon_readiness:result.position_horizon_readiness,experience_contract:result.experience_contract,finer_role_coverage:result.finer_role_coverage,finer_role_split_readiness:result.finer_role_split_readiness})}`);console.log(output);}
+async function main(){const args=parseArgs(process.argv.slice(2));const seasons=args.seasons.split(',').map(Number).filter(Number.isInteger);const result=await run({seasons,cacheDir:args.cache,refresh:args.refresh==='true',generatedAt:args['generated-at']});const output=path.resolve(process.cwd(),args.output);ensureDir(path.dirname(output));fs.writeFileSync(output,JSON.stringify(result,null,2)+'\n');console.log(`IDP_DYNASTY_RESEARCH_SUMMARY ${JSON.stringify({sample:result.sample,persistence:result.production_persistence,survival:result.multi_horizon_relevance_survival,uncertainty:result.uncertainty,horizon_readiness:result.position_horizon_readiness,experience_contract:result.experience_contract,finer_role_coverage:result.finer_role_coverage,finer_role_split_readiness:result.finer_role_split_readiness,scoring_profile_sensitivity:result.scoring_profile_sensitivity})}`);console.log(output);}
 if(require.main===module)main().catch(error=>{console.error(error.stack||error.message);process.exit(1);});
-module.exports={parseArgs,safeExperience,roleCoverage,buildHistoricalPlayerSeasons,run};
+module.exports={parseArgs,safeExperience,roleCoverage,buildHistoricalPlayerSeasons,scoringSensitivityEvidence,run};
