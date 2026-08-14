@@ -1,0 +1,128 @@
+name: Development Orchestrator Stage 3B Controlled Activation
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_pr_number:
+        description: "Exactly one PR number (positive integer only)"
+        required: true
+        type: string
+      mode:
+        description: "Dry-run is the default. Execute requires Founder environment approval and activation control."
+        required: true
+        default: dry-run
+        type: choice
+        options:
+          - dry-run
+          - execute
+
+permissions: {}
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+    outputs:
+      replay_fingerprint: ${{ steps.preview.outputs.replay_fingerprint }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Validate one explicit target PR
+        env:
+          TARGET_PR: ${{ inputs.target_pr_number }}
+        run: |
+          node -e 'require("./scripts/development-orchestrator-v03b-controlled.js").parseTargetPr(process.env.TARGET_PR)'
+      - name: Build deterministic preview from live GitHub state
+        id: preview
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TARGET_PR: ${{ inputs.target_pr_number }}
+        run: |
+          node scripts/development-orchestrator-v03b-controlled.js preview --target-pr "$TARGET_PR" > /tmp/stage3b-controlled-preview.json
+          node - <<'NODE'
+          const fs=require('fs');
+          const p=JSON.parse(fs.readFileSync('/tmp/stage3b-controlled-preview.json','utf8'));
+          if(p.authorization!==false) process.exit(1);
+          if(Number(p.target_pr)!==Number(process.env.TARGET_PR)) process.exit(1);
+          if(!/^[0-9a-f]{64}$/.test(p.replay_fingerprint||'')) process.exit(1);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT,`replay_fingerprint=${p.replay_fingerprint}\n`);
+          console.log(JSON.stringify(p,null,2));
+          NODE
+      - name: Upload non-authorizing preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage3b-controlled-preview-pr-${{ inputs.target_pr_number }}
+          path: /tmp/stage3b-controlled-preview.json
+          retention-days: 7
+
+  dry-run-proof:
+    if: ${{ inputs.mode == 'dry-run' }}
+    needs: preview
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Confirm dry-run cannot enter write job
+        run: |
+          echo "Preview completed. No issues:write permission exists in this job."
+          echo "No mutation attempted."
+
+  execute-one-pr:
+    if: ${{ inputs.mode == 'execute' }}
+    needs: preview
+    environment: stage3b-controlled-activation
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: write
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      TARGET_PR: ${{ inputs.target_pr_number }}
+      EXPECTED_FINGERPRINT: ${{ needs.preview.outputs.replay_fingerprint }}
+      LEAGUE_VECTOR_ORCHESTRATOR_EXECUTE: "1"
+      LEAGUE_VECTOR_STAGE3B_ACTIVATED: "1"
+      LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED: ${{ vars.LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED }}
+      GITHUB_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      GITHUB_HEAD_REPO_FORK: ${{ github.event.repository.fork }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Fail closed unless protected Founder activation variable is approved
+        run: |
+          test "$LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED" = "1"
+      - name: Revalidate preview state and execute one bounded transaction
+        run: |
+          node scripts/development-orchestrator-v03b-controlled.js execute \
+            --target-pr "$TARGET_PR" \
+            --expected-fingerprint "$EXPECTED_FINGERPRINT" \
+            > /tmp/stage3b-controlled-audit.json
+          cat /tmp/stage3b-controlled-audit.json
+      - name: Upload controlled execution audit
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage3b-controlled-audit-pr-${{ inputs.target_pr_number }}
+          path: /tmp/stage3b-controlled-audit.json
+          if-no-files-found: warn
+          retention-days: 30
+
+# SECURITY CONTRACT
+# - manual workflow_dispatch only; no schedule, push, pull_request, pull_request_target, comment, or merge trigger
+# - exactly one positive-integer target_pr_number; no all/*/queue/list/range/fan-out semantics
+# - preview is read-only and explicitly non-authorizing
+# - execute job is separately protected by the stage3b-controlled-activation environment
+# - execute additionally requires the Founder-controlled environment variable LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED=1
+# - issues:write is sufficient because GitHub PR labels are issue labels; no pull-requests:write is granted
+# - only canonical Stage-1 status:* and owner:* label ADD/REMOVE operations are implemented
+# - no comments, assignments, body/title edits, issue/PR/branch creation, pushes, merges, reviews, deployments, Founder decisions, QA verdicts, model promotion, external calls, or cascades
