@@ -1,5 +1,6 @@
 (function(){'use strict';
 const Data=window.LeagueVectorData,PF=window.LeagueVectorProjectionFrontend,$=id=>document.getElementById(id);if(!Data||!PF)return;
+if(!document.querySelector('link[data-lv-projection-browser]')){const link=document.createElement('link');link.rel='stylesheet';link.href='projection-browser-v01.css?v=0.1';link.dataset.lvProjectionBrowser='1';document.head.append(link);}
 let seq=0,filterContext={flexPositions:[],superflexPositions:[]};
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const leagueId=v=>{const m=String(v).match(/\d{8,}/g);return m?m.at(-1):'';};
