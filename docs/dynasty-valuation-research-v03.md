@@ -6,243 +6,140 @@ Risk: **HIGH**
 
 Branch: `codex/dynasty-valuation-research-v03`
 
-Parent v0.2 head verified: `e52580110db630ef5bec4266a3fd9a2a3da76426`
-
 Frozen historical snapshot SHA-256: `d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188`
 
-## Firewall
+## Firewalls
 
 - `experimental=true`
 - `production_dynasty_value_eligible=false`
-- `idp_numeric_eligible=false`
+- `idp_dynasty_value_available=false`
+- no production, main, UI, or IDP numeric activation
 
-No production Dynasty Value, Core branch, UI behavior, projection-production behavior, or IDP numeric activation is changed by this research.
+## Objective
 
-## Research objective
+Primary validation target remains realized future football utility, not consensus dynasty rankings.
 
-Test whether League Vector can replace the current `external market value × heuristic overlays` architecture with a football-derived value based on expected discounted multi-year league-specific surplus over replacement.
+Long-term family:
 
-The working family is:
+`expected discounted multi-year league-specific surplus over replacement`
 
-`DV_raw(i) = Σ_t d^(t-1) × max(0, E[ScoredPoints(i,t)] - ForecastLeagueReplacement(position,t))`
+No historical depth-chart/opportunity state is backfilled with hindsight. Missing point-in-time opportunity remains an explicit limitation.
 
-with future production represented as:
+## Chronology contract
 
-`E[ScoredPoints(i,t)] = P(relevant_i,t) × E[ScoredPoints(i,t) | relevant_i,t]`
+- exact calendar Y+h targets;
+- absent player in an observed future season = zero production, not survivor-conditioned missingness;
+- training target season must be strictly before valuation season;
+- scored horizon must be completely observed;
+- realized replacement comes only from the actual target-season pool;
+- future replacement forecasts use only information available before valuation.
 
-when the conditional-survival contract is used.
+## Projection contract
 
-There is no explicit age, QB, RB, WR, TE, youth, Superflex, or TE-premium multiplier in the candidate formula. Age/experience may affect future production and survival models, while league scarcity is intended to emerge from scoring, starter demand and replacement.
+Generic cross-position future regressions were rejected after catastrophic hybrid-player extrapolation. The current research contract uses position-specific football features:
 
-## Chronology corrections completed in v0.3
+- QB: passing/rushing role;
+- RB: rushing/receiving role;
+- WR: receiving role;
+- TE: receiving role.
 
-The original multi-horizon research used row shifts that could mean “next observed player season” rather than exact calendar Y+h. v0.3 corrects this:
+This removed the catastrophic extrapolation without arbitrary output caps. The contract remains research-only.
 
-- target Y+h means exact calendar season Y+h;
-- if a player is absent from a fully observed future season, future production is zero rather than survivor-conditioned missing;
-- Y-1 history means exact calendar Y-1;
-- training target calendar season must be strictly earlier than the valuation season;
-- a requested evaluation horizon must be completely observed before it is scored.
+## Replacement result
 
-These changes explicitly preserve retirement, role collapse and league-exit cases instead of removing them from the direct target.
+Projecting only the valuation-season cohort forward was rejected because replacement collapsed as the cohort aged and omitted future NFL entrants.
 
-## True realized replacement
+The strongest chronology-safe replacement forecast tested so far is an expanding historical median of actual league-specific replacement levels available strictly before valuation. Earlier ablation reduced replacement MAE from roughly 59 points under cohort decay to roughly 10.6 points with near-zero mean bias. League-specific replacement remains materially important in Superflex/2QB and 2TE-like structures.
 
-Historical realized target utility now derives replacement only from the actual player pool that existed in each target season. No later/future-season pool is used to define the target-season replacement level.
+## Horizon result
 
-TE premium is scored from receptions rather than a blanket TE points proxy:
+A true five-year candidate is not identifiable from the frozen 2015-2025 window: the earliest fully observed five-year valuation lacks adequate leakage-safe Y+5 training history. H5 is therefore data-blocked, not failed.
 
-- standard PPR: normal reception scoring;
-- +0.5 TE premium: add `0.5 × TE receptions`;
-- +1.0 TE premium: add `1.0 × TE receptions`.
+After correcting replacement and projection extrapolation, H2 and H3 carry nearly all identifiable rank signal; H4 is inconsistent and often adds little. QB longevity does not justify blindly summing more distant seasons. RB is short-horizon. WR occasionally retains H3 information. TE generally does not justify a universal longer horizon.
 
-This lets TE value emerge from actual premium scoring plus starter demand/replacement rather than a TE multiplier.
+The evidence therefore favors a short effective horizon, with survival/uncertainty carrying age and persistence rather than a hard-coded position multiplier.
 
-## Fixed FLEX versus endogenous FLEX
+## Discounting
 
-The fixed-control implementation was corrected to match production semantics:
+At the currently identifiable short horizons, 0.80, 0.90 and 1.00 annual weights have produced extremely similar rank ordering. Discounting changes magnitude more than ordering. It remains an economic/value-scale parameter rather than a ranking optimization target.
 
-- FLEX demand: RB 34%, WR 50%, TE 16%;
-- Superflex control: 0.85 QB contribution;
-- no invented Superflex spill allocation.
+## FLEX, Superflex and TE premium
 
-On the exact-calendar v0.3 grid, endogenous FLEX did not consistently earn its complexity. At the H4/mild/direct comparison it was worse than fixed allocation in most tested environments, including standard 1QB, Superflex, 2QB-like demand, deep FLEX, 2TE and 2TE+premium. Heavy +1.0 TE premium was an exception.
+Endogenous FLEX has not consistently earned its complexity over the production-equivalent fixed demand control and is not promoted.
 
-Therefore the focused candidate currently uses the simpler fixed-demand control. Endogenous FLEX is not being promoted merely because it appears theoretically elegant.
+Superflex/2QB scarcity remains a real league-specific replacement effect rather than an arbitrary QB multiplier.
 
-## League-specific versus neutral replacement
-
-The corrected exact-calendar grid continued to show meaningful league-specific replacement signal. At the H4/mild/direct/endogenous isolation, league-specific replacement improved mean Spearman versus neutral replacement by approximately:
-
-- Superflex: +0.030
-- 2QB-like demand: +0.032
-- 2TE: +0.025
-- 2TE + premium: +0.018
-- deep FLEX: +0.011
-- shallow: +0.007
-
-Standard 1QB and TE-premium-only formats were unchanged because their structural starter demand matched the neutral positional setup apart from scoring.
-
-This supports keeping actual league replacement in the research architecture.
-
-## Survival / conditional production
-
-After fixing the v0.2 survival double-count, v0.3 compares:
-
-1. direct unconditional future production including zero exit/collapse; and
-2. `P(relevant) × E(points | relevant)`.
-
-On the exact-calendar grid, the conditional-survival decomposition improved the tested H4/mild/league/endogenous specification across all league families. The focused candidate therefore tests the conditional-survival contract, but this remains experimental until its later holdout survives.
-
-## Horizon result and H5 limitation
-
-The exact common-target comparison changed the prior horizon interpretation.
-
-Against the same realized four-year utility target, H3 was generally as good as or better than H4 in the tested direct/endogenous family. Positionally, adding year four produced only a small RB improvement while usually reducing WR/TE rank correlation; QB ordering was essentially unchanged in that comparison.
-
-A true five-year candidate **cannot be frozen from the current 2015–2025 snapshot**. For a fully observed five-year target beginning with valuation year 2020, a leakage-safe direct Y+5 model would need training base seasons whose Y+5 target is strictly before 2020. With data beginning in 2015, there is no adequate pre-2020 Y+5 training history. Identical H4/H5 outputs in the first exact artifact are therefore a lack-of-identifiability warning, not evidence that Y+5 has zero marginal value.
-
-The focused v0.3 candidate currently tests H=3. H4 remains a sensitivity/position-specific research comparison. H5 remains data-blocked until a longer point-in-time historical window exists.
-
-## Critical replacement-forecast blocker discovered after the exact grid
-
-The exact-grid predictor replacement used only the valuation-season cohort projected forward. That means future entrants were absent from the predicted replacement pool even though future NFL player pools continually replenish through rookies and other entrants.
-
-This caused predicted replacement to decay unrealistically with horizon. Player-level decompositions showed examples such as predicted WR replacement falling approximately 125 → 103 → 83 → 74 while realized target replacement remained approximately 156 → 161 → 161 → 139.
-
-That behavior can mechanically inflate the long-horizon value of surviving/young players and cannot be accepted as a production candidate.
-
-The current focused candidate therefore tests an entrant-aware historical replacement forecast:
-
-1. calculate leakage-safe Y+1 replacement from the valuation-season cohort predictions;
-2. estimate historical replacement ratios `R(base+h) / R(base+1)` using only seasons whose compared replacement seasons are strictly before the valuation year;
-3. anchor future replacement to Y+1 predicted replacement using the median historical ratio;
-4. require at least two historical ratio observations or fail closed for that horizon/valuation year.
-
-The old cohort-decay replacement remains an explicit ablation, not the candidate.
-
-## Focused candidate under test
-
-Current pre-registered focused specification:
-
-- horizon: 3 seasons;
-- annual discount: 0.80 (`moderate`); 
-- future production: survival × conditional-on-relevance production;
-- replacement: actual league-specific structure;
-- future replacement forecast: historical entrant-aware replacement ratios anchored to leakage-safe Y+1 replacement;
-- FLEX/Superflex control: production-equivalent fixed allocation;
-- TE premium: reception-stat scoring;
-- explicit age multiplier: none;
-- external market anchor weight: 0;
-- raw canonical score: discounted multi-year surplus points.
-
-The focused harness includes a latest fully observed 2022→2025 chronological holdout and one-at-a-time ablations for replacement replenishment, neutral replacement, endogenous FLEX, direct production, and discounting.
-
-## Young-player interpretation
-
-Earlier exact-calendar evidence shows materially higher long-horizon survival for younger WR/RB/TE cohorts and lower survival for older cohorts. That is evidence for allowing youth to emerge through remaining future utility rather than adding an explicit youth multiplier.
-
-However, because cohort-only predicted replacement decayed too aggressively, earlier magnitudes of the youth-value increase are not considered frozen evidence. The entrant-aware replacement holdout must determine how much youth compression is genuinely resolved after replacement is corrected.
-
-## TE interpretation
-
-The research does not support a universal TE boost.
-
-TE value is expected to emerge from:
-
-- exact TE reception scoring;
-- 1TE versus 2TE demand;
-- league-specific replacement;
-- multi-year survival/production.
-
-The corrected exact-calendar grid showed substantially stronger TE rank prediction in 2TE environments than standard 1TE environments, but the focused entrant-aware replacement run must be inspected before candidate promotion.
+TE premium is scored from actual TE receptions. 2TE demand changes replacement directly. No universal TE boost is supported.
 
 ## Market anchor
 
-The pure football-derived candidate is mathematically self-contained and therefore **does not require an external dynasty market baseline in order to produce a Dynasty Value**.
+The pure football model is mathematically self-contained. External dynasty market values are not structurally required.
 
-No leakage-safe point-in-time historical dynasty market snapshots are present in the frozen repository evidence. Current market values cannot be backfilled into historical valuation seasons without future-information leakage.
+No leakage-safe point-in-time historical market series exists in the frozen repository evidence, so a historical market-anchor ablation cannot be executed honestly. Current market values are not backfilled into old seasons. Candidate market-anchor weight remains 0. The incremental value of a future provenance-approved market prior is untested rather than assumed.
 
-Therefore:
+## New cycle: youth and zero-compression diagnostic
 
-- market anchor weight in the focused candidate = 0;
-- the external market baseline is not considered structurally necessary;
-- its incremental predictive/stability value remains untested, not assumed to be zero;
-- market anchoring may only return as a separately validated optional prior if a provenance-approved point-in-time historical series becomes available.
+Commit `f69bb994b6221356a696bee3a60b2d69e829e8e6` reran the previously committed youth/zero-compression diagnostic deterministically on the frozen snapshot. GitHub Actions run `31832594144` completed successfully and uploaded artifact `league-vector-dynasty-valuation-v03-position-diagnostics`.
 
-This prevents the inability to backtest market history from forcing League Vector to keep a market-centered architecture by default.
+The diagnostic explicitly tests:
 
-## Value scale
+- zero share by position and league format;
+- young versus older players within matched Y+1 projection quintiles;
+- H2 versus H3 raw-surplus increments;
+- league-format deltas versus standard 1QB.
 
-The canonical research quantity remains raw discounted surplus points. A diagnostic `0–10000` mapping may be shown as:
+Interpretation rule was pre-registered: if `max(0, E[points]-replacement)` collapses most legitimate assets to zero, raw clipped expected surplus is insufficient as a complete dynasty asset value and must not be repaired with an arbitrary minimum value.
 
-`10000 × player_raw_surplus / max_raw_surplus_in_same_league_snapshot`
+## New cycle: uncertainty propagation / expected positive surplus
 
-but this normalization is **not frozen for production**, because it is sensitive to the top player in the league snapshot. Display scale must remain separate from the football-utility formula and must not drive model selection.
+A new isolated research harness tests the distinction between:
 
-## Rookie contract
+`max(0, E[Points] - Replacement)`
 
-Zero-history rookies remain fail-closed for model-derived multi-year Dynasty Value until an independently QA-approved rookie projection contract exists.
+and
 
-Required upstream fields include:
+`E[max(0, Points - Replacement)]`.
 
-- player_id
-- position
-- age
-- zero_history flag
-- approved projection point estimate/distribution
-- projection uncertainty
-- draft-capital provenance
-- model version
-- source snapshot
-- QA status
+The second quantity can preserve football-derived option value for uncertain players whose mean projection is below replacement but whose outcome distribution has a meaningful above-replacement tail.
 
-No unvalidated rookie projection is promoted by this branch.
+Implementation rules:
 
-## Current blockers before READY FOR QA
+- chronology-safe empirical residual distributions are estimated only from pre-valuation training observations;
+- position-specific projection features are preserved;
+- replacement uses the expanding historical median league-specific forecast;
+- no arbitrary value floor;
+- no consensus-ranking optimization;
+- no market anchor;
+- compare H2/H3/H4 and 0.80/0.90/1.00 sensitivity;
+- compare directly against clipped expectation.
 
-The branch must not be marked READY FOR QA until all of the following are true:
+The first run failed closed because the harness referenced a nonexistent replacement helper. That defect was corrected rather than bypassed. Exact corrected research head: `8f18dddde867c15927eae49efdcef0d4b37b0529`. Its deterministic workflow is the current evidence gate.
 
-1. entrant-aware future replacement completes deterministically on the frozen snapshot;
-2. the 2022→2025 holdout shows whether replenished replacement improves or at least preserves predictive utility versus cohort-decay replacement;
-3. league-specific replacement survives the later holdout, particularly Superflex/2QB and 2TE;
-4. conditional-survival remains defensible versus direct unconditional production;
-5. discount sensitivity remains contained;
-6. 3-year versus identifiable 4-year behavior is documented without pretending H5 is validated;
-7. QB/Superflex does not produce runaway longevity values;
-8. TE premium/2TE behavior remains monotonic and football-plausible without a TE multiplier;
-9. young-player uplift remains after replacement replenishment;
-10. deterministic player-level evidence is frozen;
-11. exact formula and Core contract are frozen;
-12. independent HIGH-risk QA has a single exact head to test.
+## Explicit limitations
 
-## Core contract under research
+- No historical point-in-time depth charts/opportunity state; do not reconstruct with hindsight.
+- H5 not identifiable with current history.
+- No leakage-safe historical dynasty market snapshots.
+- Rookie/zero-history model-derived value remains dependent on a separately QA-approved rookie projection contract.
+- Empirical residual uncertainty is a first distributional approximation; it is not yet a fully calibrated player-specific predictive distribution.
+- Production value scale remains unfrozen.
 
-A future experimental Core consumer should receive at least:
+## QA gate
 
-- `player_id`
-- `position`
-- `league_context_hash`
-- `valuation_model_version`
-- `horizon`
-- `season_weights[]`
-- `future_survival_probabilities[]`
-- `future_conditional_point_estimates[]`
-- `future_expected_scored_points[]`
-- `replacement_forecast_by_season[]`
-- `replacement_forecast_provenance`
-- `surplus_by_season[]`
-- `raw_discounted_surplus`
-- `display_value` plus separate display-scale version only after validation
-- `uncertainty_metadata`
-- `rookie_or_limited_history_flag`
-- `market_anchor` and `market_anchor_weight` only if separately validated
-- `experimental=true`
-- `production_dynasty_value_eligible=false`
-- `source_snapshot_sha256`
+Do not mark READY FOR QA until a single exact head contains deterministic evidence that:
+
+1. position-specific future production is outlier-safe without arbitrary caps;
+2. league-specific replacement is chronology-safe and calibrated;
+3. uncertainty propagation improves or preserves realized-utility validity without creating indiscriminate option value;
+4. youth differentiation is football-derived and survives matched-projection controls;
+5. H2/H3/H4 and discount sensitivity are stable enough to freeze;
+6. Superflex/2QB, starter count and TE-premium behavior are football-plausible;
+7. player-level failure cases are documented;
+8. the exact formula and Core contract are frozen;
+9. all production and IDP firewalls remain false.
 
 ## Current decision
 
-The multi-year league-specific surplus architecture remains promising, and the corrected research increasingly favors a simpler three-year football-derived candidate rather than market value plus heuristic overlays. But the future replacement pool must be replenishment-aware before any candidate can be frozen.
+The research has materially narrowed the architecture: short-horizon, league-specific, position-specific and pure-football-derived. The next unresolved primitive is distribution-aware positive surplus. It is not yet justified to freeze v0.3 for independent HIGH-risk QA.
 
 **MORE DYNASTY VALUATION RESEARCH REQUIRED**
