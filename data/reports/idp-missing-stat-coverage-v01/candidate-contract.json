@@ -6,6 +6,7 @@
   "input_snapshot_sha256": "d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188",
   "selection_period": [2020, 2021, 2022, 2023, 2024],
   "retrospective_observed": [2025],
+  "status": "READY FOR QA — HIGH RISK",
   "model": {
     "family": "ridge",
     "alpha": 10,
