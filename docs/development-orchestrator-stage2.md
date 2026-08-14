@@ -24,7 +24,7 @@ The adapter derives:
 - exact current head SHA
 - declared candidate SHA when an exact candidate form is present
 - complete Stage 1 metadata when explicitly supplied
-- canonical QA PASS/FAIL events
+- canonical QA PASS/FAIL events, including GitHub event identifiers when available
 - dependency IDs
 - Founder gate/decision fields
 - draft/open state
@@ -39,7 +39,11 @@ Only an exact line matching either of these counts:
 
 `QA FAIL — tested head <40-char SHA>`
 
-The newest canonical verdict on the **current head** controls current QA state. A PASS is fresh only when its tested SHA equals the current PR head. A later current-head FAIL defeats an earlier current-head PASS. A commit after a PASS makes the previous PASS stale automatically. Malformed PASS language or comments without an exact tested SHA do not authorize anything.
+Verdicts are resolved independently for each exact tested SHA. A PASS is fresh only when its tested SHA equals the current PR head. A provably later current-head FAIL defeats an earlier current-head PASS. A provably later current-head PASS may supersede an earlier FAIL when the timestamp ordering is authoritative and the exact-SHA contract is otherwise satisfied. A commit after a PASS makes the previous PASS stale automatically. Malformed PASS language or comments without an exact tested SHA do not authorize anything.
+
+GitHub comment/review timestamps can have insufficient resolution to prove ordering. Therefore, if the latest timestamp for one exact SHA contains both canonical PASS and canonical FAIL evidence, Stage 2 reports that SHA as `conflicted`. It does not use API array order, source ordering, or event identifiers to guess which verdict came later. A conflicted verdict is invalid QA evidence, cannot satisfy Stage 1's PASS requirement, cannot enter Core, is routed to remediation/owner review, and is displayed as conflicted in machine-readable status and text handoffs. Duplicate PASS events or duplicate FAIL events at the same timestamp do not create a false conflict. Conflicting verdicts on another SHA do not contaminate the current head.
+
+GitHub event identifiers are retained for deterministic provenance where available, but identifiers are not treated as proof of temporal precedence when timestamps are tied.
 
 ## Structured versus legacy items
 
@@ -66,15 +70,15 @@ This is intentional during migration: old PRs do not become trusted merely becau
 
 ### QA
 
-Structured open items at `status:ready-for-qa` without a fresh PASS. Output includes current/declared SHA, SHA match, newest verdict, stale/fresh state, dependencies, Founder state, and recommended QA depth.
+Structured open items at `status:ready-for-qa` without a fresh PASS and without a current-head FAIL/conflict. Output includes current/declared SHA, SHA match, newest verdict, stale/fresh/conflicted state, dependencies, Founder state, and recommended QA depth.
 
 ### Core
 
-Structured items are included only when Stage 1 `coreEligible()` succeeds: fresh exact-SHA QA PASS, integration required, dependencies satisfied, raw-research firewall satisfied, promotion authorization satisfied, and Founder approval satisfied when required.
+Structured items are included only when Stage 1 `coreEligible()` succeeds: fresh exact-SHA QA PASS, integration required, dependencies satisfied, raw-research firewall satisfied, promotion authorization satisfied, and Founder approval satisfied when required. Conflicted QA evidence never satisfies this gate.
 
 ### Remediation
 
-Structured current-head QA FAIL items or `status:qa-failed`. A FAIL on an older SHA does not automatically remediate a newer candidate; the moved head is treated as needing fresh QA instead.
+Structured current-head QA FAIL or conflicted items, plus `status:qa-failed`. A FAIL on an older SHA does not automatically remediate a newer candidate; the moved head is treated as needing fresh QA instead.
 
 ### Founder
 
@@ -119,7 +123,7 @@ node scripts/development-orchestrator-v02.js handoff 32
 
 Fixture mode is available for deterministic tests with `--fixture <path>`.
 
-`handoff` produces text only: target PR, current SHA, owner/risk/status, QA freshness, dependencies, Founder gate, and safe recommended next action. Legacy items include an explicit fail-closed warning and list missing metadata.
+`handoff` produces text only: target PR, current SHA, owner/risk/status, QA freshness/conflict state, dependencies, Founder gate, and safe recommended next action. Legacy items include an explicit fail-closed warning and list missing metadata.
 
 ## Dogfood expectations for the current repository
 
