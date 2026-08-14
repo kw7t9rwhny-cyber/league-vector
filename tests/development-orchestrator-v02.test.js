@@ -8,7 +8,7 @@ const os = require("node:os");
 const path = require("node:path");
 const {
   parseStructuredMetadata, parseVerdicts, normalizePr, deriveQueues, handoffFor,
-  statusSummary, candidateShaFromText, qaEventAuthorized
+  statusSummary, candidateShaFromText, candidateShaEvidenceFromText, qaEventAuthorized
 } = require("../scripts/development-orchestrator-v02.js");
 
 const SHA_A = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -23,6 +23,7 @@ function body(overrides = {}) {
 function pr(number, overrides={}) { return { number, title:`PR ${number}`, body:body(), state:"open", draft:false, head_sha:SHA_A, declared_candidate_sha:SHA_A, labels:[], events:[], ...overrides }; }
 function verdict(name, sha, when="2026-08-14T10:00:00Z", id=null, overrides={}) { return { body:`QA ${name} — tested head ${sha}`, created_at:when, source:"comment", id, author_login:QA_AUTHOR, qa_authorized:true, ...overrides }; }
 function unauthorized(name, sha, overrides={}) { return { body:`QA ${name} — tested head ${sha}`, created_at:"2026-08-14T10:00:00Z", source:"comment", id:900, author_login:"attacker", qa_authorized:false, ...overrides }; }
+function duplicateField(text, line) { return `${text}\n${line}\n`; }
 
 test("structured metadata parses canonical Stage-1 fields",()=>{ const x=parseStructuredMetadata(body({dependencies:"#2, #3"})); assert.equal(x.structured,true); assert.equal(x.fields.owner,"core"); assert.deepEqual(x.fields.dependencies,[2,3]); });
 test("body/owner-label agreement is valid",()=>{ const x=parseStructuredMetadata(body({owner:"core"}),["owner:core"]); assert.equal(x.structured,true); assert.deepEqual(x.conflicts,[]); });
@@ -30,6 +31,37 @@ test("owner body/label conflict fails structured authority",()=>{ const x=parseS
 test("multiple owner labels fail structured authority",()=>{ const x=parseStructuredMetadata(body(),["owner:core","owner:qa"]); assert.equal(x.structured,false); assert.ok(x.conflicts.includes("multiple_owner_labels")); });
 test("legacy PR fails closed when metadata is missing",()=>{ const x=normalizePr(pr(1,{body:"READY FOR QA"})); assert.equal(x.structured,false); assert.equal(x.recommended_action,undefined); });
 test("unsupported body-only owner cannot produce routable action",()=>{ const q=deriveQueues([pr(2,{body:body({owner:"attacker-controlled-name",status:"qa-failed"}),events:[verdict("FAIL",SHA_A)]})]); const x=q.items[0]; assert.equal(x.owner_authority_valid,false); assert.equal(x.recommended_action,"NO_ACTION"); assert.equal(q.remediation.length,0); });
+
+test("canonical Owner then attacker Owner fails closed",()=>{ const x=parseStructuredMetadata(duplicateField(body({owner:"core"}),"Owner: owner:attacker-controlled-name")); assert.equal(x.structured,false); assert.ok(x.conflicts.includes("duplicate_owner_declarations")); });
+test("attacker Owner then canonical Owner fails closed",()=>{ const first=body({owner:"attacker-controlled-name"}); const x=parseStructuredMetadata(duplicateField(first,"Owner: owner:core")); assert.equal(x.structured,false); assert.ok(x.conflicts.includes("duplicate_owner_declarations")); });
+test("two different canonical Owners fail closed",()=>{ const x=parseStructuredMetadata(duplicateField(body({owner:"projection"}),"Owner: owner:core")); assert.equal(x.structured,false); assert.ok(x.conflicts.includes("duplicate_owner_declarations")); });
+test("same canonical Owner repeated twice fails closed",()=>{ const x=parseStructuredMetadata(duplicateField(body({owner:"core"}),"Owner: owner:core")); assert.equal(x.structured,false); assert.ok(x.conflicts.includes("duplicate_owner_declarations")); });
+test("single canonical Owner remains valid",()=>{ const x=parseStructuredMetadata(body({owner:"core"})); assert.equal(x.structured,true); assert.equal(x.fields.owner,"core"); });
+test("duplicate body Owner cannot be rescued by agreeing owner label",()=>{ const x=parseStructuredMetadata(duplicateField(body({owner:"projection"}),"Owner: owner:core"),["owner:projection"]); assert.equal(x.structured,false); assert.ok(x.conflicts.includes("duplicate_owner_declarations")); });
+
+test("all required singleton authorization fields reject duplicate declarations",()=>{
+  const attacks=[
+    ["Status: status:active","duplicate_status_declarations"],
+    ["Type: type:research","duplicate_type_declarations"],
+    ["Risk: risk:high","duplicate_risk_declarations"],
+    ["Priority: priority:urgent","duplicate_priority_declarations"],
+    ["Integration required: no","duplicate_integration_required_declarations"],
+    ["Promotion type: production-numerical-model","duplicate_promotion_type_declarations"],
+    ["Promotion authorized: yes","duplicate_promotion_authorized_declarations"],
+    ["Founder decision required: yes","duplicate_founder_decision_required_declarations"],
+    ["Founder gate: release","duplicate_founder_gate_declarations"],
+    ["Founder decision: approved","duplicate_founder_decision_declarations"],
+    ["Dependencies: #99","duplicate_dependencies_declarations"]
+  ];
+  for (const [line,reason] of attacks) { const x=parseStructuredMetadata(duplicateField(body(),line)); assert.equal(x.structured,false,line); assert.ok(x.conflicts.includes(reason),line); }
+});
+test("identical singleton repetitions also fail closed",()=>{ for (const line of ["Status: status:ready-for-qa","Integration required: yes","Promotion type: none","Founder gate: none","Dependencies: None"]) { assert.equal(parseStructuredMetadata(duplicateField(body(),line)).structured,false,line); } });
+test("duplicate structured QA evidence field fails closed",()=>{ const x=parseStructuredMetadata(duplicateField(duplicateField(body(),"QA evidence: none"),"QA evidence: none")); assert.equal(x.structured,false); assert.ok(x.conflicts.includes("duplicate_qa_evidence_declarations")); });
+test("duplicate Exact relevant SHA field fails closed",()=>{ const x=parseStructuredMetadata(`${body()}\nExact relevant SHA / source: ${SHA_A}\nExact relevant SHA / source: ${SHA_B}\n`); assert.equal(x.structured,false); assert.ok(x.conflicts.includes("duplicate_exact_relevant_sha_declarations")); });
+test("duplicate candidate SHA declarations fail closed",()=>{ const text=`${body()}\nExact candidate head: ${SHA_A}\nExact candidate head: ${SHA_B}\n`; const x=parseStructuredMetadata(text); assert.equal(x.structured,false); assert.ok(x.conflicts.includes("duplicate_candidate_sha_declarations")); const ev=candidateShaEvidenceFromText(text); assert.equal(ev.conflict,true); assert.equal(candidateShaFromText(text),null); });
+test("same candidate SHA repeated also fails closed",()=>{ const text=`Exact candidate head: ${SHA_A}\nExact candidate head: ${SHA_A}`; assert.equal(candidateShaEvidenceFromText(text).conflict,true); });
+test("single candidate SHA parses",()=>{ const text=`Exact candidate head: ${SHA_B}`; const ev=candidateShaEvidenceFromText(text); assert.equal(ev.conflict,false); assert.equal(ev.sha,SHA_B); });
+test("candidate body/adaptor disagreement fails structured normalization",()=>{ const x=normalizePr(pr(30,{body:`${body()}\nExact candidate head: ${SHA_B}\n`,declared_candidate_sha:SHA_A})); assert.equal(x.structured,false); assert.ok(x.metadata_conflicts.includes("candidate_sha_adapter_body_conflict")); });
 
 test("authorized QA comment with exact verdict-only body is accepted",()=>{ const p=parseVerdicts([verdict("PASS",SHA_A)]); assert.equal(p.length,1); assert.equal(p[0].author_login,QA_AUTHOR); });
 test("authorized QA review with exact verdict-only body is accepted",()=>{ const p=parseVerdicts([verdict("FAIL",SHA_A,"2026-08-14T10:00:00Z",1,{source:"review"})]); assert.equal(p.length,1); assert.equal(p[0].verdict,"fail"); });
