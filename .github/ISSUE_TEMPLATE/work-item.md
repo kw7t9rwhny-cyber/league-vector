@@ -17,13 +17,19 @@ assignees: []
 - Production impact: `none | describe`
 - Integration required: `yes | no`
 - Founder decision required: `no | release | data-license | production-model-promotion | business-decision`
+- Founder decision: `not-required | pending | approved | rejected | request-changes`
 
 ## Dependencies
 None, or list the exact issue/PR and required state.
 
 ## Relevant provenance
 - Source PR/issue:
-- Exact SHA/artifact:
+- Exact current head SHA/artifact:
+- QA verdict when applicable: `pass | fail`
+- QA tested SHA when applicable:
+
+## Research promotion boundary
+Raw `type:research` work is never Core-eligible. Any integration/promotion must be represented by a separate non-research work item that depends on the validated research artifact. Production numerical model promotion must also carry the Founder production-model-promotion gate.
 
 ## Validation required
 
