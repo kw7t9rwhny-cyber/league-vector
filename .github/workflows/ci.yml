@@ -97,7 +97,7 @@ jobs:
           test -s site-preview/idp-rankings-ui-v01.js
           test -s site-preview/idp-current-season-integration-v01.js
           test -s site-preview/idp-current-season-worker-v01.js
-          grep -q 'dynasty-search-v01.js?v=0.2' site-preview/index.html
+          grep -q 'dynasty-search-v01.js?v=0.3' site-preview/index.html
           grep -q 'experimental-ui-v03.js?v=0.3.4' site-preview/index.html
           ! grep -q 'experimental-ui-v03.js?v=0.3.3' site-preview/index.html
           grep -q 'projection-browser-v01.css?v=0.2' site-preview/experimental-ui-v03.js
@@ -115,7 +115,7 @@ jobs:
           trap 'kill $server_pid' EXIT
           sleep 1
           curl --fail --silent --show-error http://127.0.0.1:4174/data/experimental/2026-projections.json >/dev/null
-          curl --fail --silent --show-error http://127.0.0.1:4174/dynasty-search-v01.js?v=0.2 >/dev/null
+          curl --fail --silent --show-error http://127.0.0.1:4174/dynasty-search-v01.js?v=0.3 >/dev/null
           curl --fail --silent --show-error http://127.0.0.1:4174/experimental-ui-v03.js?v=0.3.4 >/dev/null
           curl --fail --silent --show-error http://127.0.0.1:4174/projection-browser-v01.css?v=0.2 >/dev/null
           curl --fail --silent --show-error http://127.0.0.1:4174/idp-rankings-v01.css?v=0.1 >/dev/null
