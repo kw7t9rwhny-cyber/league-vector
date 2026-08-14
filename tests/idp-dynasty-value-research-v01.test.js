@@ -1,6 +1,7 @@
 const test=require('node:test');
 const assert=require('node:assert/strict');
 const R=require('../scripts/idp-dynasty-value-research-v01.js');
+const Empirical=require('../scripts/idp-dynasty-empirical-v01.js');
 
 function row(id,season,position,points,age,exp,ppw=points/10){return {gsis_id:id,season,model_position:position,reference_points:points,points_per_observed_week:ppw,observed_week_availability_proxy:.8,player_season_age:age,experience_season:exp,next_season_any_idp_observed:false,next_season_same_model_position:false,conditional_yoy_points_per_observed_week_delta:null};}
 function sample(){
@@ -37,6 +38,15 @@ test('age and experience curves use player-season fields',()=>{
   const exp=R.groupCurve(rows,'experience_season');
   assert.ok(ages.some(x=>x.position==='DB'&&x.player_season_age===24));
   assert.ok(exp.some(x=>x.position==='DL'&&x.experience_season===1));
+});
+
+test('experience metadata fails closed instead of coercing missing rookie year to zero',()=>{
+  assert.equal(Empirical.safeExperience(null,2025),null);
+  assert.equal(Empirical.safeExperience(undefined,2025),null);
+  assert.equal(Empirical.safeExperience('',2025),null);
+  assert.equal(Empirical.safeExperience(0,2025),null);
+  assert.equal(Empirical.safeExperience(2030,2025),null);
+  assert.equal(Empirical.safeExperience(2022,2025),4);
 });
 
 test('uncertainty remains separate by DL LB DB',()=>{
