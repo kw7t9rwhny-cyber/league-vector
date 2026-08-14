@@ -13,19 +13,22 @@ Required firewall remains:
 
 unless and until a position-specific or broader model is independently QA-approved.
 
-## 1. Current-player eligibility — methodology resolved, live audit still required for every snapshot
+## 1. Current-player eligibility — fail-closed contract strengthened by live evidence
 
-Cycle 2 proved the retained 2026 projection-ready universe could contain stale retired players. Cycle 3 removes the methodological ambiguity: historical production eligibility and **current fantasy-player eligibility are separate contracts**.
+Cycle 2 proved the retained 2026 projection-ready universe could contain stale retired players. Cycle 3 separates historical production eligibility from **current fantasy-player eligibility**.
 
-Current authority is a timestamped Sleeper NFL player snapshot. Sleeper's first-party API exposes current player records including `active`, `status`, `fantasy_positions`, `team`, injury status and depth-chart fields, and supports `active=true` filtering. League Vector must retain the snapshot timestamp/checksum used for each current pool audit.
+A timestamped Sleeper NFL player snapshot is useful current platform evidence because Sleeper exposes `active`, `status`, `fantasy_positions`, `team`, injury status and depth-chart fields. It is **not sufficient to trust `active` in isolation**.
+
+A live League Vector historical-identity workflow artifact generated on 2026-08-14 contained 12,218 Sleeper records: 9,411 had `active=true`, and 7,273 were active plus fantasy-relevant by the existing broad position gate. Within the unresolved/ambiguous/conflicting review subset alone, there were 223 records with `active=true` but explicit `status=Inactive`, 32 with `active=true` and missing status, and 2,336 teamless records with `active=true` plus `status=Active`. Those review-subset counts are not population prevalence estimates; they prove that contradictory and teamless/stale-looking combinations exist and therefore cannot be auto-approved. Durable provenance is retained in `data/research/idp-current-sleeper-safety-evidence-v03.json`.
 
 Fail-closed current eligibility contract implemented in `idp-foundation-research-v03.js`:
 
-- `active === true` is required.
+- `active === true` is required but never sufficient alone.
 - a recognized current `status` is required; missing or unknown status is excluded rather than guessed.
-- retired or inactive states are excluded.
-- `Active` + NFL team => `active_roster`.
-- `Active` + no NFL team => `free_agent`; teamlessness by itself is not retirement.
+- retired or inactive states are excluded even when `active === true` conflicts.
+- `Active` + current NFL team => `active_roster`.
+- `Active` + no NFL team => `teamless_unverified` and is excluded by default.
+- a teamless player may become `verified_free_agent` only when a separate current authority explicitly verifies that exact player identity as a current NFL free agent.
 - recognized IR/PUP/NFI states remain current-eligible only when an NFL team is present.
 - recognized practice-squad state remains current-eligible only when an NFL team is present.
 - missing current Sleeper identity for a historical/projection record fails closed.
@@ -33,11 +36,11 @@ Fail-closed current eligibility contract implemented in `idp-foundation-research
 
 The projection model may still learn from a retired player's historical seasons when those seasons were valid training observations. The player is simply barred from the **current** projection-ready pool if current eligibility fails.
 
-The audit runner `scripts/idp-current-pool-v03.js` produces counts by included position/current class, excluded reason and real hybrid eligibility set. It is intentionally research output only.
+The audit runner `scripts/idp-current-pool-v03.js` produces counts by included position/current class, excluded reason and real hybrid eligibility set. It does not currently provide a second source that can verify teamless free agents, so those records remain excluded in this cycle.
 
 ### Remaining current-eligibility limitation
 
-Sleeper status strings must be monitored as an external contract. A newly introduced status is not auto-approved. It lands in `unknown_status_fail_closed` until explicitly reviewed.
+Sleeper status strings must be monitored as an external contract. A newly introduced status is not auto-approved. It lands in `unknown_status_fail_closed` until explicitly reviewed. Teamless free-agent inclusion remains data-blocked until a legally usable current roster/transaction authority can independently establish the player's current NFL status.
 
 ## 2. Multi-position / hybrid eligibility — representation and allocation contract resolved
 
@@ -60,7 +63,9 @@ Projected statistics are scored once under the league scoring rules. Dual eligib
 
 ### Starter allocation / replacement
 
-`maximumWeightAssignment()` performs one deterministic slot assignment across dedicated DL/LB/DB and IDP-flex slots. A player can occupy at most one slot. The assignment can move a hybrid player between valid slots to preserve the strongest overall lineup, so slot scarcity is handled globally rather than by independent position sorts.
+`maximumWeightAssignment()` performs one deterministic constrained slot assignment across dedicated DL/LB/DB and IDP-flex slots. A player can occupy at most one slot. The assignment can move a hybrid player between valid slots to preserve the strongest overall lineup, so slot scarcity is handled globally rather than by independent position sorts.
+
+An initial CI test exposed a rematching bookkeeping defect in the first implementation; that defect caused a displaced hybrid to lose its new assignment. The research branch was not treated as valid while that test failed. The state transition was corrected and the deterministic test suite was expanded to cover dedicated-slot reassignment and IDP-flex sharing.
 
 ### Hybrid value
 
@@ -70,7 +75,7 @@ League Vector must not calculate DL VORP and LB VORP independently and then choo
 
 ### Remaining hybrid limitation
 
-The real 2026 hybrid population still needs the current Sleeper snapshot audit before numerical sensitivity conclusions are accepted. Mapping strings are a versioned platform contract and unknown position labels must be reviewed rather than silently coerced.
+The real 2026 hybrid population still needs the current fail-closed Sleeper snapshot audit before numerical sensitivity conclusions are accepted. Mapping strings are a versioned platform contract and unknown position labels must be reviewed rather than silently coerced.
 
 ## 3. Player-season age / experience curves — retrospective-age bug removed
 
@@ -108,7 +113,7 @@ Cycle 2's league-specific replacement principle is retained: league size, dedica
 
 Cycle 3 improves it by replacing independent canonical-position allocation with a single constrained assignment that supports real multi-position eligibility and cannot double-count hybrids.
 
-No replacement constants are hardcoded. Any retained boundary must be regenerated for the league and scoring configuration.
+No replacement constants are hardcoded. Any retained boundary must be regenerated for the league and scoring configuration. Tests now explicitly show that a slot shadow price changes when the league's starter structure changes.
 
 Before a numeric dynasty candidate can be approved, research still needs:
 
@@ -141,7 +146,7 @@ A position does not advance merely because its relative evidence is better than 
 
 ## 7. Firewall verification
 
-This branch adds only research contracts, runners, tests and documentation. It does not authorize a numeric IDP dynasty value or combined offense/defense rankings.
+This branch adds only research contracts, runners, tests, CI evidence collection and documentation. It does not authorize a numeric IDP dynasty value or combined offense/defense rankings.
 
 Required state remains:
 
@@ -155,12 +160,15 @@ Required state remains:
 
 `tests/idp-foundation-research-v03.test.js` covers:
 
-- fail-closed retired/inactive/missing status behavior;
-- current free-agent, IR/PUP and practice-squad classification;
+- fail-closed retired/inactive/missing/contradictory status behavior;
+- teamless Active fail-closed behavior plus explicit separately verified free-agent inclusion;
+- current active-roster, IR/PUP and practice-squad classification;
 - DL/LB, LB/DB and EDGE/LB canonical hybrid eligibility;
 - no hybrid double counting;
-- reassignment under slot scarcity;
+- reassignment under dedicated-slot scarcity;
+- shared IDP-flex assignment;
 - optimized marginal starter value rather than max-of-position VORP;
+- league-structure-sensitive replacement shadow prices;
 - player-season age and experience calculation;
 - failure when no current Sleeper identity exists.
 
@@ -170,7 +178,7 @@ Required state remains:
 
 Before any position-specific READY FOR QA / HIGH handoff:
 
-1. execute the current Sleeper eligibility audit against the regenerated raw 2026 projection-ready file and inspect all unknown statuses / missing current identities;
+1. execute the tightened current Sleeper eligibility audit against the regenerated raw 2026 projection-ready file and inspect all unknown statuses / missing current identities / teamless exclusions;
 2. quantify the real current hybrid population and replacement/ranking sensitivity across representative Sleeper roster configurations;
 3. execute the 2015-2025 player-season age runner and review sample size, survivor conditioning and position/age stability;
 4. add legally and temporally defensible historical opportunity/role evidence before claiming true role-survival curves;
@@ -179,6 +187,6 @@ Before any position-specific READY FOR QA / HIGH handoff:
 
 ## Final decision
 
-Cycle 3 resolves the **methodological contracts** for current-player eligibility and hybrid lineup eligibility and removes the retrospective-current-age error from the age-curve pipeline. It does not yet establish enough empirical role-survival / opportunity evidence to expose numeric dynasty values.
+Cycle 3 resolves the **methodological contracts** for fail-closed current-player eligibility and hybrid lineup eligibility and removes the retrospective-current-age error from the age-curve pipeline. Live evidence forced the current-player gate to become stricter: teamless `Active` is not accepted as a free-agent proof. The cycle still does not establish enough empirical role-survival / opportunity evidence to expose numeric dynasty values.
 
 **MORE RESEARCH REQUIRED. NO POSITION IS READY FOR QA YET.**
