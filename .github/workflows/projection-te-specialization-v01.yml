@@ -1,0 +1,94 @@
+name: TE Specialization / Ranking Research v0.1
+
+on:
+  push:
+    branches: [agent/te-specialization-ranking-research-v01]
+    paths:
+      - 'scripts/projection-te-specialization-v01.py'
+      - 'docs/projection-te-specialization-v01.md'
+      - '.github/workflows/projection-te-specialization-v01.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  te-specialization:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Restore validated frozen v0.4 control artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/lv-control
+          curl -L --fail-with-body \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/actions/artifacts/9205731274/zip \
+            -o /tmp/lv-control/control.zip
+          unzip -q /tmp/lv-control/control.zip -d /tmp/lv-control/unpacked
+          mkdir -p .cache/lv-te-specialization-v01 data/reports/projection-v04-canonical/run-a data/reports/projection-te-specialization-v01
+          cp -R /tmp/lv-control/unpacked/.cache/lv-v04-canonical/. .cache/lv-te-specialization-v01/
+          cp /tmp/lv-control/unpacked/data/reports/projection-v04-canonical/snapshot-manifest.json .cache/lv-te-specialization-v01/snapshot-manifest.json
+          cp /tmp/lv-control/unpacked/data/reports/projection-v04-canonical/run-a/candidate-player-seasons.json data/reports/projection-v04-canonical/run-a/candidate-player-seasons.json
+      - name: Verify frozen provenance and immutable comparator
+        run: |
+          python - <<'PY'
+          import hashlib,json,pathlib
+          m=json.loads(pathlib.Path('.cache/lv-te-specialization-v01/snapshot-manifest.json').read_text())
+          assert m['snapshot_sha256']=='d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188'
+          p=pathlib.Path('data/reports/projection-v04-canonical/run-a/candidate-player-seasons.json')
+          assert hashlib.sha256(p.read_bytes()).hexdigest()=='9e329e7901ecb8e925d5f5aae695dadc30195b33e67f3943177dc13087b45ab0'
+          print('validated frozen TE research inputs')
+          PY
+      - name: Install pinned research dependencies
+        run: python -m pip install pandas==2.2.3 numpy==2.2.3 scipy==1.15.2 scikit-learn==1.6.1
+      - name: Run TE research twice and prove determinism
+        run: |
+          python scripts/projection-te-specialization-v01.py .cache/lv-te-specialization-v01 data/reports/projection-v04-canonical/run-a/candidate-player-seasons.json data/reports/projection-te-specialization-v01/run-a.json
+          python scripts/projection-te-specialization-v01.py .cache/lv-te-specialization-v01 data/reports/projection-v04-canonical/run-a/candidate-player-seasons.json data/reports/projection-te-specialization-v01/run-b.json
+          cmp data/reports/projection-te-specialization-v01/run-a.json data/reports/projection-te-specialization-v01/run-b.json
+          sha256sum data/reports/projection-te-specialization-v01/run-a.json > data/reports/projection-te-specialization-v01/result.sha256
+      - name: Enforce chronology, gates and firewalls
+        run: |
+          python - <<'PY'
+          import json
+          r=json.load(open('data/reports/projection-te-specialization-v01/run-a.json'))
+          assert r['retrospective_observed']==2025
+          assert max(r['development_target_seasons'])<2025
+          assert r['control']=='validated Projection v0.4 immutable'
+          assert r['identity_and_data_audit']['duplicate_player_seasons']==0
+          assert r['identity_and_data_audit']['unresolved_player_identity']==0
+          assert r['identity_and_data_audit']['starter_status_inferred'] is False
+          assert r['features']['red_zone_usage_proxy_used'] is False
+          assert r['features']['snap_or_starter_proxy_used'] is False
+          assert r['features']['true_zero_preserved'] is True
+          assert r['features']['missing_unavailable_not_zero_filled'] is True
+          assert r['flags']['experimental'] is True
+          assert r['flags']['production_projection_eligible'] is False
+          assert r['flags']['dynasty_value_eligible'] is False
+          assert r['flags']['production_modified'] is False
+          assert r['flags']['core_modified'] is False
+          assert r['flags']['ui_modified'] is False
+          assert r['flags']['idp_modified'] is False
+          if r['decision']=='READY FOR QA — HIGH RISK':
+              assert r['selected_candidate']
+              assert r['models'][r['selected_candidate']]['candidate_gate_pass'] is True
+          else:
+              assert r['decision']=='MORE TE RESEARCH REQUIRED'
+              assert r['selected_candidate'] is None
+              assert not any(x['candidate_gate_pass'] for x in r['models'].values())
+          print(r['decision'])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: league-vector-te-specialization-v01
+          path: data/reports/projection-te-specialization-v01/
+          if-no-files-found: error
+          retention-days: 30
