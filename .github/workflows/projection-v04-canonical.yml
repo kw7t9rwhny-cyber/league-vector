@@ -22,9 +22,9 @@ jobs:
         run: node scripts/projection-v04-freeze-inputs.js .cache/lv-v04-canonical
       - name: Audit identity and true-zero vs missing semantics
         run: node scripts/projection-v04-snapshot-audit.js .cache/lv-v04-canonical data/reports/projection-v04-canonical/snapshot-audit.json
-      - name: Canonical run A
+      - name: Canonical v0.4 run A
         run: node scripts/projection-v04-canonical.js data/reports/projection-v04-canonical/run-a .cache/lv-v04-canonical
-      - name: Canonical run B
+      - name: Canonical v0.4 run B
         run: node scripts/projection-v04-canonical.js data/reports/projection-v04-canonical/run-b .cache/lv-v04-canonical
       - name: Prove deterministic reproduction
         run: |
@@ -34,6 +34,10 @@ jobs:
           cmp data/reports/projection-v04-canonical/run-a/output-hashes.json data/reports/projection-v04-canonical/run-b/output-hashes.json
           cp .cache/lv-v04-canonical/snapshot-manifest.json data/reports/projection-v04-canonical/snapshot-manifest.json
           printf '{"deterministic":true,"comparison":"run-a byte-identical to run-b"}\n' > data/reports/projection-v04-canonical/determinism-proof.json
+      - name: Selection-safe v0.3 comparator on same frozen snapshot
+        run: node scripts/projection-v03-canonical-comparator.js data/reports/projection-v04-canonical/v03 .cache/lv-v04-canonical
+      - name: Build internally consistent canonical handoff
+        run: node scripts/projection-v04-canonical-handoff.js data/reports/projection-v04-canonical
       - name: Upload canonical evidence and frozen input snapshot
         uses: actions/upload-artifact@v4
         with:
