@@ -27,11 +27,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p /tmp/lv-control
-          curl -L --fail-with-body \
-            -H "Authorization: Bearer $GH_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/${{ github.repository }}/actions/artifacts/9205731274/zip \
-            -o /tmp/lv-control/control.zip
+          curl -L --fail-with-body -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" https://api.github.com/repos/${{ github.repository }}/actions/artifacts/9205731274/zip -o /tmp/lv-control/control.zip
           unzip -q /tmp/lv-control/control.zip -d /tmp/lv-control/unpacked
           mkdir -p .cache/lv-te-specialization-v01 data/reports/projection-v04-canonical/run-a data/reports/projection-te-specialization-v01
           cp -R /tmp/lv-control/unpacked/.cache/lv-v04-canonical/. .cache/lv-te-specialization-v01/
@@ -55,6 +51,22 @@ jobs:
           python scripts/projection-te-specialization-v01.py .cache/lv-te-specialization-v01 data/reports/projection-v04-canonical/run-a/candidate-player-seasons.json data/reports/projection-te-specialization-v01/run-b.json
           cmp data/reports/projection-te-specialization-v01/run-a.json data/reports/projection-te-specialization-v01/run-b.json
           sha256sum data/reports/projection-te-specialization-v01/run-a.json > data/reports/projection-te-specialization-v01/result.sha256
+      - name: Publish reviewable evidence summary
+        run: |
+          cat data/reports/projection-te-specialization-v01/result.sha256
+          python - <<'PY'
+          import json
+          r=json.load(open('data/reports/projection-te-specialization-v01/run-a.json'))
+          print(json.dumps({
+            'decision':r['decision'],
+            'selected_candidate':r['selected_candidate'],
+            'identity_and_data_audit':r['identity_and_data_audit'],
+            'models':r['models'],
+            'early_career':r['early_career'],
+            'uncertainty':r['uncertainty'],
+            'retrospective_2025':r['retrospective_2025']
+          },sort_keys=True,indent=2))
+          PY
       - name: Enforce chronology, gates and firewalls
         run: |
           python - <<'PY'
