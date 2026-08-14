@@ -1,155 +1,157 @@
 # League Vector Development Orchestrator v0.1
 
-## Purpose
+## Purpose and safety boundary
 
-League Vector already uses GitHub as its technical source of truth. v0.1 formalizes the conventions that are working so Founder / Command Center no longer needs to copy routine prompts and status messages between specialist chats. It does not automate product strategy, model promotion, merges, deployment, purchases, licensing, legal/privacy decisions, or other Founder gates.
+League Vector already uses GitHub as its technical source of truth. v0.1 formalizes that into a persistent work queue so Founder / Command Center does not need to relay routine owner -> QA -> remediation -> Core messages.
 
-This PR is internal development infrastructure only. It changes no football projections, Dynasty Value math, IDP math, scoring, identity behavior, production UI, or active research branch.
+This is internal development infrastructure only. It changes no football projections, Dynasty Value math, IDP math, scoring, player identity, production UI, active research branch, model promotion, merge policy, deployment policy, purchase/licensing authority, or legal/business authority.
 
-## 1. Current workflow diagnosis
+The v0.1 GitHub Action is read-only. It does not use `pull_request_target`, does not mutate labels, does not merge, does not deploy, and does not run privileged untrusted PR code.
 
-The organic workflow is strong in four places: isolated role-owned branches; PR comments as durable handoffs; exact-SHA QA verdicts; and explicit phrases such as `READY FOR QA`, `QA PASS`, `QA FAIL`, `WAITING ON FOUNDER`, `LIVE TEST READY`, and `MORE RESEARCH REQUIRED`.
+## 1. Workflow diagnosis
 
-The manual cost is routing. Founder currently acts as a message bus between owner -> QA -> remediation -> Core -> release. Status is often encoded in prose instead of one canonical machine-readable dimension. Older one-off labels also overlap (`waiting-for-qa`, `qa-required`, `not-ready-for-qa`, `high-risk`, `more-research-required`). This creates duplicated inspection and makes permanent agent inboxes difficult.
+Existing conventions are worth preserving: isolated role-owned branches, PR comments as durable handoffs, exact-SHA QA verdicts, and concise statuses such as `READY FOR QA`, `QA PASS`, `QA FAIL`, `WAITING ON FOUNDER`, `LIVE TEST READY`, and `MORE RESEARCH REQUIRED`.
 
-Human gates should remain for consequential product/business choices. Routine research, isolated implementation, QA, remediation, CI and release preparation can be routed from GitHub state.
+The recurring problem is routing. Founder has been acting as a message bus between specialized agents. v0.1 moves routing into deterministic GitHub metadata while retaining Founder control for consequential decisions.
 
-## 2. Minimal state machine
+## 2. Canonical state machine
 
-v0.1 uses nine states:
+States:
 
 - `active` — owner is researching, implementing, or remediating.
-- `blocked` — an external or upstream dependency prevents useful progress.
+- `blocked` — an upstream/external dependency prevents progress.
 - `ready-for-qa` — exact candidate head is frozen for independent QA.
-- `qa-failed` — QA verdict is preserved; original owner remediates.
-- `qa-passed` — exact head has an independent PASS.
-- `ready-for-core` — QA-passed integration candidate with dependencies satisfied.
-- `waiting-founder` — workflow intentionally stops for a Founder decision.
-- `live-test` — deployed/release-verified enough for Founder real-browser/product verification.
-- `closed` — completed, superseded, or research cycle ended with no candidate.
+- `qa-failed` — QA verdict is preserved and work returns to the original owner.
+- `qa-passed` — exact current head has explicit PASS evidence.
+- `ready-for-core` — integration candidate that satisfies every Core gate.
+- `waiting-founder` — intentionally stopped for a Founder decision.
+- `live-test` — release/deployment path has reached real-product verification.
+- `closed` — completed, superseded, or research cycle ended without a promotable candidate.
 
-Canonical transitions are encoded in `config/development-orchestrator-v01.json`. Important loops are:
+Common paths:
 
 `active -> ready-for-qa -> qa-passed -> ready-for-core`
 
 `active -> ready-for-qa -> qa-failed -> active -> ready-for-qa`
 
-`qa-passed/ready-for-core -> waiting-founder -> live-test`
+Founder-gated work may move into `waiting-founder`, but it cannot cross a gated boundary into `ready-for-core` or `live-test` without `founder_decision=approved`.
 
-Research that proves no candidate may go `active -> closed` with a durable `MORE RESEARCH REQUIRED` result.
+Research that produces no candidate may close with a durable `MORE RESEARCH REQUIRED` result.
 
-## 3. Label taxonomy
+## 3. Exact-SHA QA contract
 
-Create only the canonical labels below during Stage 1. Existing legacy labels can coexist until migration is proven.
+QA approval is not a general property of a PR. It belongs to one exact tested head.
 
-**Type:** `type:bug`, `type:feature`, `type:research`, `type:ui`, `type:infrastructure`.
+For `qa-passed`, `ready-for-core`, and `live-test`, the work item must have all of:
 
-**Owner:** `owner:core`, `owner:projection`, `owner:rookie`, `owner:dynasty`, `owner:idp`, `owner:opportunity`, `owner:ui`, `owner:qa`, `owner:product`.
+- `qa_verdict=pass`;
+- a non-empty `qa_tested_sha`;
+- a non-empty current `head_sha`;
+- `qa_tested_sha === head_sha`.
 
-**Risk:** `risk:low`, `risk:medium`, `risk:high`.
+A new commit invalidates prior QA automatically. Missing evidence and stale SHA both fail closed. This applies after a transition as well: changing the head after an item was already labeled `ready-for-core` makes that item invalid until the new head is reviewed.
 
-**Status:** `status:active`, `status:blocked`, `status:ready-for-qa`, `status:qa-failed`, `status:qa-passed`, `status:ready-for-core`, `status:waiting-founder`, `status:live-test`, `status:closed`.
+Dependencies that rely on QA approval are also rejected when their exact-SHA evidence becomes stale.
 
-**Routing/gates:** `integration-required`, `founder-decision-required`.
+## 4. Founder gate contract
 
-**Priority:** `priority:urgent`, `priority:high`, `priority:normal`. These are scheduling priorities and are deliberately different from QA defect severities P0/P1/P2/P3.
+Use `founder_decision_required=true` with a reason such as `release`, `data-license`, `production-model-promotion`, or `business-decision`.
 
-Avoid encoding every football-specific invariant as a workflow label. Those belong in the work-item contract, tests, or domain documentation.
+The rule is single and consistent across transition checks, item validation, and Core eligibility:
 
-## 4. Work-item contract
+- pending/unset Founder decision: may wait at `waiting-founder`, may not enter `ready-for-core` or `live-test`;
+- `approved`: may progress if every other gate passes;
+- `rejected`: progression is blocked;
+- request-changes: return to an active/remediation path rather than crossing the gate.
 
-`.github/ISSUE_TEMPLATE/work-item.md` and `.github/PULL_REQUEST_TEMPLATE.md` require enough context for another role to continue without a copied chat prompt: objective, owner, risk, status, type, priority, dependencies, exact relevant SHA/PR/artifact, production impact, validation required, Founder gate, integration requirement, and completion criteria.
+Founder approval remains mandatory for production Dynasty Value architecture changes, first production activation of major numerical models, public launch, pricing, paid data licensing, material infrastructure spending, legal/privacy decisions, partnerships, and any release explicitly marked Founder-gated.
 
-The PR itself remains the durable technical thread. QA failures are appended to the same PR and remediation happens on the original owner branch unless a clean replacement branch is technically necessary.
+## 5. Research promotion firewall
 
-## 5. QA inbox
+Raw `type:research` work is never Core-eligible, even if `integration_required=true` is accidentally set and QA PASS is fresh.
+
+The promotion boundary is deliberately explicit:
+
+`research -> validated research candidate -> separate non-research integration/promotion work item -> Core`
+
+The separate promotion work item must depend on the validated research PR/artifact. If promotion would activate a production numerical model, that integration/promotion work item must also carry the Founder `production-model-promotion` gate.
+
+This prevents a metadata mistake from silently turning research evidence into production integration authority.
+
+## 6. Label taxonomy
+
+Stage 1 canonical labels are intentionally small.
+
+Type: `type:bug`, `type:feature`, `type:research`, `type:ui`, `type:infrastructure`.
+
+Owner: `owner:core`, `owner:projection`, `owner:rookie`, `owner:dynasty`, `owner:idp`, `owner:opportunity`, `owner:ui`, `owner:qa`, `owner:product`.
+
+Risk: `risk:low`, `risk:medium`, `risk:high`.
+
+Status: `status:active`, `status:blocked`, `status:ready-for-qa`, `status:qa-failed`, `status:qa-passed`, `status:ready-for-core`, `status:waiting-founder`, `status:live-test`, `status:closed`.
+
+Routing/gates: `integration-required`, `founder-decision-required`.
+
+Priority: `priority:urgent`, `priority:high`, `priority:normal`. These are scheduling priorities, not QA defect severities P0/P1/P2/P3.
+
+## 7. Work-item contract
+
+The issue/PR templates carry objective, owner, risk, status, type, priority, dependencies, exact current head/artifact, production impact, validation requirement, QA verdict/tested SHA when applicable, Founder gate/decision, integration requirement, and completion criteria.
+
+The PR remains the durable technical thread. QA failures stay on the same PR and route remediation to the original owner unless a clean replacement branch is technically necessary.
+
+## 8. QA inbox
 
 Permanent QA protocol:
 
 1. Query open work carrying `status:ready-for-qa`.
-2. Verify exactly one owner and one risk label.
-3. Record candidate head before testing.
-4. Use risk to select depth: LOW presentation/copy/test/cache may use delta QA on narrow remediation; MEDIUM architecture/data plumbing gets fail-closed and regression coverage; HIGH valuation/model/identity/scoring gets exhaustive independent reconstruction.
-5. Record exactly `QA PASS — tested head <SHA>` or `QA FAIL — tested head <SHA>` on the PR.
-6. PASS routes toward `status:qa-passed`; FAIL routes toward `status:qa-failed` and the original owner.
+2. Verify one owner and one risk.
+3. Freeze/read the exact candidate head before testing.
+4. Apply risk depth: LOW presentation/copy/test/cache; MEDIUM architecture/data plumbing; HIGH valuation/model/identity/scoring exhaustive reconstruction.
+5. Record exactly `QA PASS — tested head <SHA>` or `QA FAIL — tested head <SHA>`.
+6. PASS records explicit PASS evidence bound to that exact SHA. FAIL preserves the report and returns work to the owner.
 7. Never merge merely because QA passed.
 
-Stage 2 may automate label mutation after validating the verdict syntax and exact head. v0.1 intentionally does not mutate labels automatically.
+LOW-risk narrow remediation may use delta QA. HIGH-risk model changes remain exhaustive unless the only change is clearly metadata-only and QA explicitly narrows scope.
 
-## 6. Remediation routing
+## 9. Core inbox
 
-`qa-failed` preserves the QA report and owner. The original owner reads the PR verdict, fixes only the blockers, produces a new exact SHA, and returns the same work item to `ready-for-qa`. HIGH risk returns to exhaustive QA unless QA explicitly determines a non-model metadata-only delta is sufficient. LOW risk can use delta QA when the failure class is narrow.
+Core works only `status:ready-for-core` items that are:
 
-Founder does not need to copy the QA report to the owner because the PR is the handoff layer.
+- `integration_required=true`;
+- non-research integration/promotion work items;
+- backed by fresh exact-head QA PASS evidence;
+- free of unsatisfied/stale dependencies;
+- through any required Founder gate with `founder_decision=approved`.
 
-## 7. Core inbox
+Core may assemble an integration/release branch, run combined CI, and prepare a release candidate. Core may not infer promotion authority from research, silently promote a model, or deploy a Founder-gated release without approval.
 
-Core works only candidates that are:
+## 10. Dependencies
 
-- `status:ready-for-core`;
-- marked `integration-required`;
-- backed by fresh exact-SHA QA PASS;
-- free of unsatisfied dependencies;
-- not blocked by a Founder gate.
+A dependency names an issue/PR/work-item and required state. Missing, insufficiently advanced, or stale-QA dependencies block downstream eligibility.
 
-Core may assemble a fresh integration/release branch, selectively integrate approved artifacts, run combined CI, and prepare a release candidate. Core may not silently promote a model, merge/deploy a Founder-gated release, or reinterpret research evidence.
-
-## 8. Founder gates
-
-Use `status:waiting-founder` plus `founder-decision-required`. Gate reasons are: `release`, `data-license`, `production-model-promotion`, or `business-decision`.
-
-Founder approval remains mandatory for production Dynasty Value architecture changes, first production activation of major numerical models, public launch, pricing, paid data licensing, material infrastructure spending, legal/privacy decisions, partnerships, and any release explicitly marked Founder-gated.
-
-Founder requests should be short:
-
-**DECISION REQUIRED — RELEASE**
-
-Approve deployment of <candidate>. Evidence: exact QA PASS, CI PASS, production impact, known limitations. Options: APPROVE / REJECT / REQUEST CHANGES.
-
-Do not dump logs unless Founder asks or a decision depends on them.
-
-## 9. Dependencies
-
-Each dependency names an issue/PR/work-item identifier and the state required. Downstream Core eligibility fails closed when a dependency is missing, not sufficiently advanced, or has stale QA. External dependencies such as Sportradar are represented by `status:blocked` and a concise blocker reason.
-
-A schema-normalizing data sample does not automatically satisfy a licensing/modeling dependency; the work item must define the actual completion gate.
-
-## 10. Exact-SHA safety
-
-QA PASS belongs to `qa_tested_sha`. The current PR `head_sha` must equal it. Any new commit makes the prior approval stale. Core/release eligibility must fail closed until re-review appropriate to risk. This is encoded and tested in `scripts/development-orchestrator-v01.js`.
+External dependencies such as Sportradar historical data/licensing remain `blocked` until their actual semantic and rights gates are satisfied. A technically parseable sample does not automatically satisfy licensing or modeling eligibility.
 
 ## 11. Concurrency
 
-Research branches are parallel by default because they do not modify production surfaces. Two agents should not concurrently own the same production surface unless one is explicitly read-only.
+Research branches are parallel by default because they do not alter production surfaces. Agents must not unknowingly own the same production surface concurrently.
 
-Queue interpretation:
+- `RUN NOW`: owner matches, item is active/remediation, dependencies satisfied, no conflicting production-surface owner.
+- `WAIT`: upstream integration owner currently controls the shared surface.
+- `BLOCKED`: external/upstream dependency unsatisfied.
+- `FOUNDER DECISION`: waiting on explicit Founder choice.
 
-- **RUN NOW:** owner matches, status is active/remediation, dependencies satisfied, no conflicting production-surface owner.
-- **WAIT:** eligible later but another owner controls an upstream integration surface.
-- **BLOCKED:** external/upstream dependency unsatisfied.
-- **FOUNDER DECISION:** `status:waiting-founder`.
+Core remains the serialization point for multi-branch production integration.
 
-Core is the serialization point for multi-branch production integration.
+## 12. Command Center state and Founder brief
 
-## 12. Machine-readable Command Center status and Founder brief
+`docs/command-center-status.json` is a **non-operational schema example in v0.1**, not a manually maintained current-status file. It deliberately has `operational=false`, no trusted current main SHA, and no live queue data.
 
-`docs/command-center-status.json` defines the stable output shape: production/main SHA, active work, research candidates, QA queue, Core queue, blocked work, Founder decisions, and live-test queue.
+Before Stage 3 operational reliance, GitHub state must be generated deterministically from live PR/issue metadata, exact heads, verdict evidence, dependencies, and Founder gates. The generated representation should include `generated_at` and refuse to present itself as current when generation fails.
 
-Stage 3 should generate this file deterministically from GitHub issue/PR metadata and exact heads. The Founder brief should be a rendered view of the same data, not a separately maintained document. No LLM is required for the basic brief; deterministic metadata is preferable.
+The Founder brief should be a deterministic view of the same generated state: production/main, active work, QA queue, Core queue, blocked work, Founder decisions, and live-test queue. No LLM is required for the basic brief.
 
-Recommended brief:
-
-- PRODUCTION — health and main SHA.
-- ACTIVE — highest-priority owner work.
-- QA — ready/failing items.
-- CORE — integration-ready items.
-- BLOCKED — dependency and owner.
-- NEEDS CODY — only Founder gates.
-- LIVE TEST — items requiring real-product verification.
-
-## 13. Agent inbox architecture
-
-Permanent protocols should query GitHub rather than wait for copied prompts:
+## 13. Agent inboxes
 
 - QA: `status:ready-for-qa`.
 - Core: `status:ready-for-core` + `integration-required`.
@@ -161,82 +163,65 @@ Permanent protocols should query GitHub rather than wait for copied prompts:
 - UI: `owner:ui` + active/remediation.
 - Product: `owner:product` + active.
 
-Agents work the highest-priority eligible item, preserve unrelated branches, and record durable checkpoints on GitHub.
+Agents pull the highest-priority eligible item and write durable checkpoints back to GitHub.
 
-## 14. Safe automation
+## 14. Automation and security
 
-`.github/workflows/development-orchestrator-v01.yml` is deliberately read-only. It runs deterministic state-contract tests and rejects contradictory multiple status/owner/risk labels. It does not use `pull_request_target`, privileged tokens, label writes, merges, deployment, or secrets.
+`.github/workflows/development-orchestrator-v01.yml` remains read-only with `contents: read`, `pull-requests: read`, and `issues: read`.
 
-Safe later automation after rollout evidence:
+v0.1 validates the deterministic contract and contradictory status/owner/risk metadata only. It does not mutate labels.
 
-- canonical label transitions from validated structured verdicts;
-- stale-QA detection when PR head changes;
-- dependency checks;
-- queue/status JSON generation;
-- Founder brief generation;
-- PR template/metadata validation.
+Safe later candidates include stale-QA detection, dependency validation, deterministic queue generation, Founder brief generation, template validation, and mechanically provable label transitions. Those later writes must remain auditable and reversible.
 
 Never automate production merge/deploy without the required authorization, purchases/licensing, model promotion, legal/privacy/business decisions, or privileged execution of untrusted PR code.
 
-## 15. Current work migration test
+## 15. Current-work snapshot used only for design validation
 
-This is a mapping only; v0.1 does not mutate active PRs.
+The table below is a dated observation used to validate the proposed model. It is **not an operational queue** and must not be treated as current after this document is committed. Live GitHub metadata supersedes it immediately.
 
-| Current work | Proposed owner | Risk | Proposed state | Dependency / note |
+Observed on 2026-08-14 during PR #29 remediation:
+
+| Work | Proposed owner | Risk | Snapshot state | Note |
 | --- | --- | --- | --- | --- |
-| IDP activation hotfix / PR #24 | core | medium | live-test | merged to main at `838f000...`; verify real iPhone/Safari lifecycle |
-| Mobile disclosure UI / PR #25 | ui | low | ready-for-qa | exact head `40a0e425...` |
-| Rookie Projection remediation / PR #18 | rookie | high | ready-for-qa | exact remediated head `d7ddbb0...`; experimental review only if PASS |
-| Young-Player Projection / PR #26 | projection | high | closed | no point model passed; next work depends on point-in-time role data |
-| IDP Dynasty research / PR #27 | idp | high | active | numeric dynasty value remains disabled; historical role/experience blockers |
-| Current Opportunity / PR #19 | opportunity | high | blocked | historical model selection awaits defensible point-in-time depth data/licensing |
-| Prospective Opportunity Archive / PR #28 | opportunity | medium | active | first real 2026 capture must prove archive contract before QA |
-| Experimental current-season IDP research / PR #22 | idp | high | closed/consumed | exact candidate was selectively integrated through the approved release path; research PR should not become a second integration path |
+| IDP activation hotfix / PR #24 | core | medium | live-test | merged production hotfix; real-browser lifecycle verification remains the product acceptance surface |
+| Mobile disclosure UI / PR #25 | ui | low | qa-failed | exact tested head `40a0e425...` failed integration safety because it predates PR #24; requires current-main rebase |
+| Rookie Projection research / PR #18 | rookie | high | qa-passed research | QA PASS at `d7ddbb0...`; experimental review only, raw research is not Core-eligible |
+| Young-Player Projection / PR #26 | projection | high | closed | no point model passed; next useful work depends on point-in-time role information |
+| IDP Dynasty research / PR #27 | idp | high | active | numeric production IDP Dynasty Value remains disabled |
+| Current Opportunity / PR #19 | opportunity | high | blocked | historical model selection awaits defensible historical point-in-time depth data/licensing |
+| Prospective Opportunity Archive / PR #28 | opportunity | medium | qa-passed infrastructure research | QA PASS at `e71f5e1...`; requires a separate integration work item; regular-season cadence P2 remains before September operation |
+| Experimental current-season IDP research / PR #22 | idp | high | closed/consumed | approved research content was selectively integrated through a separate release path; research PR is not a second integration route |
 
-The repository also contains older open research/integration PRs whose useful content has been superseded or selectively integrated. Stage 1 migration should classify them explicitly rather than letting old open PRs masquerade as active queue items.
+This snapshot intentionally demonstrates why Stage 3 must generate status from GitHub rather than keeping a hand-edited “current” document.
 
-## 16. Permanent protocol additions
+## 16. Permanent role protocol additions
 
-### Founder / Command Center
-Inspect generated status first. Create/clarify work items and Founder decisions; do not relay routine QA/Core messages. Founder approves gated releases/model promotions/licensing/business decisions.
+Founder / Command Center: inspect generated status first; set product direction and make Founder decisions; do not relay routine QA/Core reports.
 
-### Core
-Inspect `status:ready-for-core`. Reject stale QA or blocked dependencies. Integrate only exact approved scope onto a fresh branch, run combined CI, and stop at Founder gates.
+Core: inspect the Core inbox; reject stale QA, raw research, blocked dependencies, and unapproved Founder gates; integrate only exact approved scope.
 
-### QA
-Inspect `status:ready-for-qa`. Test exact head at risk-appropriate depth. Record one exact verdict on the PR. Do not merge. Failed work routes to original owner.
+QA: inspect the QA inbox; test exact head at risk-appropriate depth; record one exact verdict; do not merge.
 
-### Projection Research
-Inspect owner inbox. Work isolated research/remediation. Preserve chronology and production firewalls. Mark exact candidate `ready-for-qa` only when evidence meets its contract; otherwise close/checkpoint as more research required.
+Projection/Rookie/Dynasty/IDP Research: work isolated research/remediation; preserve chronology and production firewalls; mark exact candidate ready for QA only when evidence meets its contract. Research PASS alone is not production promotion.
 
-### Dynasty Research
-Same inbox behavior; numeric production promotion requires explicit Founder gate and QA. Research outputs never silently become production values.
+UI: do not alter football math; provide cache/mobile regression evidence and exact production-impact statement.
 
-### IDP Research
-Same inbox behavior; preserve current eligibility/hybrid/scoring firewalls and explicit dynasty-value availability state.
-
-### UI
-Inspect owner inbox. Do not alter football math. Mark exact presentation candidate ready for QA with cache/mobile validation and production-impact statement.
-
-### Product
-Inspect owner inbox. Maintain commercialization/product decisions as recommendations; create Founder decision work items when a business gate is reached rather than changing production autonomously.
+Product: make recommendations and create concise Founder decision work items when a business gate is reached; do not change production autonomously.
 
 ## 17. Rollout
 
-**Stage 1 — labels + templates.** Add canonical taxonomy and begin using it only on new/actively touched work. Reversible by removing labels/templates.
+Stage 1 — canonical labels/templates on new or actively touched work only.
 
-**Stage 2 — QA/Core inboxes.** Permanent QA/Core chats read their queues directly. Keep label mutation human/agent-driven and auditable.
+Stage 2 — QA/Core inboxes read directly from GitHub while label writes remain human/agent-driven and auditable.
 
-**Stage 3 — Founder brief.** Deterministically generate `docs/command-center-status.json` and a brief from GitHub state. Compare against manual Command Center summaries before relying on it.
+Stage 3 — deterministic generated Command Center status and Founder brief; compare against manual summaries before reliance.
 
-**Stage 4 — safe transitions.** Automate only mechanically provable transitions and stale-SHA/dependency checks. Every write is auditable and reversible.
+Stage 4 — safe, mechanically provable transitions plus stale-SHA/dependency checks.
 
-**Stage 5 — autonomous routing.** Permanent role agents pull highest-priority eligible work. Founder remains the gate for consequential decisions and release classes.
+Stage 5 — more autonomous role routing after the contract has operating history.
+
+Each stage remains reversible.
 
 ## 18. Expected coordination reduction
 
-Once Stage 2 is in daily use, the repeated owner-finished -> Founder -> QA prompt -> Founder -> Core prompt loop should largely disappear. A reasonable target is roughly 60–80% fewer manual coordination messages for ordinary research/QA/remediation/integration work. The remaining Founder interactions should concentrate on product direction, exceptions, real-browser acceptance, and explicit gates.
-
-## 19. v0.1 boundaries
-
-v0.1 intentionally stops short of automatic label writes and status generation because the repository currently has mixed legacy labels and prose-only handoffs. First prove the canonical contract on this infrastructure PR, then migrate active work deliberately. This keeps rollout reversible and prevents an automation layer from misclassifying live engineering work.
+Once Stage 2 is used consistently, the repeated owner-finished -> Founder -> QA -> Founder -> Core loop should largely disappear. A reasonable target remains roughly 60–80% fewer manual coordination messages for ordinary research/QA/remediation/integration work, while Founder interactions concentrate on product direction, exceptions, real-browser acceptance, model promotion, licensing, and release/business gates.
