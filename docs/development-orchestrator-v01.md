@@ -14,7 +14,7 @@ Existing conventions are worth preserving: isolated role-owned branches, PR comm
 
 The recurring problem is routing. Founder has been acting as a message bus between specialized agents. v0.1 moves routing into deterministic GitHub metadata while retaining Founder control for consequential decisions.
 
-## 2. Canonical state machine
+## 2. Canonical state machine and transition authorization
 
 States:
 
@@ -37,6 +37,12 @@ Common paths:
 Founder-gated work may move into `waiting-founder`, but it cannot cross a gated boundary into `ready-for-core` or `live-test` without `founder_decision=approved`.
 
 Research that produces no candidate may close with a durable `MORE RESEARCH REQUIRED` result.
+
+State-machine topology is explicitly separate from authorization. `structuralTransitionAllowed(from,to)` answers only whether the graph contains an edge. It must never be treated as permission to move a work item.
+
+Operational callers use `transitionAllowed(item,from,to,allItems)`. This API fails closed when item metadata is absent, verifies that the item is actually in `from`, constructs the proposed target state, and validates all metadata required by that target. Boundary transitions therefore cannot be authorized using only state names.
+
+The operational `validate-transition` CLI follows the same rule. Without JSON work-item metadata it may report `structural:true`, but it returns `allowed:false` and a non-zero exit code. This applies to exact-SHA QA boundaries, Founder gates, research promotion, Core eligibility, dependency gates, promotion authorization, and `live-test` progression.
 
 ## 3. Exact-SHA QA contract
 
@@ -66,7 +72,7 @@ The rule is single and consistent across transition checks, item validation, and
 
 Founder approval remains mandatory for production Dynasty Value architecture changes, first production activation of major numerical models, public launch, pricing, paid data licensing, material infrastructure spending, legal/privacy decisions, partnerships, and any release explicitly marked Founder-gated.
 
-## 5. Research promotion firewall
+## 5. Research and numerical-model promotion firewall
 
 Raw `type:research` work is never Core-eligible, even if `integration_required=true` is accidentally set and QA PASS is fresh.
 
@@ -74,9 +80,17 @@ The promotion boundary is deliberately explicit:
 
 `research -> validated research candidate -> separate non-research integration/promotion work item -> Core`
 
-The separate promotion work item must depend on the validated research PR/artifact. If promotion would activate a production numerical model, that integration/promotion work item must also carry the Founder `production-model-promotion` gate.
+Every work item must carry `promotion_type`, one of:
 
-This prevents a metadata mistake from silently turning research evidence into production integration authority.
+- `none`;
+- `experimental-integration`;
+- `production-numerical-model`.
+
+A non-`none` promotion requires `promotion_authorized=true`. The separate promotion work item must depend on the validated research PR/artifact where applicable.
+
+`promotion_type=production-numerical-model` automatically implies a Founder gate by contract. The validator requires both `founder_decision_required=true` and `founder_gate=production-model-promotion`; omission is an error rather than a downgrade to an ungated item. The item may wait for the Founder decision, but it cannot cross into `ready-for-core` or `live-test` until `founder_decision=approved`.
+
+This does not automate model promotion. It only makes the metadata fail closed before future automated work-item generation is allowed.
 
 ## 6. Label taxonomy
 
@@ -96,7 +110,7 @@ Priority: `priority:urgent`, `priority:high`, `priority:normal`. These are sched
 
 ## 7. Work-item contract
 
-The issue/PR templates carry objective, owner, risk, status, type, priority, dependencies, exact current head/artifact, production impact, validation requirement, QA verdict/tested SHA when applicable, Founder gate/decision, integration requirement, and completion criteria.
+The issue/PR templates carry objective, owner, risk, status, type, priority, dependencies, exact current head/artifact, production impact, validation requirement, QA verdict/tested SHA when applicable, integration requirement, promotion type/authorization, Founder gate/decision, and completion criteria.
 
 The PR remains the durable technical thread. QA failures stay on the same PR and route remediation to the original owner unless a clean replacement branch is technically necessary.
 
@@ -122,6 +136,7 @@ Core works only `status:ready-for-core` items that are:
 - non-research integration/promotion work items;
 - backed by fresh exact-head QA PASS evidence;
 - free of unsatisfied/stale dependencies;
+- carrying valid promotion metadata and explicit promotion authorization when applicable;
 - through any required Founder gate with `founder_decision=approved`.
 
 Core may assemble an integration/release branch, run combined CI, and prepare a release candidate. Core may not infer promotion authority from research, silently promote a model, or deploy a Founder-gated release without approval.
@@ -147,7 +162,7 @@ Core remains the serialization point for multi-branch production integration.
 
 `docs/command-center-status.json` is a **non-operational schema example in v0.1**, not a manually maintained current-status file. It deliberately has `operational=false`, no trusted current main SHA, and no live queue data.
 
-Before Stage 3 operational reliance, GitHub state must be generated deterministically from live PR/issue metadata, exact heads, verdict evidence, dependencies, and Founder gates. The generated representation should include `generated_at` and refuse to present itself as current when generation fails.
+Before Stage 3 operational reliance, GitHub state must be generated deterministically from live PR/issue metadata, exact heads, verdict evidence, dependencies, promotion metadata, and Founder gates. The generated representation should include `generated_at` and refuse to present itself as current when generation fails.
 
 The Founder brief should be a deterministic view of the same generated state: production/main, active work, QA queue, Core queue, blocked work, Founder decisions, and live-test queue. No LLM is required for the basic brief.
 
@@ -198,7 +213,7 @@ This snapshot intentionally demonstrates why Stage 3 must generate status from G
 
 Founder / Command Center: inspect generated status first; set product direction and make Founder decisions; do not relay routine QA/Core reports.
 
-Core: inspect the Core inbox; reject stale QA, raw research, blocked dependencies, and unapproved Founder gates; integrate only exact approved scope.
+Core: inspect the Core inbox; reject stale QA, raw research, blocked dependencies, missing promotion authorization, and unapproved Founder gates; integrate only exact approved scope.
 
 QA: inspect the QA inbox; test exact head at risk-appropriate depth; record one exact verdict; do not merge.
 
@@ -216,7 +231,7 @@ Stage 2 — QA/Core inboxes read directly from GitHub while label writes remain 
 
 Stage 3 — deterministic generated Command Center status and Founder brief; compare against manual summaries before reliance.
 
-Stage 4 — safe, mechanically provable transitions plus stale-SHA/dependency checks.
+Stage 4 — safe, mechanically provable transitions plus stale-SHA/dependency/promotion checks.
 
 Stage 5 — more autonomous role routing after the contract has operating history.
 
