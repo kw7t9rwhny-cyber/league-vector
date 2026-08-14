@@ -1,4 +1,4 @@
-name: Development Orchestrator Stage 1+2
+name: Development Orchestrator Stage 1+2+3A
 
 on:
   pull_request:
@@ -26,6 +26,10 @@ jobs:
         run: node --check scripts/development-orchestrator-v02.js
       - name: Stage 2 deterministic queue/adversarial tests
         run: node --test tests/development-orchestrator-v02.test.js
+      - name: Stage 3A syntax check
+        run: node --check scripts/development-orchestrator-v03a.js
+      - name: Stage 3A deterministic dry-run/adversarial tests
+        run: node --test tests/development-orchestrator-v03a.test.js
       - name: Validate Stage 1 schema is readable
         run: node scripts/development-orchestrator-v01.js
       - name: Dogfood Stage 2 against live GitHub state (read only)
@@ -40,6 +44,29 @@ jobs:
           node scripts/development-orchestrator-v02.js queue founder --json > /tmp/orchestrator-stage2-founder.json
           node scripts/development-orchestrator-v02.js queue research --json > /tmp/orchestrator-stage2-research.json
           node -e 'const s=require("/tmp/orchestrator-stage2-status.json"); if(s.source!=="live-github-read-only") process.exit(1); console.log(JSON.stringify(s.counts));'
+      - name: Dogfood Stage 3A planner against live GitHub state (zero mutations)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          node scripts/development-orchestrator-v03a.js plan --json > /tmp/orchestrator-stage3a-plan.json
+          node - <<'NODE'
+          const fs = require('fs');
+          const p = JSON.parse(fs.readFileSync('/tmp/orchestrator-stage3a-plan.json', 'utf8'));
+          if (p.mutation_mode !== 'dry-run-read-only') process.exit(1);
+          if (p.command_center_preview.operational !== false) process.exit(1);
+          if (p.command_center_preview.mutation_mode !== 'dry-run-read-only') process.exit(1);
+          const text = JSON.stringify(p);
+          if (text.includes('QA PASS — tested head') || text.includes('QA FAIL — tested head')) process.exit(1);
+          console.log(JSON.stringify(p.counts));
+          NODE
+      - name: Upload Stage 3A Command Center dry-run preview
+        uses: actions/upload-artifact@v4
+        with:
+          name: development-orchestrator-stage3a-preview
+          path: /tmp/orchestrator-stage3a-plan.json
+          if-no-files-found: error
+          retention-days: 7
 
   pr-metadata-audit:
     if: github.event_name == 'pull_request'
@@ -65,7 +92,8 @@ jobs:
           print("orchestrator metadata is non-contradictory")
           PY
 
-# Security contract: Stage 1 and Stage 2 are intentionally read-only.
+# Security contract: Stage 1, Stage 2, and Stage 3A are intentionally read-only.
+# Stage 3A produces mutation PLANS and workflow artifacts only; it has no GitHub write client.
 # No pull_request_target. No privileged untrusted execution. No labels, assignments,
 # comments, branches, PRs, merges, deployments, Founder decisions, paid-service calls,
 # business/legal actions, or production-model promotion are mutated by this workflow.
