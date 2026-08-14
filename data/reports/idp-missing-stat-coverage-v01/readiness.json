@@ -11,7 +11,7 @@
     "idp_fum_ret_yd": {"class": "E", "decision": "unsupported_unstable"},
     "idp_int_ret_yd": {"class": "G", "decision": "more_research_required"},
     "idp_pass_def_3p": {"class": "G", "decision": "more_research_required_probability_signal_only"},
-    "idp_sack_yd": {"class": "B_DL_LB_G_OVERALL", "decision": "candidate_high_risk_qa_dl_lb_only", "output": "projected_sack_yards", "supported_positions": ["DL", "LB"], "unsupported_positions": ["DB"]},
+    "idp_sack_yd": {"class": "B_DL_LB_G_OVERALL", "decision": "ready_for_high_risk_qa_dl_lb_only", "output": "projected_sack_yards", "supported_positions": ["DL", "LB"], "unsupported_positions": ["DB"]},
     "st_ff": {"class": "D", "decision": "unsupported_data_missing"},
     "st_fum_rec": {"class": "D", "decision": "unsupported_data_missing"},
     "st_td": {"class": "E", "decision": "unsupported_too_sparse"}
@@ -20,6 +20,7 @@
   "candidate_scope": {"idp_sack_yd": ["DL", "LB"]},
   "current_player_key_coverage": {"supported": 12, "total": 22, "pct": 54.5},
   "post_candidate_if_qa_passes": {"globally_supported_keys": 12, "total": 22, "pct": 54.5, "partial_position_support_added": "idp_sack_yd:DL/LB", "full_founder_scoring_rankable": false},
+  "status": "READY FOR QA — HIGH RISK",
   "firewalls": {
     "experimental": true,
     "production_projection_eligible": false,
