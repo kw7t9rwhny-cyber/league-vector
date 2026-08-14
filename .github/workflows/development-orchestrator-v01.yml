@@ -41,7 +41,10 @@ jobs:
           LEAGUE_VECTOR_ORCHESTRATOR_EXECUTE: "0"
           LEAGUE_VECTOR_STAGE3B_ACTIVATED: "0"
           GITHUB_EVENT_NAME_FOR_TEST: ${{ github.event_name }}
+          GITHUB_REF_FOR_TEST: ${{ github.ref }}
+          GITHUB_REF_TYPE_FOR_TEST: ${{ github.ref_type }}
           GITHUB_REF_NAME_FOR_TEST: ${{ github.ref_name }}
+          GITHUB_DEFAULT_BRANCH_FOR_TEST: ${{ github.event.repository.default_branch }}
         run: |
           node - <<'NODE'
           const s=require('./scripts/development-orchestrator-v03b.js');
@@ -49,7 +52,10 @@ jobs:
             LEAGUE_VECTOR_ORCHESTRATOR_EXECUTE: process.env.LEAGUE_VECTOR_ORCHESTRATOR_EXECUTE,
             LEAGUE_VECTOR_STAGE3B_ACTIVATED: process.env.LEAGUE_VECTOR_STAGE3B_ACTIVATED,
             GITHUB_EVENT_NAME: process.env.GITHUB_EVENT_NAME_FOR_TEST,
+            GITHUB_REF: process.env.GITHUB_REF_FOR_TEST,
+            GITHUB_REF_TYPE: process.env.GITHUB_REF_TYPE_FOR_TEST,
             GITHUB_REF_NAME: process.env.GITHUB_REF_NAME_FOR_TEST,
+            GITHUB_DEFAULT_BRANCH: process.env.GITHUB_DEFAULT_BRANCH_FOR_TEST,
             GITHUB_HEAD_REPO_FORK: 'false'
           };
           const gate=s.executionGate(env);
