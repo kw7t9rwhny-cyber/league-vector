@@ -1,0 +1,147 @@
+{
+  "contract_version": "idp-sack-yard-core-integration-contract-v0.1",
+  "status": "READY_FOR_CORE_EXPERIMENTAL_INTEGRATION_PREPARATION",
+  "production_ready": false,
+  "qa_approved_research_head": "fe936d37f346e3e8b027e33964e272dd34b04e9b",
+  "canonical_research_sha256": "5ffe308142d16641729c23a3542362f031516aa5e6835904e84787ee25096c4c",
+  "validated_scoring_contract_sha": "5550c83380432abce3ae0e68cc9d2daa0e720ea2",
+  "frozen_input_sha256": "d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188",
+  "category": "idp_sack_yd",
+  "model_contract": {
+    "model_version": "idp-sack-yard-ridge-v0.1",
+    "family": "ridge",
+    "alpha": 10,
+    "feature_order": [
+      "prior_sacks",
+      "prior_sack_yards",
+      "prior_games",
+      "prior_solo_tackles"
+    ],
+    "frozen_final_coefficient_artifact_required": true,
+    "frozen_final_coefficient_artifact_available": false,
+    "core_may_refit": false,
+    "core_may_hardcode_coefficients": false,
+    "behavior_before_frozen_artifact": "research_model_unavailable"
+  },
+  "identity": {
+    "required": [
+      "league_vector_player_id",
+      "sleeper_id",
+      "primary_position",
+      "eligible_positions"
+    ],
+    "optional_provenance": ["gsis_id"],
+    "unresolved_behavior": "identity_unresolved"
+  },
+  "position_gate": {
+    "DL": "eligible_dl_model",
+    "LB": "eligible_lb_model",
+    "DB": "unavailable",
+    "DL_LB_hybrid": {
+      "primary_DL": "eligible_dl_model",
+      "primary_LB": "eligible_lb_model",
+      "missing_or_ambiguous_primary": "unavailable",
+      "run_both_and_choose": false
+    },
+    "DB_LB_hybrid": "unavailable",
+    "any_eligibility_set_containing_DB": "unavailable",
+    "unknown_or_ambiguous": "unavailable"
+  },
+  "required_inputs": {
+    "prior_sacks": "observed_numeric",
+    "prior_sack_yards": "observed_numeric",
+    "prior_games": "observed_numeric",
+    "prior_solo_tackles": "observed_numeric"
+  },
+  "missing_state_contract": {
+    "numeric_zero_is_valid": true,
+    "missing_is_zero": false,
+    "null_is_zero": false,
+    "non_numeric_is_zero": false,
+    "zero_fill_allowed": false,
+    "proxy_allowed": false,
+    "fail_closed_before_inference": true
+  },
+  "output_statuses": [
+    "available",
+    "identity_unresolved",
+    "position_unsupported",
+    "ambiguous_position",
+    "missing_required_input",
+    "research_model_unavailable",
+    "artifact_provenance_mismatch",
+    "inference_error"
+  ],
+  "uncertainty": {
+    "level": "limited",
+    "interval_low": null,
+    "interval_high": null,
+    "method": "not_yet_calibrated"
+  },
+  "scoring_gate": {
+    "global_category_support": false,
+    "reason": "DB remains unavailable",
+    "per_player_scoring_allowed_only_when_status_available": true,
+    "full_founder_like_scoring_rankable": false,
+    "existing_global_fail_closed_contract_must_change": false
+  },
+  "non_candidates": [
+    "bonus_sack_2p",
+    "fum_rec_td",
+    "idp_blk_kick",
+    "idp_fum_ret_yd",
+    "idp_int_ret_yd",
+    "idp_pass_def_3p",
+    "st_ff",
+    "st_fum_rec",
+    "st_td"
+  ],
+  "research_evidence": {
+    "DL": {
+      "ridge_mae": 12.9023,
+      "zero_mae": 16.5583,
+      "development_fold_wins_vs_zero": "5/5"
+    },
+    "LB": {
+      "ridge_mae": 10.1142,
+      "zero_mae": 12.2345,
+      "development_fold_wins_vs_zero": "5/5"
+    },
+    "DB": {
+      "ridge_mae": 2.7303,
+      "zero_mae": 1.8907,
+      "development_fold_wins_vs_zero": "0/5",
+      "supported": false
+    }
+  },
+  "required_available_result_provenance": [
+    "model_version",
+    "research_head",
+    "canonical_research_sha256",
+    "model_artifact_sha256",
+    "model_artifact_version",
+    "input_snapshot_sha256",
+    "validated_scoring_contract_sha",
+    "position_family_used",
+    "source_state_verified",
+    "experimental",
+    "production_projection_eligible"
+  ],
+  "rollback": {
+    "disable_or_remove_provider_or_artifact": true,
+    "result_status": "research_model_unavailable",
+    "cached_numeric_values_must_be_invalidated": true,
+    "other_projected_stats_unchanged": true,
+    "global_scoring_completeness_unchanged": true
+  },
+  "firewalls": {
+    "experimental": true,
+    "production_projection_eligible": false,
+    "idp_dynasty_value_available": false,
+    "dynasty_value": null,
+    "combined_offense_idp_dynasty_rankings_available": false,
+    "ui_activation": false,
+    "production_activation": false,
+    "main_promotion": false
+  }
+}
