@@ -83,7 +83,7 @@ jobs:
       - name: Assemble static experimental preview
         run: |
           mkdir -p site-preview/data/experimental
-          cp index.html styles.css experimental.css projection-browser-v01.css idp-rankings-v01.css core-v08.js idp-scoring-context-v01.js idp-scoring-ui-v01.js scoring-coverage-v032.js projection-identity-v03.js live-test-fixes-v01.js dynasty-search-v01.js data-sources-v08.js app.js projection-frontend-v03.js projection-frontend-v03-contract.js experimental-ui-v03.js experimental-ui-v03-enhancements.js idp-foundation-research-v03.js idp-current-season-rankings-v01.js idp-rankings-ui-v01.js idp-current-season-integration-v01.js site-preview/
+          cp index.html styles.css experimental.css projection-browser-v01.css idp-rankings-v01.css core-v08.js idp-scoring-context-v01.js idp-scoring-ui-v01.js scoring-coverage-v032.js projection-identity-v03.js live-test-fixes-v01.js dynasty-search-v01.js data-sources-v08.js app.js projection-frontend-v03.js projection-frontend-v03-contract.js experimental-ui-v03.js experimental-ui-v03-enhancements.js idp-foundation-research-v03.js idp-current-season-rankings-v01.js idp-rankings-ui-v01.js idp-current-season-integration-v01.js idp-current-season-worker-v01.js site-preview/
           cp data/experimental/2026-projections.json site-preview/data/experimental/
       - name: Verify deployable projection asset resolves and parses
         run: |
@@ -96,6 +96,7 @@ jobs:
           test -s site-preview/idp-current-season-rankings-v01.js
           test -s site-preview/idp-rankings-ui-v01.js
           test -s site-preview/idp-current-season-integration-v01.js
+          test -s site-preview/idp-current-season-worker-v01.js
           grep -q 'dynasty-search-v01.js?v=0.2' site-preview/index.html
           grep -q 'experimental-ui-v03.js?v=0.3.4' site-preview/index.html
           ! grep -q 'experimental-ui-v03.js?v=0.3.3' site-preview/index.html
@@ -105,7 +106,9 @@ jobs:
           grep -q 'idp-foundation-research-v03.js?v=0.3' site-preview/index.html
           grep -q 'idp-current-season-rankings-v01.js?v=0.1' site-preview/index.html
           grep -q 'idp-rankings-ui-v01.js?v=0.2' site-preview/index.html
-          grep -q 'idp-current-season-integration-v01.js?v=0.1' site-preview/index.html
+          grep -q 'idp-current-season-integration-v01.js?v=0.2' site-preview/index.html
+          ! grep -q 'idp-current-season-integration-v01.js?v=0.1' site-preview/index.html
+          grep -q 'idp-current-season-worker-v01.js?v=0.1' site-preview/idp-current-season-integration-v01.js
           node -e "const fs=require('fs');const p='site-preview/data/experimental/2026-projections.json';const a=JSON.parse(fs.readFileSync(p,'utf8'));if(!Array.isArray(a.r)||!a.r.length)throw new Error('Projection asset has no compact records');if(a.m!=='lv-projection-system-v0.3')throw new Error('Unexpected projection model version: '+a.m);if(!Array.isArray(a.ip)||!a.ip.length)throw new Error('IDP historical profiles missing');"
           python3 -m http.server 4174 --directory site-preview >/tmp/league-vector-preview.log 2>&1 &
           server_pid=$!
@@ -119,7 +122,8 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:4174/idp-foundation-research-v03.js?v=0.3 >/dev/null
           curl --fail --silent --show-error http://127.0.0.1:4174/idp-current-season-rankings-v01.js?v=0.1 >/dev/null
           curl --fail --silent --show-error http://127.0.0.1:4174/idp-rankings-ui-v01.js?v=0.2 >/dev/null
-          curl --fail --silent --show-error http://127.0.0.1:4174/idp-current-season-integration-v01.js?v=0.1 >/dev/null
+          curl --fail --silent --show-error http://127.0.0.1:4174/idp-current-season-integration-v01.js?v=0.2 >/dev/null
+          curl --fail --silent --show-error http://127.0.0.1:4174/idp-current-season-worker-v01.js?v=0.1 >/dev/null
       - name: Upload projection v0.3 reports
         if: always()
         uses: actions/upload-artifact@v4
