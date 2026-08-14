@@ -1,0 +1,127 @@
+name: Prospective NFL Opportunity Archive
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/prospective-opportunity-archive.py'
+      - 'scripts/run-prospective-opportunity-archive.py'
+      - 'tests/prospective-opportunity-archive.test.py'
+      - 'docs/prospective-opportunity-archive.md'
+      - 'data/opportunity-archive/**'
+      - '.github/workflows/prospective-opportunity-archive.yml'
+  pull_request:
+    paths:
+      - 'scripts/prospective-opportunity-archive.py'
+      - 'scripts/run-prospective-opportunity-archive.py'
+      - 'tests/prospective-opportunity-archive.test.py'
+      - 'docs/prospective-opportunity-archive.md'
+      - 'data/opportunity-archive/**'
+      - '.github/workflows/prospective-opportunity-archive.yml'
+  schedule:
+    - cron: '27 13 * * *'
+  workflow_dispatch:
+    inputs:
+      milestone:
+        description: 'Optional immutable milestone label for this observation'
+        required: false
+        type: string
+
+permissions: {}
+
+env:
+  PYTHONUNBUFFERED: '1'
+
+concurrency:
+  group: prospective-opportunity-archive-${{ github.event.repository.default_branch }}
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Archive contract tests
+        run: |
+          python scripts/prospective-opportunity-archive.py --self-test
+          python tests/prospective-opportunity-archive.test.py
+
+  capture:
+    if: >-
+      github.ref == format('refs/heads/{0}', github.event.repository.default_branch) &&
+      (github.event_name == 'schedule' || github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Capture approved prospective sources
+        id: capture
+        shell: bash
+        env:
+          MILESTONE: ${{ inputs.milestone }}
+        run: |
+          set +e
+          cadence=auto
+          if [[ "${{ github.event_name }}" == "push" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            cadence=force
+          fi
+          args=(--season 2026 --cadence "$cadence")
+          if [[ -n "$MILESTONE" ]]; then
+            args+=(--milestone "$MILESTONE")
+          fi
+          python scripts/run-prospective-opportunity-archive.py "${args[@]}" | tee /tmp/prospective-opportunity-capture.json
+          status=${PIPESTATUS[0]}
+          echo "status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Persist immutable observations or failure evidence
+        shell: bash
+        run: |
+          if git status --porcelain -- data/opportunity-archive | grep -q .; then
+            archive_ref="${{ github.event.repository.default_branch }}"
+            checked_out_head=$(git rev-parse HEAD)
+            git fetch --no-tags origin "$archive_ref"
+            remote_head=$(git rev-parse FETCH_HEAD)
+            if [[ "$remote_head" != "$checked_out_head" ]]; then
+              echo "Archive ref advanced during capture: checked out $checked_out_head, remote is $remote_head." >&2
+              echo "Persistence aborted without rewriting or rebasing point-in-time evidence; the next scheduled run will retry from the latest ref." >&2
+              {
+                echo '### Prospective archive persistence race'
+                echo
+                echo "- checked-out head: \`$checked_out_head\`"
+                echo "- remote head: \`$remote_head\`"
+                echo '- result: failed closed; no historical snapshot was rewritten'
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 1
+            fi
+            git config user.name 'league-vector-archive-bot'
+            git config user.email 'actions@users.noreply.github.com'
+            git add data/opportunity-archive
+            git commit -m "Archive prospective NFL state $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            git push origin "HEAD:${archive_ref}"
+          else
+            echo 'No archive files changed.'
+          fi
+
+      - name: Surface capture failure
+        if: steps.capture.outputs.status != '0'
+        run: |
+          echo 'Prospective archive capture failed. Failure evidence, when writable, was committed without replacing the last good snapshot.' >&2
+          exit 1
