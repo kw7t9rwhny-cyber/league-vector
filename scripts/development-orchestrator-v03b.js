@@ -4,7 +4,7 @@ const Stage1 = require("./development-orchestrator-v01.js");
 const Stage2 = require("./development-orchestrator-v02.js");
 const Stage3A = require("./development-orchestrator-v03a.js");
 
-const EXECUTOR_VERSION = "lv-development-orchestrator-stage3b-v0.2";
+const EXECUTOR_VERSION = "lv-development-orchestrator-stage3b-v0.3";
 const CANONICAL_STATUS_LABELS = new Set(Stage1.CONFIG.states.map((state) => `status:${state}`));
 const CANONICAL_OWNER_LABELS = new Set(Stage1.CONFIG.owners.map((owner) => `owner:${owner}`));
 const CANONICAL_LABEL_ALLOWLIST = new Set([...CANONICAL_STATUS_LABELS, ...CANONICAL_OWNER_LABELS]);
@@ -92,24 +92,77 @@ function buildExpectedBefore(plan, rawPr, currentItem, liveData) {
   };
 }
 
-function executionGate(env = process.env) {
+function validRepositoryName(value) {
+  return typeof value === "string" && /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(value);
+}
+function validBranchName(value) {
+  if (typeof value !== "string" || !value || value.length > 255) return false;
+  if (/\s|[~^:?*\[\\]/.test(value)) return false;
+  if (value.includes("..") || value.includes("//") || value.startsWith("/") || value.endsWith("/") || value.endsWith(".") || value.endsWith(".lock") || value.startsWith("refs/")) return false;
+  return true;
+}
+function trustedActivationState(trusted, repository) {
+  if (!trusted || typeof trusted !== "object") return { valid:false, reason:"trusted_activation_provenance_missing" };
+  if (!validRepositoryName(trusted.repository_full_name)) return { valid:false, reason:"trusted_repository_identity_invalid" };
+  if (!validRepositoryName(repository) || trusted.repository_full_name !== repository) return { valid:false, reason:"trusted_repository_identity_conflict" };
+  if (!validBranchName(trusted.default_branch)) return { valid:false, reason:"trusted_default_branch_invalid" };
+  if (typeof trusted.fork !== "boolean") return { valid:false, reason:"trusted_fork_provenance_invalid" };
+  if (typeof trusted.source !== "string" || !trusted.source.trim()) return { valid:false, reason:"trusted_provenance_source_missing" };
+  return { valid:true, repository_full_name:trusted.repository_full_name, default_branch:trusted.default_branch, fork:trusted.fork, source:trusted.source };
+}
+function parseForkAssertion(value) {
+  if (value === undefined || value === null || value === "") return { present:false, valid:true, value:null };
+  if (value === "true") return { present:true, valid:true, value:true };
+  if (value === "false") return { present:true, valid:true, value:false };
+  return { present:true, valid:false, value:null };
+}
+
+function executionGate(env = process.env, trustedProvenance = null, repository = null) {
   const requested = env.LEAGUE_VECTOR_ORCHESTRATOR_EXECUTE === "1";
   const activated = env.LEAGUE_VECTOR_STAGE3B_ACTIVATED === "1";
-  const defaultBranch = String(env.GITHUB_DEFAULT_BRANCH || "").trim();
+  const trusted = trustedActivationState(trustedProvenance, repository);
   const event = env.GITHUB_EVENT_NAME || "";
   const ref = env.GITHUB_REF || "";
   const refType = env.GITHUB_REF_TYPE || "";
   const refName = env.GITHUB_REF_NAME || "";
-  const exactDefaultBranch = Boolean(defaultBranch) && event === "workflow_dispatch" && ref === `refs/heads/${defaultBranch}` && refType === "branch" && refName === defaultBranch;
-  const nonFork = env.GITHUB_HEAD_REPO_FORK !== "true";
+  const runtimeRepository = env.GITHUB_REPOSITORY || "";
+  const runtimeDefault = String(env.GITHUB_DEFAULT_BRANCH || "").trim();
+  const forkAssertion = parseForkAssertion(env.GITHUB_HEAD_REPO_FORK);
+
+  const repositoryContextPresent = validRepositoryName(runtimeRepository);
+  const repositoryConflict = trusted.valid && repositoryContextPresent && runtimeRepository !== trusted.repository_full_name;
+  const defaultConflict = trusted.valid && Boolean(runtimeDefault) && runtimeDefault !== trusted.default_branch;
+  const forkConflict = trusted.valid && forkAssertion.present && forkAssertion.valid && forkAssertion.value !== trusted.fork;
+  const runtimeContextComplete = event && ref && refType && refName && repositoryContextPresent;
+  const exactDefaultBranch = trusted.valid && event === "workflow_dispatch" && ref === `refs/heads/${trusted.default_branch}` && refType === "branch" && refName === trusted.default_branch;
+  const nonFork = trusted.valid && trusted.fork === false;
+
+  let reason = "allowed";
+  if (!requested) reason = "execute_not_requested";
+  else if (!activated) reason = "stage3b_not_activated";
+  else if (!trusted.valid) reason = trusted.reason;
+  else if (!runtimeContextComplete) reason = "runtime_activation_context_missing_or_invalid";
+  else if (repositoryConflict) reason = "repository_assertion_conflict";
+  else if (defaultConflict) reason = "default_branch_assertion_conflict";
+  else if (!forkAssertion.valid) reason = "fork_assertion_invalid";
+  else if (forkConflict) reason = "fork_assertion_conflict";
+  else if (!exactDefaultBranch) reason = "not_exact_trusted_default_branch_manual_dispatch";
+  else if (!nonFork) reason = "trusted_repository_is_fork";
+
+  const allowed = reason === "allowed";
   return {
     requested,
     activated,
-    default_branch: defaultBranch || null,
-    exact_default_branch_ref: exactDefaultBranch,
-    non_fork: nonFork,
-    allowed: requested && activated && exactDefaultBranch && nonFork,
-    reason: !requested ? "execute_not_requested" : !activated ? "stage3b_not_activated" : !defaultBranch ? "default_branch_provenance_missing" : !exactDefaultBranch ? "not_exact_default_branch_manual_dispatch" : !nonFork ? "fork_execution_forbidden" : "allowed"
+    trusted_provenance_valid: trusted.valid,
+    trusted_provenance_source: trusted.valid ? trusted.source : null,
+    trusted_repository: trusted.valid ? trusted.repository_full_name : null,
+    trusted_default_branch: trusted.valid ? trusted.default_branch : null,
+    trusted_fork: trusted.valid ? trusted.fork : null,
+    runtime_repository: runtimeRepository || null,
+    exact_default_branch_ref: Boolean(exactDefaultBranch),
+    non_fork: Boolean(nonFork),
+    allowed,
+    reason
   };
 }
 
@@ -122,6 +175,7 @@ function auditBase(plan, mode) {
     replay_fingerprint: plan && plan.provenance && plan.provenance.fingerprint || null,
     expected_before_state: null,
     desired_after_state: null,
+    activation_gate: null,
     mutations_attempted: [],
     mutations_completed: [],
     prewrite_revalidations: [],
@@ -250,7 +304,16 @@ async function executePlan({ plan, repository, adapter, mode = "dry-run", env = 
   if (!plan.mutations || plan.mutations.length === 0) { audit.post_write_verification = "no-op-success"; return audit; }
   if (mode !== "execute") { audit.post_write_verification = "dry-run-no-write"; return audit; }
 
-  const gate = executionGate(env);
+  if (typeof adapter.readActivationProvenance !== "function") { audit.aborted_reason = "execution_gate:trusted_activation_provenance_adapter_missing"; return audit; }
+  let trustedProvenance;
+  try {
+    trustedProvenance = await adapter.readActivationProvenance(repository);
+  } catch (error) {
+    audit.aborted_reason = `execution_gate:trusted_activation_provenance_read_failed:${error && error.message || "unknown"}`;
+    return audit;
+  }
+  const gate = executionGate(env, trustedProvenance, repository);
+  audit.activation_gate = gate;
   if (!gate.allowed) { audit.aborted_reason = `execution_gate:${gate.reason}`; return audit; }
   if (typeof adapter.addLabel !== "function" || typeof adapter.removeLabel !== "function") { audit.aborted_reason = "missing_write_adapter"; return audit; }
 
@@ -295,12 +358,26 @@ async function executePlan({ plan, repository, adapter, mode = "dry-run", env = 
   return audit;
 }
 
+async function githubRepositoryActivationProvenance(repository, token) {
+  if (!validRepositoryName(repository)) throw new Error("invalid_repository_identity");
+  const response = await fetch(`https://api.github.com/repos/${repository}`, { headers: { Accept:"application/vnd.github+json", Authorization:`Bearer ${token}`, "X-GitHub-Api-Version":"2022-11-28" } });
+  if (!response.ok) throw new Error(`github_http_${response.status}:repository_metadata`);
+  const meta = await response.json();
+  return {
+    source: "github-repository-api",
+    repository_full_name: meta.full_name || null,
+    default_branch: meta.default_branch || null,
+    fork: typeof meta.fork === "boolean" ? meta.fork : null
+  };
+}
+
 class GitHubReadOnlyAdapter {
   constructor(token) { this.token = token; }
   async readRepository(repository) { return Stage2.loadLiveRepository(repository, this.token); }
+  async readActivationProvenance(repository) { return githubRepositoryActivationProvenance(repository, this.token); }
 }
 
-module.exports = { EXECUTOR_VERSION, CANONICAL_LABEL_ALLOWLIST, validateMutationAllowlist, desiredLabelsFromPlan, deriveLivePlan, dataAfterMutations, executionGate, executePlan, GitHubReadOnlyAdapter, stableJson };
+module.exports = { EXECUTOR_VERSION, CANONICAL_LABEL_ALLOWLIST, validateMutationAllowlist, desiredLabelsFromPlan, deriveLivePlan, dataAfterMutations, trustedActivationState, executionGate, executePlan, githubRepositoryActivationProvenance, GitHubReadOnlyAdapter, stableJson };
 
 if (require.main === module) {
   (async () => {
