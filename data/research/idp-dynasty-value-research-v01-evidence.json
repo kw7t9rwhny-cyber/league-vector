@@ -1,0 +1,104 @@
+{
+  "version": "lv-idp-dynasty-value-research-v0.1-evidence",
+  "status": "RESEARCH_ONLY",
+  "idp_dynasty_value_available": false,
+  "source_head_before_evidence_commit": "5a94555eb45dd627e4ec72a2548a7ba31ab5f800",
+  "workflow": {
+    "run_id": 31825614226,
+    "artifact_id": 9228677205,
+    "artifact_zip_sha256": "39dd2f1320c467c5fe59f21e06024caba0c256cfc173a265091c719fe9aa3364",
+    "validate_tests_passed": 93,
+    "validate_tests_failed": 0,
+    "firewall_check_passed": true
+  },
+  "sample": {
+    "seasons": [2015,2016,2017,2018,2019,2020,2021,2022,2023,2024,2025],
+    "normalized_weekly_observations": 90819,
+    "player_seasons": 9439,
+    "by_position": {"DL":3129,"LB":3014,"DB":3296},
+    "experience_coverage": {
+      "player_bios": 25035,
+      "bios_with_valid_rookie_year": 0,
+      "player_seasons_with_valid_experience": 0,
+      "status": "BLOCKED",
+      "policy": "Do not infer experience from first observed season."
+    }
+  },
+  "production_persistence": {
+    "DL": [
+      {"lag_years":1,"n":2192,"total_points_pearson":0.6313,"total_points_spearman":0.61,"points_per_observed_week_pearson":0.6087,"points_per_observed_week_spearman":0.5627,"mean_absolute_total_points_change":26.5936},
+      {"lag_years":2,"n":1673,"total_points_pearson":0.6015,"total_points_spearman":0.5586,"points_per_observed_week_pearson":0.6115,"points_per_observed_week_spearman":0.5552,"mean_absolute_total_points_change":29.0789},
+      {"lag_years":3,"n":1230,"total_points_pearson":0.5185,"total_points_spearman":0.4679,"points_per_observed_week_pearson":0.5487,"points_per_observed_week_spearman":0.4937,"mean_absolute_total_points_change":32.8002}
+    ],
+    "LB": [
+      {"lag_years":1,"n":2094,"total_points_pearson":0.6486,"total_points_spearman":0.6441,"points_per_observed_week_pearson":0.6484,"points_per_observed_week_spearman":0.6385,"mean_absolute_total_points_change":34.2596},
+      {"lag_years":2,"n":1518,"total_points_pearson":0.528,"total_points_spearman":0.523,"points_per_observed_week_pearson":0.5548,"points_per_observed_week_spearman":0.5475,"mean_absolute_total_points_change":41.2676},
+      {"lag_years":3,"n":1048,"total_points_pearson":0.4024,"total_points_spearman":0.4202,"points_per_observed_week_pearson":0.4509,"points_per_observed_week_spearman":0.4544,"mean_absolute_total_points_change":48.1353}
+    ],
+    "DB": [
+      {"lag_years":1,"n":2252,"total_points_pearson":0.5925,"total_points_spearman":0.5971,"points_per_observed_week_pearson":0.5473,"points_per_observed_week_spearman":0.5656,"mean_absolute_total_points_change":29.878},
+      {"lag_years":2,"n":1654,"total_points_pearson":0.4487,"total_points_spearman":0.4599,"points_per_observed_week_pearson":0.4466,"points_per_observed_week_spearman":0.46,"mean_absolute_total_points_change":36.3168},
+      {"lag_years":3,"n":1166,"total_points_pearson":0.406,"total_points_spearman":0.4139,"points_per_observed_week_pearson":0.4393,"points_per_observed_week_spearman":0.4406,"mean_absolute_total_points_change":38.3443}
+    ]
+  },
+  "fantasy_relevance_survival": {
+    "DL": {"p50_current_relevant_n":1416,"p50_next_season_relevance_rate":0.6801,"p75_current_relevant_n":712,"p75_next_season_relevance_rate":0.6194},
+    "LB": {"p50_current_relevant_n":1366,"p50_next_season_relevance_rate":0.6977,"p75_current_relevant_n":684,"p75_next_season_relevance_rate":0.595},
+    "DB": {"p50_current_relevant_n":1523,"p50_next_season_relevance_rate":0.6756,"p75_current_relevant_n":765,"p75_next_season_relevance_rate":0.532},
+    "warning": "Production-percentile persistence only; not starter/depth/role survival."
+  },
+  "uncertainty": {
+    "DL": {"n_yoy_pairs":2192,"yoy_total_points_delta_mean":-2.0421,"yoy_total_points_delta_stdev":36.9698,"p10_delta":-43.75,"p50_delta":-1.5,"p90_delta":39.5},
+    "LB": {"n_yoy_pairs":2094,"yoy_total_points_delta_mean":-2.5208,"yoy_total_points_delta_stdev":46.8158,"p10_delta":-62,"p50_delta":-1.375,"p90_delta":54.925},
+    "DB": {"n_yoy_pairs":2252,"yoy_total_points_delta_mean":-4.0756,"yoy_total_points_delta_stdev":39.5259,"p10_delta":-53.25,"p50_delta":-3.5,"p90_delta":45.5},
+    "warning": "Production volatility only; explicit role-transition uncertainty is unavailable."
+  },
+  "age_curve_findings": {
+    "contract": "Historical player-season age at September 1; not current age applied retrospectively.",
+    "DL": "Production persistence remains meaningful into late 20s, with participation and conditional scoring decline becoming materially worse around ages 29-31 in the current sample.",
+    "LB": "Strong early-career production but sharper late-20s/age-30 conditional decline and the largest observed year-over-year production volatility of the three groups.",
+    "DB": "Meaningful early/mid-career persistence, but high-end relevance survival is weakest and age-30 conditional decline is pronounced in the current sample."
+  },
+  "replacement_sensitivity_2025_reference_scoring": {
+    "warning": "Historical single-model-position sensitivity only. Not the Core/QA current-season hybrid-aware production replacement contract.",
+    "DL": {"10_team_1_2_3_starters":[133,105.75,89.75],"12_team_1_2_3_starters":[118.25,98,86.25],"14_team_1_2_3_starters":[114,95.25,77.75]},
+    "LB": {"10_team_1_2_3_starters":[166,146,135.25],"12_team_1_2_3_starters":[155.5,143.75,129],"14_team_1_2_3_starters":[152.5,135.75,122.75]},
+    "DB": {"10_team_1_2_3_starters":[140.75,120,102.5],"12_team_1_2_3_starters":[131,108.5,97.75],"14_team_1_2_3_starters":[130.5,105.5,94.5]}
+  },
+  "horizon_status": {
+    "DL": {"status":"UNFROZEN","evidence":"Three-year rank persistence is strongest among the positions at lag 3, but no horizon is validated without chronological multi-year forecasting tests."},
+    "LB": {"status":"UNFROZEN","evidence":"Strongest one-year persistence, but faster decay and highest observed YoY volatility argue against copying DL/offense horizon assumptions."},
+    "DB": {"status":"UNFROZEN","evidence":"One-year persistence is meaningful, but weaker two/three-year stability and p75 relevance survival require separate horizon testing."}
+  },
+  "scoring_sensitivity": {
+    "status": "PARTIAL_ARCHITECTURE",
+    "evidence": "Existing league scoring tests prove tackle-heavy, pressure-heavy, and interception/pass-defense-heavy settings change positional scoring materially.",
+    "remaining": "Re-score historical stat lines and re-estimate persistence/survival under target league scoring before freezing dynasty coefficients."
+  },
+  "idp_flex_and_hybrids": {
+    "current_architecture_available": true,
+    "historical_effect_status": "BLOCKED",
+    "reason": "Point-in-time historical Sleeper eligibility is unavailable; current hybrid labels must not be applied retrospectively."
+  },
+  "multi_year_surplus_architecture": {
+    "status": "ARCHITECTURE_ONLY",
+    "concept": "Position-specific expected multi-year league-scored fantasy surplus over league replacement, with survival, horizon, uncertainty, and any discount function independently validated for defense.",
+    "offense_defaults_inherited": false
+  },
+  "future_opportunity_adapter": {
+    "required_fields": ["player_id","season","week_or_snapshot_date","team","position_eligibility","depth_position_or_role","starter_flag_or_depth_order","defensive_snaps_if_licensed","source_timestamp","source_provenance"],
+    "join_contract": "Stable player identity + point-in-time season/week; never overwrite historical state with current state."
+  },
+  "blockers": [
+    "historical defensive snaps",
+    "historical point-in-time depth charts",
+    "historical starter/reserve roles",
+    "historical point-in-time hybrid eligibility",
+    "historical rookie-year/entry-year metadata for experience curves",
+    "chronological multi-year projection backtest",
+    "position-specific horizon validation",
+    "discount-function validation",
+    "league-scoring-specific multi-year persistence validation",
+    "offense-vs-IDP normalization"
+  ]
+}
