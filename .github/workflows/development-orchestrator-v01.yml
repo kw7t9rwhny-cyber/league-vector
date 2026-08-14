@@ -34,6 +34,10 @@ jobs:
         run: node --check scripts/development-orchestrator-v03b.js
       - name: Stage 3B deterministic guarded-executor/adversarial tests
         run: node --test tests/development-orchestrator-v03b.test.js
+      - name: Stage 3B controlled activation syntax check
+        run: node --check scripts/development-orchestrator-v03b-controlled.js
+      - name: Stage 3B controlled activation adversarial tests
+        run: node --test tests/development-orchestrator-v03b-controlled.test.js
       - name: Validate Stage 1 schema is readable
         run: node scripts/development-orchestrator-v01.js
       - name: Prove Stage 3B Actions execution remains disabled
@@ -136,8 +140,8 @@ jobs:
           print("orchestrator metadata is non-contradictory")
           PY
 
-# Security contract: Stage 1, Stage 2, Stage 3A, and the Stage 3B candidate workflow remain read-only.
-# Stage 3B execute capability is tested only with mocked/local adapters; this workflow has no write token scope,
-# never sets the activation gate, and never invokes --execute. No pull_request_target. No labels, assignments,
-# comments, branches, PRs, merges, deployments, Founder decisions, paid-service calls, business/legal actions,
-# production-model promotion, Prospective Archive writes, or football/product changes are performed here.
+# Security contract: this existing Stage 1/2/3A/3B validation workflow remains read-only.
+# The controlled activation candidate is tested here only with mocked adapters and has no write token scope in PR CI.
+# No pull_request_target. No live label mutation, assignments, comments, branches, PRs, merges, deployments,
+# Founder decisions, paid-service calls, business/legal actions, production-model promotion, Prospective Archive writes,
+# or football/product changes are performed here.
