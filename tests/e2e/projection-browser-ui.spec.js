@@ -72,12 +72,42 @@ async function analyze(page, slots) {
   await expect(page.locator("#experimentalProjectionStatus")).toContainText("Dynasty values are unchanged", { timeout: 15000 });
 }
 
+async function showProjections(page) {
+  const board = page.locator("#experimentalProjectionPanel");
+  if (!(await board.getAttribute("open"))) await page.getByText("Show projections", { exact: true }).click();
+  await expect(board).toHaveAttribute("open", "");
+}
+
 function visibleProjectionNames(page) {
   return page.locator("#experimentalProjectionRows .projection-card:visible .projection-player b").allTextContents();
 }
 
+test("projection board is collapsed by default and can expand and collapse again", async ({ page }) => {
+  await analyze(page);
+  const board = page.locator("#experimentalProjectionPanel");
+  await expect(board).not.toHaveAttribute("open", "");
+  await expect(page.getByText("Show projections", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Search players")).toBeHidden();
+  await showProjections(page);
+  await expect(page.getByLabel("Search players")).toBeVisible();
+  await expect(page.getByText("Hide projections", { exact: true })).toBeVisible();
+  await page.getByText("Hide projections", { exact: true }).click();
+  await expect(board).not.toHaveAttribute("open", "");
+  await expect(page.getByLabel("Search players")).toBeHidden();
+});
+
+test("projection board open state survives same-session re-analysis", async ({ page }) => {
+  await analyze(page);
+  const board = page.locator("#experimentalProjectionPanel");
+  await showProjections(page);
+  await page.getByRole("button", { name: "Analyze League" }).click();
+  await expect(board).toHaveAttribute("open", "");
+  await expect(page.locator("#experimentalProjectionStatus")).toContainText("Dynasty values are unchanged", { timeout: 15000 });
+});
+
 test("position pills filter experimental projections and search composes with them", async ({ page }) => {
   await analyze(page);
+  await showProjections(page);
   await expect(page.getByRole("group", { name: "Experimental projection position filter" })).toBeVisible();
   await page.getByRole("button", { name: "WR", exact: true }).click();
   expect(await visibleProjectionNames(page)).toEqual(["Vector WR"]);
@@ -89,6 +119,7 @@ test("position pills filter experimental projections and search composes with th
 
 test("FLEX follows imported normal-flex eligibility and does not become superflex", async ({ page }) => {
   await analyze(page, ["QB", "RB", "WR", "TE", "WRRB_FLEX", "SUPER_FLEX", "LB", "BN"]);
+  await showProjections(page);
   await page.getByRole("button", { name: "FLEX", exact: true }).click();
   expect((await visibleProjectionNames(page)).sort()).toEqual(["Vector RB", "Vector WR"]);
   const architecture = await page.evaluate(() => window.__leagueVectorExperimental.filterArchitecture);
@@ -98,6 +129,7 @@ test("FLEX follows imported normal-flex eligibility and does not become superfle
 
 test("compact cards keep technical content collapsed but accessible", async ({ page }) => {
   await analyze(page);
+  await showProjections(page);
   const card = page.locator("#experimentalProjectionRows .projection-card").filter({ hasText: "Vector QB" });
   await expect(card.locator(".projection-compact-meta")).toContainText(/confidence/);
   await expect(card.locator(".projection-scoring-chip")).toContainText(/scoring coverage/);
@@ -114,6 +146,7 @@ test("compact cards keep technical content collapsed but accessible", async ({ p
 
 test("experimental and production dynasty search remain independent", async ({ page }) => {
   await analyze(page);
+  await showProjections(page);
   const experimental = page.getByLabel("Search players");
   const dynasty = page.getByLabel("Search dynasty players");
   await experimental.fill("Vector WR");
@@ -125,10 +158,17 @@ test("experimental and production dynasty search remain independent", async ({ p
   await expect(experimental).toHaveValue("Vector WR");
 });
 
-test("projection browser stays within an iPhone-sized viewport", async ({ page }) => {
+test("collapsed projection summary and expanded browser stay within an iPhone-sized viewport", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await analyze(page);
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  const board = page.locator("#experimentalProjectionPanel");
+  await expect(board).not.toHaveAttribute("open", "");
+  const actionHeight = await page.locator(".projection-board-action").evaluate((el) => el.getBoundingClientRect().height);
+  expect(actionHeight).toBeGreaterThanOrEqual(48);
+  let overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+  await showProjections(page);
+  overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
   expect(overflow).toBeLessThanOrEqual(1);
   const nav = page.getByRole("group", { name: "Experimental projection position filter" });
   await expect(nav).toBeVisible();
