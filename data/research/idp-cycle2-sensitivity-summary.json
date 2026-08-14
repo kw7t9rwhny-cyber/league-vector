@@ -1,0 +1,62 @@
+{
+  "version": "lv-idp-research-cycle2-sensitivity-v0.1",
+  "limitations": [
+    "single normalized position only; hybrid eligibility is not present in this input",
+    "current projection-ready pool requires independent active/retired eligibility validation before product ranking",
+    "one-year surplus only; multi-year dynasty surplus requires validated age/survival curves"
+  ],
+  "configs": {
+    "shallow_12": {
+      "teams": 12,
+      "idp_starter_counts": {"DL": 12, "LB": 24, "DB": 12},
+      "idp_replacement": {
+        "starter": {"DL": 117.41150759056876, "LB": 131.23858896520792, "DB": 104.22539173649622},
+        "rosterable_1_5x": {"DL": 106.40902092205452, "LB": 123.95795891441641, "DB": 99.36617386294365},
+        "rosterable_2x": {"DL": 103.61913342817661, "LB": 109.9715786236572, "DB": 93.68785714837358},
+        "blended": {"DL": 111.91026425631165, "LB": 127.59827393981217, "DB": 101.79578279971994}
+      },
+      "ranking_sensitivity": {
+        "starter": {"top50_overlap_vs_starter": 50, "top24_overlap_vs_starter": 24},
+        "rosterable_1_5x": {"top50_overlap_vs_starter": 48, "top24_overlap_vs_starter": 23},
+        "rosterable_2x": {"top50_overlap_vs_starter": 43, "top24_overlap_vs_starter": 21},
+        "blended": {"top50_overlap_vs_starter": 50, "top24_overlap_vs_starter": 23}
+      }
+    },
+    "balanced_12": {
+      "teams": 12,
+      "idp_starter_counts": {"DL": 24, "LB": 48, "DB": 24},
+      "idp_replacement": {
+        "starter": {"DL": 102.23824173178564, "LB": 106.39110098823078, "DB": 92.81959035457575},
+        "rosterable_1_5x": {"DL": 82.93796550276379, "LB": 87.55705754267571, "DB": 83.67153565786403},
+        "rosterable_2x": {"DL": 75.04904140653682, "LB": 75.82379521482098, "DB": 79.67189059464106},
+        "blended": {"DL": 92.58810361727471, "LB": 96.97407926545324, "DB": 88.2455630062199}
+      },
+      "ranking_sensitivity": {
+        "starter": {"top50_overlap_vs_starter": 50, "top24_overlap_vs_starter": 24},
+        "rosterable_1_5x": {"top50_overlap_vs_starter": 48, "top24_overlap_vs_starter": 24},
+        "rosterable_2x": {"top50_overlap_vs_starter": 45, "top24_overlap_vs_starter": 24},
+        "blended": {"top50_overlap_vs_starter": 49, "top24_overlap_vs_starter": 24}
+      },
+      "offense_starter_counts": {"QB": 34, "RB": 26, "WR": 36, "TE": 12},
+      "offense_replacement_starter": {"QB": 138.66753988862328, "RB": 149.937143144383, "WR": 141.25936515447032, "TE": 138.24418568318833}
+    },
+    "deep_14": {
+      "teams": 14,
+      "idp_starter_counts": {"DL": 31, "LB": 67, "DB": 28},
+      "idp_replacement": {
+        "starter": {"DL": 91.51298725860562, "LB": 92.3801387174411, "DB": 88.3242024898086},
+        "rosterable_1_5x": {"DL": 75.39346613676166, "LB": 74.33725617715126, "DB": 81.94021269930464},
+        "rosterable_2x": {"DL": 67.82849669552526, "LB": 56.24322597794076, "DB": 76.34013053323568},
+        "blended": {"DL": 83.45322669768365, "LB": 83.35869744729618, "DB": 85.13220759455662}
+      },
+      "ranking_sensitivity": {
+        "starter": {"top50_overlap_vs_starter": 50, "top24_overlap_vs_starter": 24},
+        "rosterable_1_5x": {"top50_overlap_vs_starter": 47, "top24_overlap_vs_starter": 23},
+        "rosterable_2x": {"top50_overlap_vs_starter": 45, "top24_overlap_vs_starter": 23},
+        "blended": {"top50_overlap_vs_starter": 48, "top24_overlap_vs_starter": 23}
+      },
+      "offense_starter_counts": {"QB": 37, "RB": 32, "WR": 43, "TE": 14},
+      "offense_replacement_starter": {"QB": 134.5507176278474, "RB": 133.6108399297216, "WR": 134.1826464518632, "TE": 131.77240182124265}
+    }
+  }
+}
