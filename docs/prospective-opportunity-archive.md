@@ -2,6 +2,8 @@
 
 Status: **INFRASTRUCTURE CANDIDATE — MEDIUM RISK**
 
+Current normalized schema: `lv-prospective-opportunity-archive-v1.1`.
+
 This archive is research infrastructure only. It does not change production projections, Dynasty Value, UI, Core behavior, IDP production behavior, or `main`.
 
 ## Principle
@@ -97,7 +99,9 @@ Identity follows League Vector's safe identity posture:
 - no fuzzy name matching is performed
 - unresolved rows remain explicitly unresolved
 
-Quality reports expose resolved and unresolved identity counts and duplicate stable IDs.
+Provider-native team values are preserved separately from canonical League Vector team values. Known aliases such as `AZ -> ARI`, `WSH -> WAS`, and `JAC -> JAX` are normalized through an explicit deterministic map; the source-native value remains in both `provider_team` and `provider_native` evidence.
+
+A stable player identity appearing in multiple depth slots on the same team is reported as a repeated identity, not automatically treated as a duplicate conflict. A stable identity appearing on more than one canonical team in the same capture is a structural failure.
 
 ## Depth representation
 
@@ -120,6 +124,8 @@ Derived fields never replace raw-normalized source evidence.
 
 Roster evidence is a separate feed. PUP, IR, NFI, reserve, practice squad, suspension or other list states are preserved only when the source actually supplies them. The collector does not infer future availability and does not allow a depth-chart appearance to redefine roster status.
 
+A missing roster-status field in the depth-chart feed is therefore not filled from another source inside the raw depth object. Roster status remains an independently timestamped evidence stream and is joined only downstream under point-in-time rules.
+
 ## Transactions and vacated opportunity
 
 The archive intentionally preserves the evidence required to derive vacated opportunity later rather than persisting only a final aggregate number.
@@ -135,7 +141,8 @@ Each capture reports:
 - rows / unique player identities
 - missing teams
 - resolved vs unresolved GSIS identities
-- duplicate stable identities
+- repeated same-team stable identities
+- cross-team stable-identity conflicts
 - exact duplicate evidence rows
 - missing depth order
 - missing roster status
@@ -145,6 +152,7 @@ Structural fail-closed gates currently require:
 - all 32 NFL teams
 - at least 1,000 evidence rows per initial feed
 - no exact duplicate evidence rows
+- no stable identity present on multiple canonical teams in the same capture
 - depth-order missingness <=5% for the depth-chart feed
 - no missing team values
 - <=1% rows without any stable GSIS/provider identity
@@ -188,7 +196,7 @@ The intended path is:
 
 `snapshot archive -> point-in-time normalization -> opportunity features -> chronological model fold`
 
-The archive preserves the existing Current Opportunity v0.1 concepts: provider ID, GSIS identity, team, position/role, ordered depth, roster state, source time, retrieval time, and immutable hashes. Future adapters should consume observations/manifests directly rather than reconstructing state manually.
+The archive preserves the existing Current Opportunity v0.1 concepts: provider ID, GSIS identity, canonical team, provider-native team, position/role, ordered depth, roster state, source time, retrieval time, and immutable hashes. Future adapters should consume observations/manifests directly rather than reconstructing state manually.
 
 ## Expected storage growth
 
@@ -204,11 +212,19 @@ Planning estimate for the initial two feeds:
 
 This is acceptable for an initial prospective research archive but should be reviewed after 30/90 days. If growth trends toward hundreds of MB/year, migrate immutable content objects to GitHub Releases or approved object storage while retaining compact manifests/hashes in Git. No paid storage is authorized here.
 
+## Live validation / schema evolution
+
+The first real capture occurred on August 14, 2026. Its v1 observation is deliberately retained exactly as written. Real data exposed a provider team-code mismatch: the depth feed represented Arizona as `ARI` while the roster feed used `AZ`. That first observation was **not rewritten**.
+
+Schema v1.1 added explicit team-code normalization while retaining the provider-native team value. A new observation was then captured from the same source state. This is the expected immutability behavior: normalize future evidence correctly, version the schema, and preserve prior evidence rather than silently repairing history.
+
+The v1.1 live validation requires canonical team-set agreement and zero cross-team stable-identity conflicts before the infrastructure is eligible for QA handoff.
+
 ## GitHub Actions / integration
 
-Scheduled workflows execute reliably from the repository default branch. The isolated research branch can validate push/manual capture mechanics, but **ongoing cron automation requires the narrowly scoped workflow/collector to be integrated into `main` after QA/Core approval**.
+Scheduled workflows execute reliably from the repository default branch. The isolated research branch validates push/manual capture mechanics, but **ongoing cron automation requires the narrowly scoped workflow/collector to be integrated into `main` after QA/Core approval**.
 
-The integration candidate must remain calculation-neutral: collector, archive data, tests and workflow only.
+The integration candidate remains calculation-neutral: collector, archive data, tests, documentation and workflow only. Scheduled archive commits are data/provenance commits and must not modify production calculation files.
 
 ## Sportradar adapter path
 
