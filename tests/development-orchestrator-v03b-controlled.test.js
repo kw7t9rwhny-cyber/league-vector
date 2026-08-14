@@ -4,7 +4,6 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const S2 = require("../scripts/development-orchestrator-v02.js");
 const C = require("../scripts/development-orchestrator-v03b-controlled.js");
 
 const SHA_A="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
@@ -67,7 +66,7 @@ test("conflicting QA after preview fails closed",async()=>{ const d=data(), p=pr
 test("metadata change after preview fails closed",async()=>{ const d=data(), p=preview(d), adapter=new MockAdapter(d); adapter.data.prs[0].body=body({priority:"high"}); const r=await exec(d,101,{adapter,fingerprint:p.replay_fingerprint}); assert.equal(r.result.abort_reason,"preview_state_changed"); });
 test("human label change after preview fails closed",async()=>{ const d=data(), p=preview(d), adapter=new MockAdapter(d); adapter.data.prs[0].labels.push("owner:core"); const r=await exec(d,101,{adapter,fingerprint:p.replay_fingerprint}); assert.equal(r.result.abort_reason,"preview_state_changed"); });
 test("current main change after preview fails closed",async()=>{ const d=data(), p=preview(d), adapter=new MockAdapter(d); adapter.data.main_sha=SHA_B; const r=await exec(d,101,{adapter,fingerprint:p.replay_fingerprint}); assert.equal(r.result.abort_reason,"preview_state_changed"); });
-test("dependency change after preview fails closed",async()=>{ const dep=pr(55,{meta:{status:"qa-passed"}}); const t=pr(101,{meta:{dependencies:"55"}}); const d=data(t,[dep]), p=preview(d), adapter=new MockAdapter(d); adapter.data.prs.find(x=>x.number===55).head_sha=SHA_B; const r=await exec(d,101,{adapter,fingerprint:p.replay_fingerprint}); assert.equal(r.result.abort_reason,"preview_state_changed"); });
+test("dependency state change after preview fails closed",async()=>{ const dep=pr(55,{meta:{status:"qa-passed"}}); const t=pr(101,{meta:{dependencies:"55"}}); const d=data(t,[dep]), p=preview(d), adapter=new MockAdapter(d); const liveDep=adapter.data.prs.find(x=>x.number===55); liveDep.body=body({status:"active",integration_required:"no"}); liveDep.labels=["status:active"]; liveDep.events=[]; liveDep.declared_candidate_sha=null; const r=await exec(d,101,{adapter,fingerprint:p.replay_fingerprint}); assert.equal(r.result.abort_reason,"preview_state_changed"); assert.deepEqual(adapter.writes,[]); });
 test("wrong repository denies through Stage 3B gate",async()=>{ const r=await exec(data(),101,{repository:"attacker/repo"}); assert.ok(r.result.abort_reason); assert.deepEqual(r.adapter.writes,[]); });
 test("fork provenance denies",async()=>{ const adapter=new MockAdapter(data(),{activation:{...TRUSTED,fork:true}}); const env={...EXEC_ENV,GITHUB_HEAD_REPO_FORK:"true"}; const r=await exec(data(),101,{adapter,env}); assert.match(r.result.abort_reason||"",/execution_gate/); });
 for (const [name,patch] of [
