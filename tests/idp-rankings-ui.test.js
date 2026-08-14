@@ -28,16 +28,25 @@ test("IDP renderer consumes the canonical PR22 contract and nested firewall", ()
     "idp_dynasty_value_available === false",
     "player.dynasty_value === null",
   ]) assert.match(ui, new RegExp(field.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  for (const obsolete of ["current_season === true", "current_eligible === true", "player_name", "player.eligibility", "player.position", "player.confidence", "player.status"]) {
-    assert.doesNotMatch(ui, new RegExp(obsolete.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
-  }
+  for (const obsolete of [
+    "current_season === true",
+    "current_eligible === true",
+    "player.player_name",
+    "player?.player_name",
+    "player.eligibility)",
+    "player.position",
+    "player.confidence",
+    "player.status",
+    "input.idp_dynasty_value_available",
+  ]) assert.doesNotMatch(ui, new RegExp(obsolete.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 });
 
-test("IDP shell labels current-season experimental output and Dynasty Value unavailability", () => {
+test("IDP shell labels current-season experimental output and canonical Dynasty firewall", () => {
   const html = fs.readFileSync("index.html", "utf8");
   assert.match(html, /Current-season defense only/);
   assert.match(html, /not League Vector Dynasty Values/);
-  assert.match(html, /Dynasty Value remains unavailable/);
+  assert.match(html, /firewall\.idp_dynasty_value_available=false/);
+  assert.match(html, /fails closed/);
   assert.match(html, /data-idp-position="DL"/);
   assert.match(html, /data-idp-position="LB"/);
   assert.match(html, /data-idp-position="DB"/);
