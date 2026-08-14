@@ -1,0 +1,43 @@
+name: Projection v0.4 Canonical QA Evidence
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  canonical:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Freeze exact nflverse input snapshot and hashes
+        run: node scripts/projection-v04-freeze-inputs.js .cache/lv-v04-canonical
+      - name: Canonical run A
+        run: node scripts/projection-v04-canonical.js data/reports/projection-v04-canonical/run-a .cache/lv-v04-canonical
+      - name: Canonical run B
+        run: node scripts/projection-v04-canonical.js data/reports/projection-v04-canonical/run-b .cache/lv-v04-canonical
+      - name: Prove deterministic reproduction
+        run: |
+          cmp data/reports/projection-v04-canonical/run-a/canonical-summary.json data/reports/projection-v04-canonical/run-b/canonical-summary.json
+          cmp data/reports/projection-v04-canonical/run-a/baseline-player-seasons.json data/reports/projection-v04-canonical/run-b/baseline-player-seasons.json
+          cmp data/reports/projection-v04-canonical/run-a/candidate-player-seasons.json data/reports/projection-v04-canonical/run-b/candidate-player-seasons.json
+          cmp data/reports/projection-v04-canonical/run-a/output-hashes.json data/reports/projection-v04-canonical/run-b/output-hashes.json
+          cp .cache/lv-v04-canonical/snapshot-manifest.json data/reports/projection-v04-canonical/snapshot-manifest.json
+          printf '{"deterministic":true,"comparison":"run-a byte-identical to run-b"}\n' > data/reports/projection-v04-canonical/determinism-proof.json
+      - name: Upload canonical evidence and frozen input snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: league-vector-projection-v04-canonical
+          path: |
+            data/reports/projection-v04-canonical/
+            .cache/lv-v04-canonical/*.csv
+          if-no-files-found: error
+          retention-days: 30
