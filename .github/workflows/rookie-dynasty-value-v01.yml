@@ -1,0 +1,84 @@
+name: Rookie Dynasty Value v0.1 Research
+
+on:
+  push:
+    branches: [agent/rookie-dynasty-value-v01]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Restore validated frozen projection snapshot
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/lv-control
+          curl -L --fail-with-body \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/actions/artifacts/9205731274/zip \
+            -o /tmp/lv-control/control.zip
+          unzip -q /tmp/lv-control/control.zip -d /tmp/lv-control/unpacked
+          mkdir -p .cache/lv-rookie-dynasty-v01
+          cp -R /tmp/lv-control/unpacked/.cache/lv-v04-canonical/. .cache/lv-rookie-dynasty-v01/
+          cp /tmp/lv-control/unpacked/data/reports/projection-v04-canonical/snapshot-manifest.json .cache/lv-rookie-dynasty-v01/snapshot-manifest.json
+      - name: Verify immutable snapshot
+        run: |
+          python - <<'PY'
+          import json
+          m=json.load(open('.cache/lv-rookie-dynasty-v01/snapshot-manifest.json'))
+          assert m['snapshot_sha256']=='d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188'
+          print('snapshot gate PASS')
+          PY
+      - name: Install pinned research dependencies
+        run: python -m pip install pandas==2.2.3 numpy==2.2.3 scipy==1.15.2 scikit-learn==1.6.1
+      - name: Run twice and require byte-identical evidence
+        run: |
+          mkdir -p data/reports/rookie-dynasty-value-v01
+          python scripts/rookie-dynasty-value-v01.py .cache/lv-rookie-dynasty-v01 data/reports/rookie-dynasty-value-v01/run-a.json
+          python scripts/rookie-dynasty-value-v01.py .cache/lv-rookie-dynasty-v01 data/reports/rookie-dynasty-value-v01/run-b.json
+          cmp data/reports/rookie-dynasty-value-v01/run-a.json data/reports/rookie-dynasty-value-v01/run-b.json
+          sha256sum data/reports/rookie-dynasty-value-v01/run-a.json > data/reports/rookie-dynasty-value-v01/result.sha256
+      - name: Enforce research firewalls and chronology
+        run: |
+          python - <<'PY'
+          import json
+          r=json.load(open('data/reports/rookie-dynasty-value-v01/run-a.json'))
+          assert r['input_snapshot_sha256']=='d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188'
+          assert r['selection_evidence_max_outcome_season']==2024
+          assert r['retrospective_observed']==2025
+          assert r['identity_audit']['status']=='PASS'
+          d=r['draft_integrity_audit']
+          assert d['status']=='PASS_FAIL_CLOSED'
+          assert d['confirmed_undrafted_rows']==0
+          assert d['eligible_missing_draft_metadata']==0
+          assert d['eligible_draft_year_mismatch']==0
+          assert r['historical_depth_chart_validation']['status']=='BLOCKED'
+          assert r['prospective_2026_opportunity_layer']['status']=='PROSPECTIVE / UNVALIDATED'
+          f=r['flags']
+          assert f['experimental'] is True and f['research_only'] is True
+          assert f['production_rookie_dynasty_value_eligible'] is False
+          assert f['production_dynasty_value_changed'] is False
+          assert f['validated_rookie_projection_v01_changed'] is False
+          assert f['validated_projection_v04_changed'] is False
+          assert f['core_integration_authorized'] is False
+          assert f['production_ui_authorized'] is False
+          assert all(x['eval_rookie_season'] + x['horizon'] <= 2024 for x in r['early_nfl_updating_fold_results'])
+          print('chronology/firewall gates PASS')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: league-vector-rookie-dynasty-value-v01
+          path: data/reports/rookie-dynasty-value-v01/
+          if-no-files-found: error
+          retention-days: 30
