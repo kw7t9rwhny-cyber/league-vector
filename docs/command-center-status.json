@@ -1,9 +1,11 @@
 {
   "version": "lv-command-center-status-v0.1",
-  "source": "generated from GitHub PR/issue metadata; example fixture until Stage 3 generator is enabled",
+  "operational": false,
+  "source": "SCHEMA EXAMPLE ONLY. Not current project state. Stage 3 must generate this deterministically from live GitHub PR/issue metadata and exact heads before Command Center may rely on it.",
+  "generated_at": null,
   "production": {
     "health": "unknown_until_generated",
-    "main_sha": "838f000c6992c981ea2bdddfe83e1ba88ca05239"
+    "main_sha": null
   },
   "active": [],
   "research_candidates": [],
