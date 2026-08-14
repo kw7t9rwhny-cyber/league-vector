@@ -31,29 +31,29 @@ jobs:
       - name: Reproduce validated v0.4 control on frozen snapshot
         run: node scripts/projection-v04-canonical.js data/reports/projection-v041-cycle2/control .cache/lv-v041-cycle2
       - name: Cycle2 run A
-        run: node scripts/projection-v041-cycle2.js data/reports/projection-v041-cycle2/run-a .cache/lv-v041-cycle2 data/reports/projection-v041-cycle2/control/candidate-player-seasons.json
+        run: node -r ./scripts/preload-v03-complete.js scripts/projection-v041-cycle2.js data/reports/projection-v041-cycle2/run-a .cache/lv-v041-cycle2 data/reports/projection-v041-cycle2/control/candidate-player-seasons.json
       - name: Cycle2 run B
-        run: node scripts/projection-v041-cycle2.js data/reports/projection-v041-cycle2/run-b .cache/lv-v041-cycle2 data/reports/projection-v041-cycle2/control/candidate-player-seasons.json
+        run: node -r ./scripts/preload-v03-complete.js scripts/projection-v041-cycle2.js data/reports/projection-v041-cycle2/run-b .cache/lv-v041-cycle2 data/reports/projection-v041-cycle2/control/candidate-player-seasons.json
       - name: Deep diagnostics run A
-        run: node scripts/projection-v041-cycle2-deep.js data/reports/projection-v041-cycle2/deep-a .cache/lv-v041-cycle2 data/reports/projection-v041-cycle2/control/candidate-player-seasons.json data/reports/projection-v041-cycle2/control/baseline-player-seasons.json
+        run: node -r ./scripts/preload-v03-complete.js scripts/projection-v041-cycle2-deep.js data/reports/projection-v041-cycle2/deep-a .cache/lv-v041-cycle2 data/reports/projection-v041-cycle2/control/candidate-player-seasons.json data/reports/projection-v041-cycle2/control/baseline-player-seasons.json
       - name: Deep diagnostics run B
-        run: node scripts/projection-v041-cycle2-deep.js data/reports/projection-v041-cycle2/deep-b .cache/lv-v041-cycle2 data/reports/projection-v041-cycle2/control/candidate-player-seasons.json data/reports/projection-v041-cycle2/control/baseline-player-seasons.json
+        run: node -r ./scripts/preload-v03-complete.js scripts/projection-v041-cycle2-deep.js data/reports/projection-v041-cycle2/deep-b .cache/lv-v041-cycle2 data/reports/projection-v041-cycle2/control/candidate-player-seasons.json data/reports/projection-v041-cycle2/control/baseline-player-seasons.json
       - name: TE root-cause run A
-        run: node scripts/projection-v041-te-root-cause.js data/reports/projection-v041-cycle2/te-a .cache/lv-v041-cycle2 data/reports/projection-v041-cycle2/control/candidate-player-seasons.json
+        run: node -r ./scripts/preload-v03-complete.js scripts/projection-v041-te-root-cause.js data/reports/projection-v041-cycle2/te-a .cache/lv-v041-cycle2 data/reports/projection-v041-cycle2/control/candidate-player-seasons.json
       - name: TE root-cause run B
-        run: node scripts/projection-v041-te-root-cause.js data/reports/projection-v041-cycle2/te-b .cache/lv-v041-cycle2 data/reports/projection-v041-cycle2/control/candidate-player-seasons.json
+        run: node -r ./scripts/preload-v03-complete.js scripts/projection-v041-te-root-cause.js data/reports/projection-v041-cycle2/te-b .cache/lv-v041-cycle2 data/reports/projection-v041-cycle2/control/candidate-player-seasons.json
       - name: TE robust-loss run A
-        run: node scripts/projection-v041-te-huber.js data/reports/projection-v041-cycle2/huber-a .cache/lv-v041-cycle2 data/reports/projection-v041-cycle2/control/candidate-player-seasons.json
+        run: node -r ./scripts/preload-v03-complete.js scripts/projection-v041-te-huber.js data/reports/projection-v041-cycle2/huber-a .cache/lv-v041-cycle2 data/reports/projection-v041-cycle2/control/candidate-player-seasons.json
       - name: TE robust-loss run B
-        run: node scripts/projection-v041-te-huber.js data/reports/projection-v041-cycle2/huber-b .cache/lv-v041-cycle2 data/reports/projection-v041-cycle2/control/candidate-player-seasons.json
+        run: node -r ./scripts/preload-v03-complete.js scripts/projection-v041-te-huber.js data/reports/projection-v041-cycle2/huber-b .cache/lv-v041-cycle2 data/reports/projection-v041-cycle2/control/candidate-player-seasons.json
       - name: TE target-robust stat-line run A
-        run: node scripts/projection-v041-te-target-robust.js data/reports/projection-v041-cycle2/target-robust-a .cache/lv-v041-cycle2 data/reports/projection-v041-cycle2/control/candidate-player-seasons.json
+        run: node -r ./scripts/preload-v03-complete.js scripts/projection-v041-te-target-robust.js data/reports/projection-v041-cycle2/target-robust-a .cache/lv-v041-cycle2 data/reports/projection-v041-cycle2/control/candidate-player-seasons.json
       - name: TE target-robust stat-line run B
-        run: node scripts/projection-v041-te-target-robust.js data/reports/projection-v041-cycle2/target-robust-b .cache/lv-v041-cycle2 data/reports/projection-v041-cycle2/control/candidate-player-seasons.json
+        run: node -r ./scripts/preload-v03-complete.js scripts/projection-v041-te-target-robust.js data/reports/projection-v041-cycle2/target-robust-b .cache/lv-v041-cycle2 data/reports/projection-v041-cycle2/control/candidate-player-seasons.json
       - name: Rookie canonical run A
-        run: node scripts/projection-v041-rookie-canonical.js data/reports/projection-v041-cycle2/rookie-a .cache/lv-v041-cycle2
+        run: node -r ./scripts/preload-v03-complete.js scripts/projection-v041-rookie-canonical.js data/reports/projection-v041-cycle2/rookie-a .cache/lv-v041-cycle2
       - name: Rookie canonical run B
-        run: node scripts/projection-v041-rookie-canonical.js data/reports/projection-v041-cycle2/rookie-b .cache/lv-v041-cycle2
+        run: node -r ./scripts/preload-v03-complete.js scripts/projection-v041-rookie-canonical.js data/reports/projection-v041-cycle2/rookie-b .cache/lv-v041-cycle2
       - name: Prove deterministic cycle2 research
         run: |
           cmp data/reports/projection-v041-cycle2/run-a/cycle2-summary.json data/reports/projection-v041-cycle2/run-b/cycle2-summary.json
@@ -69,7 +69,7 @@ jobs:
           cmp data/reports/projection-v041-cycle2/rookie-a/rookie-canonical.json data/reports/projection-v041-cycle2/rookie-b/rookie-canonical.json
           cmp data/reports/projection-v041-cycle2/rookie-a/rookie-canonical.sha256 data/reports/projection-v041-cycle2/rookie-b/rookie-canonical.sha256
           cp .cache/lv-v041-cycle2/snapshot-manifest.json data/reports/projection-v041-cycle2/snapshot-manifest.json
-          printf '{"deterministic":true,"comparison":"run-a byte-identical to run-b for primary, deep, TE root-cause, TE robust-loss, TE target-robust stat-line, and rookie canonical evidence","control_snapshot":"d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188"}\n' > data/reports/projection-v041-cycle2/determinism-proof.json
+          printf '{"deterministic":true,"comparison":"run-a byte-identical to run-b for complete-stat-line primary, deep, TE root-cause, TE robust-loss, TE target-robust stat-line, and rookie canonical evidence","control_snapshot":"d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188"}\n' > data/reports/projection-v041-cycle2/determinism-proof.json
       - name: Upload cycle2 evidence
         uses: actions/upload-artifact@v4
         with:
