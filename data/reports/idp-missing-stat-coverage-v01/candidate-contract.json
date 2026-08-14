@@ -11,10 +11,12 @@
     "canonical_result_file": "canonical-result.json",
     "canonical_sha_file": "canonical-result.sha256",
     "workflow_manifest_file": "evidence-manifest.json",
-    "float_decimal_places": 8,
-    "serialization": "finite numeric results rounded to 8 decimal places; negative zero normalized; JSON keys sorted; UTF-8; LF line endings; exactly one terminal newline",
+    "primary_float_decimal_places": 8,
+    "rank_diagnostic_decimal_places": 3,
+    "rank_diagnostic_keys": ["spearman", "spearman_supported_vs_observed8"],
+    "serialization": "primary finite numeric results rounded to 8 decimal places; Spearman/rank-correlation diagnostics rounded to 3 decimals because solver-level perturbations can change tie/rank resolution beyond their defensible precision; negative zero normalized; JSON keys sorted; UTF-8; LF line endings; exactly one terminal newline",
     "ephemeral_metadata_separation": "workflow run id, run attempt, runner OS and exact GitHub head live only in evidence-manifest.json and are excluded from canonical-result.json",
-    "byte_identity_claim": "applies only to canonical-result.json after the declared canonicalization step; workflow must build from two separately restored clean copies of the frozen input and cmp them byte-for-byte",
+    "byte_identity_claim": "applies only to canonical-result.json after the declared field-specific canonicalization step; workflow must build from two separately restored clean copies of the frozen input and cmp them byte-for-byte",
     "sha_declaration_rule": "evidence-manifest.json must declare the SHA-256 computed from the actual uploaded canonical-result.json; no manually carried canonical hash is authoritative"
   },
   "model": {
