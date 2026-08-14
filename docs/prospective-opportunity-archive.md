@@ -169,11 +169,13 @@ GitHub Actions remains failed/visible. The next scheduled run retries from sourc
 
 ## Cadence
 
-The repository workflow runs on a daily cron, but the collector applies a conservative cadence gate:
-- February through September: daily
-- October through January: weekly, Tuesday UTC
+The repository workflow evaluates on a daily cron, while the collector derives eligibility from the same explicit NFL season-phase calendar used for `season_type`.
 
-This gives daily offseason/training-camp/preseason/final-cutdown coverage and weekly regular/postseason coverage without excessive source load. A forced workflow dispatch is available for a narrowly justified milestone or source event.
+For the configured 2026 archive calendar:
+- **PRE / training camp / preseason:** before `2026-09-10T00:20:00Z`, scheduled capture is eligible daily.
+- **REG:** beginning exactly `2026-09-10T00:20:00Z`, scheduled capture is eligible weekly on the approved Tuesday UTC cadence.
+
+The phase boundary, not the calendar month, controls cadence. Therefore September 10–30, 2026 is already REG and does **not** continue daily merely because it is September. Non-Tuesday scheduled evaluations during REG exit as clean cadence skips. A forced workflow dispatch remains available only from the repository default branch for a narrowly justified milestone or source event.
 
 Higher-frequency capture is not enabled initially. nflverse's primary prospective depth feed is updated on a daily cadence; collecting it multiple times per day would add little information while increasing load and repository churn. Revisit only if a licensed source supplies meaningful intraday state changes.
 
@@ -188,7 +190,7 @@ Routine immutable observations are the source of truth. Milestone freezes are im
 - final pre-Week-1 snapshot
 - regular-season Week N
 
-The scheduled collector guarantees routine daily/weekly coverage. Milestone pointer creation can be automated from an approved 2026 schedule/cutoff configuration without changing underlying observations. The especially important final pre-Week-1 pointer must resolve to the last valid capture strictly before Week 1, matching the existing opportunity backtest cutoff contract.
+The scheduled collector guarantees routine daily PRE and weekly REG coverage under the explicit phase calendar. Milestone pointer creation can be automated from an approved 2026 schedule/cutoff configuration without changing underlying observations. The especially important final pre-Week-1 pointer must resolve to the last valid capture strictly before Week 1, matching the existing opportunity backtest cutoff contract.
 
 ## Backtest compatibility
 
@@ -206,8 +208,8 @@ Planning estimate for the initial two feeds:
 - normalized depth object: roughly 0.1–0.3 MB compressed per changed state
 - roster object: roughly 0.1–0.3 MB compressed per changed state
 - observations/quality/manifest: typically only KB per run
-- daily Feb-Sep plus weekly Oct-Jan: approximately 250 capture days/year
-- pessimistic if both feeds materially change every capture: roughly 50–150 MB/year
+- daily PRE capture followed by weekly REG capture under the explicit configured season calendar
+- pessimistic if both feeds materially change every eligible capture: roughly 50–150 MB/year
 - expected with content deduplication and slower roster changes: materially below that range
 
 This is acceptable for an initial prospective research archive but should be reviewed after 30/90 days. If growth trends toward hundreds of MB/year, migrate immutable content objects to GitHub Releases or approved object storage while retaining compact manifests/hashes in Git. No paid storage is authorized here.
@@ -222,7 +224,9 @@ The v1.1 live validation requires canonical team-set agreement and zero cross-te
 
 ## GitHub Actions / integration
 
-Scheduled workflows execute reliably from the repository default branch. The isolated research branch validates push/manual capture mechanics, but **ongoing cron automation requires the narrowly scoped workflow/collector to be integrated into `main` after QA/Core approval**.
+Scheduled workflows execute from the repository default branch. The write-enabled capture job also requires `github.ref` to equal the repository default-branch ref, so `workflow_dispatch` on a feature/research branch or tag cannot obtain archive write authority. Pull requests run contract validation only and do not enter capture.
+
+The isolated research branch validates capture mechanics, but **ongoing cron automation requires the narrowly scoped workflow/collector to be integrated into `main` after QA/Core approval**.
 
 The integration candidate remains calculation-neutral: collector, archive data, tests, documentation and workflow only. Scheduled archive commits are data/provenance commits and must not modify production calculation files.
 
