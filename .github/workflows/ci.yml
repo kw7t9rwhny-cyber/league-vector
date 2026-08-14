@@ -83,13 +83,19 @@ jobs:
       - name: Assemble static experimental preview
         run: |
           mkdir -p site-preview/data/experimental
-          cp index.html styles.css experimental.css core-v08.js idp-scoring-context-v01.js idp-scoring-ui-v01.js scoring-coverage-v032.js projection-identity-v03.js live-test-fixes-v01.js dynasty-search-v01.js data-sources-v08.js app.js projection-frontend-v03.js projection-frontend-v03-contract.js experimental-ui-v03.js experimental-ui-v03-enhancements.js site-preview/
+          cp index.html styles.css experimental.css projection-browser-v01.css core-v08.js idp-scoring-context-v01.js idp-scoring-ui-v01.js scoring-coverage-v032.js projection-identity-v03.js live-test-fixes-v01.js dynasty-search-v01.js data-sources-v08.js app.js projection-frontend-v03.js projection-frontend-v03-contract.js experimental-ui-v03.js experimental-ui-v03-enhancements.js site-preview/
           cp data/experimental/2026-projections.json site-preview/data/experimental/
       - name: Verify deployable projection asset resolves and parses
         run: |
           test -s site-preview/data/experimental/2026-projections.json
           test -s site-preview/dynasty-search-v01.js
+          test -s site-preview/experimental-ui-v03.js
+          test -s site-preview/projection-browser-v01.css
           grep -q 'dynasty-search-v01.js?v=0.2' site-preview/index.html
+          grep -q 'experimental-ui-v03.js?v=0.3.4' site-preview/index.html
+          ! grep -q 'experimental-ui-v03.js?v=0.3.3' site-preview/index.html
+          grep -q 'projection-browser-v01.css?v=0.2' site-preview/experimental-ui-v03.js
+          ! grep -q 'projection-browser-v01.css?v=0.1' site-preview/experimental-ui-v03.js
           ! grep -q 'live-test-fixes-v01.js?v=0.1' site-preview/index.html
           node -e "const fs=require('fs');const p='site-preview/data/experimental/2026-projections.json';const a=JSON.parse(fs.readFileSync(p,'utf8'));if(!Array.isArray(a.r)||!a.r.length)throw new Error('Projection asset has no compact records');if(a.m!=='lv-projection-system-v0.3')throw new Error('Unexpected projection model version: '+a.m);if(!Array.isArray(a.ip)||!a.ip.length)throw new Error('IDP historical profiles missing');"
           python3 -m http.server 4174 --directory site-preview >/tmp/league-vector-preview.log 2>&1 &
@@ -97,7 +103,9 @@ jobs:
           trap 'kill $server_pid' EXIT
           sleep 1
           curl --fail --silent --show-error http://127.0.0.1:4174/data/experimental/2026-projections.json >/dev/null
-          curl --fail --silent --show-error http://127.0.0.1:4174/dynasty-search-v01.js >/dev/null
+          curl --fail --silent --show-error http://127.0.0.1:4174/dynasty-search-v01.js?v=0.2 >/dev/null
+          curl --fail --silent --show-error http://127.0.0.1:4174/experimental-ui-v03.js?v=0.3.4 >/dev/null
+          curl --fail --silent --show-error http://127.0.0.1:4174/projection-browser-v01.css?v=0.2 >/dev/null
       - name: Upload projection v0.3 reports
         if: always()
         uses: actions/upload-artifact@v4
