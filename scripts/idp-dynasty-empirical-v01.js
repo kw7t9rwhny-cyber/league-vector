@@ -39,7 +39,7 @@ async function buildHistoricalPlayerSeasons(options={}){
   const seasons=(options.seasons||Age.DEFAULT_SEASONS).map(Number).filter(Number.isInteger).sort((a,b)=>a-b);
   if(!seasons.length)throw new Error('No valid seasons');
   const root=options.root||process.cwd(),cacheDir=path.resolve(root,options.cacheDir||'.cache/league-vector/idp-dynasty-v01');ensureDir(cacheDir);
-  const retrievedAt=new Date().toISOString();
+  const retrievedAt=options.generatedAt||new Date().toISOString();
   const playerUrl=Data.nflverseUrls(seasons[0]).players;
   const playerDownload=await Ingest.fetchText(playerUrl,path.join(cacheDir,'nflverse-players.csv'),options);
   const playerRows=Core.parseCsv(playerDownload.text);
@@ -74,6 +74,6 @@ async function run(options={}){
   report.idp_dynasty_value_available=false;
   return report;
 }
-async function main(){const args=parseArgs(process.argv.slice(2));const seasons=args.seasons.split(',').map(Number).filter(Number.isInteger);const result=await run({seasons,cacheDir:args.cache,refresh:args.refresh==='true'});const output=path.resolve(process.cwd(),args.output);ensureDir(path.dirname(output));fs.writeFileSync(output,JSON.stringify(result,null,2)+'\n');console.log(`IDP_DYNASTY_RESEARCH_SUMMARY ${JSON.stringify({sample:result.sample,persistence:result.production_persistence,survival:result.multi_horizon_relevance_survival,uncertainty:result.uncertainty,horizon_readiness:result.position_horizon_readiness,experience_contract:result.experience_contract,finer_role_coverage:result.finer_role_coverage,finer_role_split_readiness:result.finer_role_split_readiness})}`);console.log(output);}
+async function main(){const args=parseArgs(process.argv.slice(2));const seasons=args.seasons.split(',').map(Number).filter(Number.isInteger);const result=await run({seasons,cacheDir:args.cache,refresh:args.refresh==='true',generatedAt:args['generated-at']});const output=path.resolve(process.cwd(),args.output);ensureDir(path.dirname(output));fs.writeFileSync(output,JSON.stringify(result,null,2)+'\n');console.log(`IDP_DYNASTY_RESEARCH_SUMMARY ${JSON.stringify({sample:result.sample,persistence:result.production_persistence,survival:result.multi_horizon_relevance_survival,uncertainty:result.uncertainty,horizon_readiness:result.position_horizon_readiness,experience_contract:result.experience_contract,finer_role_coverage:result.finer_role_coverage,finer_role_split_readiness:result.finer_role_split_readiness})}`);console.log(output);}
 if(require.main===module)main().catch(error=>{console.error(error.stack||error.message);process.exit(1);});
 module.exports={parseArgs,safeExperience,roleCoverage,buildHistoricalPlayerSeasons,run};
