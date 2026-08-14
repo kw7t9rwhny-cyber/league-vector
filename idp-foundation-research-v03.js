@@ -118,10 +118,10 @@
     const slots = [];
     const teams = Number(config?.teams || 0);
     for (const group of IDP_GROUPS) {
-      const count = Math.max(0, Number(config?.dedicated?.[group] || 0) * teams);
+      const count = Math.max(0, Math.round(Number(config?.dedicated?.[group] || 0) * teams));
       for (let i = 0; i < count; i += 1) slots.push({ id: `${group}:${i + 1}`, eligibility: [group], slot_group: group });
     }
-    const flexCount = Math.max(0, Number(config?.flex || 0) * teams);
+    const flexCount = Math.max(0, Math.round(Number(config?.flex || 0) * teams));
     for (let i = 0; i < flexCount; i += 1) slots.push({ id: `IDP_FLEX:${i + 1}`, eligibility: IDP_GROUPS.slice(), slot_group: "IDP_FLEX" });
     return slots;
   }
@@ -136,7 +136,7 @@
   function maximumWeightAssignment(players, config) {
     const slots = expandedSlots(config);
     const normalized = (players || []).map((p, i) => ({ ...p, _id: playerId(p, i), _points: points(p) }))
-      .filter((p) => Number.isFinite(p._points) && Array.isArray(p.lineup_eligibility) && p.lineup_eligibility.length)
+      .filter((p) => Number.isFinite(p._points) && p._points >= 0 && Array.isArray(p.lineup_eligibility) && p.lineup_eligibility.length)
       .sort((a, b) => b._points - a._points || a._id.localeCompare(b._id));
     const playerById = new Map(normalized.map((p) => [p._id, p]));
     const slotById = new Map(slots.map((s) => [s.id, s]));
@@ -153,7 +153,6 @@
         seenSlots.add(slot.id);
         const occupant = slotToPlayer.get(slot.id);
         if (!occupant || augment(occupant, seenSlots, seenPlayers)) {
-          if (occupant) playerToSlot.delete(occupant);
           slotToPlayer.set(slot.id, playerIdValue);
           playerToSlot.set(playerIdValue, slot.id);
           return true;
