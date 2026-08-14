@@ -1,0 +1,56 @@
+{
+  "version": "lv-projection-v04-residual-summary",
+  "source_workflow_run": 31761843408,
+  "baseline": "weighted 60/30/10",
+  "folds": [2020,2021,2022,2023,2024,2025],
+  "sample_sizes": {"QB":410,"RB":782,"WR":1128,"TE":624},
+  "key_bias_findings": {
+    "WR": {
+      "young_age_le_24": {"n":334,"mean_bias_points":-4.44,"season_bias_points":{"2020":-7.0,"2021":-6.9,"2022":-0.1,"2023":-2.0,"2024":-8.0,"2025":-0.6}},
+      "age_30_plus": {"n":147,"mean_bias_points":41.83,"season_bias_points":{"2020":45.9,"2021":31.2,"2022":44.3,"2023":29.3,"2024":51.0,"2025":48.4}},
+      "high_prior_opportunity": {"n":378,"mean_bias_points":25.59},
+      "low_prior_opportunity": {"n":377,"mean_bias_points":-5.91}
+    },
+    "TE": {
+      "young_age_le_24": {"n":138,"mean_bias_points":-8.93,"season_bias_points":{"2020":-16.7,"2021":-16.9,"2022":2.3,"2023":-8.0,"2024":-4.1,"2025":-13.2}},
+      "age_30_plus": {"n":111,"mean_bias_points":18.71,"season_bias_points":{"2020":23.1,"2021":15.5,"2022":5.1,"2023":26.8,"2024":16.2,"2025":21.8}},
+      "high_prior_opportunity": {"n":207,"mean_bias_points":12.33},
+      "low_prior_opportunity": {"n":207,"mean_bias_points":-6.11}
+    },
+    "RB": {
+      "young_age_le_24": {"n":236,"mean_bias_points":-3.77},
+      "age_30_plus": {"n":69,"mean_bias_points":23.70},
+      "high_prior_opportunity": {"n":259,"mean_bias_points":27.96,"positive_bias_all_six_folds":true},
+      "low_prior_opportunity": {"n":262,"mean_bias_points":-6.70,"negative_bias_all_six_folds":true}
+    },
+    "QB": {
+      "young_age_le_24": {"n":63,"mean_bias_points":-15.29,"unstable_by_season":true},
+      "age_30_plus": {"n":142,"mean_bias_points":16.70},
+      "high_prior_opportunity": {"n":136,"mean_bias_points":38.02},
+      "low_prior_opportunity": {"n":137,"mean_bias_points":-12.67}
+    }
+  },
+  "trajectory_findings": {
+    "WR": {"prior_breakout_bias":15.71,"prior_collapse_bias":22.42,"stable_prior_bias":10.63},
+    "TE": {"prior_breakout_bias":6.94,"prior_collapse_bias":9.00,"stable_prior_bias":1.23},
+    "RB": {"prior_breakout_bias":18.23,"prior_collapse_bias":23.56,"stable_prior_bias":9.02},
+    "QB": {"prior_breakout_bias":32.13,"prior_collapse_bias":27.22,"stable_prior_bias":-8.96}
+  },
+  "limited_history_findings": {
+    "WR": {"one_year_bias":-7.59,"three_plus_bias":21.52},
+    "TE": {"one_year_bias":-5.73,"three_plus_bias":7.78},
+    "RB": {"one_year_bias":-10.45,"three_plus_bias":19.08},
+    "QB": {"one_year_bias":-17.62,"three_plus_bias":16.22}
+  },
+  "realized_team_change_diagnostic": {
+    "warning": "ex-post diagnostic only; must not be used as a historical feature unless the team change was known before the projection timestamp",
+    "WR_changed_bias":21.79,"TE_changed_bias":8.38,"RB_changed_bias":22.67,"QB_changed_bias":22.73
+  },
+  "interpretation": [
+    "The transparent baseline systematically over-projects older WR/TE and high-opportunity players and under-projects young/low-opportunity players.",
+    "WR age bias is especially stable: age 30+ is over-projected in every fold, while age <=24 is under-projected in every fold except effectively neutral 2022/2025.",
+    "Young TE under-projection and veteran TE over-projection are visible in the projection layer itself, so part of the apparent dynasty TE/young-player issue may originate before dynasty valuation.",
+    "High-prior-opportunity versus low-prior-opportunity bias suggests current regression-to-mean/role-transition handling is too weak, not merely that historical weights are suboptimal."
+  ],
+  "readiness": "MORE RESEARCH REQUIRED"
+}

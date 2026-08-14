@@ -1,0 +1,37 @@
+{
+  "version":"lv-projection-v04-cycle2-checkpoint3",
+  "control_sha":"6d931abadbcb06e910bf953d941902c7c2cd1638",
+  "input_snapshot_sha256":"d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188",
+  "te_root_cause_pre2025":{
+    "age_bands":[
+      {"band":"<=23","n":31,"bias":-2.42,"mae":31.30},{"band":"24-25","n":139,"bias":-4.34,"mae":26.76},{"band":"26-27","n":141,"bias":0.98,"mae":26.10},{"band":"28-29","n":99,"bias":-1.77,"mae":29.66},{"band":"30-31","n":60,"bias":15.99,"mae":34.86},{"band":"32+","n":40,"bias":8.37,"mae":30.70}
+    ],
+    "experience_bands":[
+      {"band":"year2","n":76,"bias":-4.40,"mae":28.24},{"band":"year3","n":84,"bias":-6.30,"mae":22.92},{"band":"year4","n":85,"bias":-3.07,"mae":29.35},{"band":"year5-6","n":117,"bias":3.66,"mae":26.55},{"band":"year7+","n":148,"bias":8.62,"mae":33.47}
+    ],
+    "prior_target_quartiles":[
+      {"band":"Q1 low","n":128,"bias":-3.69,"mae":13.33},{"band":"Q2","n":127,"bias":0.78,"mae":23.20},{"band":"Q3","n":127,"bias":0.80,"mae":33.52},{"band":"Q4 high","n":128,"bias":6.64,"mae":44.66}
+    ],
+    "prior_games":[
+      {"band":"<=8","n":189,"bias":-3.89,"mae":18.00},{"band":"9-12","n":113,"bias":-1.80,"mae":29.44},{"band":"13-15","n":137,"bias":10.26,"mae":35.82},{"band":"16-17","n":71,"bias":1.58,"mae":42.13}
+    ],
+    "role_change_findings":"Flat prior target roles have far lower MAE (~18.9) than sharp prior target growth/decline (~38.6/~38.2). One-year spike/collapse histories also have much larger error than flat histories. TE error is dominated by role instability and veteran persistence more than by one simple age curve or TD-rate rule.",
+    "conclusion":"Validated v0.4 over-projects older/high-opportunity TEs and under-projects year2/year3 TEs on average, but simple experience/opportunity corrections are too unstable to replace the control."
+  },
+  "two_stage_role_survival_point_model_vs_validated_v04":{
+    "QB":{"folds":5,"wins":1,"mean_mae_gain_pct":-5.54,"worst_mae_gain_pct":-20.69,"mean_spearman_change":-0.02},
+    "RB":{"folds":5,"wins":1,"mean_mae_gain_pct":-1.79,"worst_mae_gain_pct":-3.70,"mean_spearman_change":-0.01},
+    "WR":{"folds":5,"wins":2,"mean_mae_gain_pct":-2.16,"worst_mae_gain_pct":-7.39,"mean_spearman_change":0.00},
+    "TE":{"folds":5,"wins":1,"mean_mae_gain_pct":-5.19,"worst_mae_gain_pct":-15.52,"mean_spearman_change":-0.01},
+    "decision":"REJECT as point-projection replacement. Role-survival probability remains promising for uncertainty/risk classification rather than direct expected-point decomposition."
+  },
+  "experience_bias_calibration_vs_validated_v04":{
+    "QB":{"fold_wins":1,"mean_mae_gain_pct":-0.80},
+    "RB":{"fold_wins":2,"mean_mae_gain_pct":-2.41},
+    "WR":{"fold_wins":3,"mean_mae_gain_pct":1.60},
+    "TE":{"fold_wins":1,"mean_mae_gain_pct":-4.41},
+    "decision":"Do not bolt historical experience-group bias corrections onto v0.4. WR is directionally interesting but the approach is not stable across positions."
+  },
+  "flags":{"experimental":true,"production_projection_eligible":false,"dynasty_value_eligible":false},
+  "status":"MORE PROJECTION RESEARCH REQUIRED"
+}
