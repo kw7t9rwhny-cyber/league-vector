@@ -24,7 +24,8 @@ jobs:
           cp -R /tmp/lv-control/unpacked/.cache/lv-v04-canonical .cache/lv-dynasty-v02
           cp /tmp/lv-control/unpacked/data/reports/projection-v04-canonical/snapshot-manifest.json .cache/lv-dynasty-v02/snapshot-manifest.json
       - name: Verify frozen snapshot
-        run: python - <<'PY'
+        run: |
+          python - <<'PY'
           import json,pathlib
           m=json.loads(pathlib.Path('.cache/lv-dynasty-v02/snapshot-manifest.json').read_text())
           assert m['snapshot_sha256']=='d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188'
