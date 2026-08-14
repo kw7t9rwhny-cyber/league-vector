@@ -1,5 +1,5 @@
 (function(){'use strict';
-const $=id=>document.getElementById(id),PF=window.LeagueVectorProjectionFrontend,esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
+const $=id=>document.getElementById(id),PF=window.LeagueVectorProjectionFrontend,esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const debug=new URLSearchParams(location.search).get('debug')==='1';
 function current(){return window.__leagueVectorExperimental?.rows||[];}
 function completeness(row){return row.scoring?.completeness||'unavailable';}
