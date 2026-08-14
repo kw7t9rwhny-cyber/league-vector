@@ -1,0 +1,12 @@
+{
+  "version":"lv-idp-core-handoff-v0.2-research",
+  "status":"research_only",
+  "production_numeric_idp_value_allowed":false,
+  "projection_pool":{"requires_projection_ready":true,"requires_current_eligibility_verification":true,"research_recency_floor":2024,"missing_stats_are_zero":false},
+  "replacement":{"version":"lv-idp-replacement-v0.2-proposed","score_under_actual_league_rules_first":true,"dedicated_slots":true,"shared_idp_flex":true,"bench_depth_sensitivity":true,"research_default":"blend_starter_and_rosterable_boundaries","extra_positional_premium":false},
+  "hybrid":{"single_model_family_per_player":true,"separate_lineup_eligibility_set":true,"single_slot_allocation_per_player":true,"sum_multi_position_surplus":false},
+  "uncertainty":{"whole_player_calibrated":false,"valuation_discount_approved":false,"display_signal_only":true},
+  "dynasty_surplus":{"multi_year_method":"league_scored_surplus_over_replacement","position_specific_age_curve_required":true,"position_specific_horizon_required":true,"approved":false},
+  "cross_position":{"shared_unit":"league_scored_surplus_over_replacement","arbitrary_multiplier":false,"league_vector_0_10000_scale_approved":false},
+  "promotion_gate":{"no_future_leakage":true,"scoring_coverage_explicit":true,"replacement_sensitivity_acceptable":true,"current_pool_clean":false,"age_curve_validated":false,"whole_player_uncertainty_calibrated":false,"hybrid_backtested":false,"experimental_dynasty_rankings_ready":false}
+}
