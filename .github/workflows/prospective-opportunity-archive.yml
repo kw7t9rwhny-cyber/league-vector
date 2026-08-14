@@ -45,7 +45,7 @@ jobs:
       - name: Contract tests
         run: |
           python scripts/prospective-opportunity-archive.py --self-test
-          python -m unittest tests/prospective-opportunity-archive.test.py
+          python tests/prospective-opportunity-archive.test.py
 
       - name: Capture approved prospective sources
         id: capture
