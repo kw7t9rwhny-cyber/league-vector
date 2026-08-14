@@ -24,6 +24,12 @@
   function normalizedStatus(value) { return text(value).toLowerCase().replace(/\s+/g, " "); }
   function canonicalPosition(value) { return POSITION_MAP[text(value).toUpperCase()] || null; }
   function uniq(values) { return [...new Set(values)]; }
+  function idInVerifiedSet(value, source) {
+    const id = String(value);
+    if (source instanceof Set) return source.has(id);
+    if (Array.isArray(source)) return source.map(String).includes(id);
+    return false;
+  }
 
   function lineupEligibility(player) {
     const raw = Array.isArray(player?.fantasy_positions) && player.fantasy_positions.length
@@ -60,18 +66,28 @@
     if (STATUS_CLASS.RETIRED.has(status)) { result.current_class = "retired"; result.reason = "retired"; return result; }
     if (STATUS_CLASS.INACTIVE.has(status)) { result.current_class = "inactive"; result.reason = `inactive_status:${status}`; return result; }
     if (STATUS_CLASS.ACTIVE.has(status)) {
-      result.current_class = team ? "active_roster" : "free_agent";
-      result.eligible = true;
+      if (team) {
+        result.current_class = "active_roster";
+        result.eligible = true;
+        return result;
+      }
+      if (options.freeAgentVerified === true) {
+        result.current_class = "verified_free_agent";
+        result.eligible = true;
+        return result;
+      }
+      result.current_class = "teamless_unverified";
+      result.reason = "teamless_active_unverified_fail_closed";
       return result;
     }
     if (STATUS_CLASS.INJURED.has(status)) {
-      if (!team) { result.reason = "injury_status_without_team_fail_closed"; return result; }
+      if (!team) { result.current_class = "teamless_unverified"; result.reason = "injury_status_without_team_fail_closed"; return result; }
       result.current_class = "injured_roster";
       result.eligible = true;
       return result;
     }
     if (STATUS_CLASS.PRACTICE_SQUAD.has(status)) {
-      if (!team) { result.reason = "practice_squad_without_team_fail_closed"; return result; }
+      if (!team) { result.current_class = "teamless_unverified"; result.reason = "practice_squad_without_team_fail_closed"; return result; }
       result.current_class = "practice_squad";
       result.eligible = true;
       return result;
@@ -83,21 +99,24 @@
   function buildCurrentEligibilitySnapshot(sleeperPlayers, options = {}) {
     const included = [], excluded = [], counts = {};
     for (const [sleeperId, player] of Object.entries(sleeperPlayers || {})) {
-      const decision = classifyCurrentEligibility(player, options);
+      const decision = classifyCurrentEligibility(player, {
+        ...options,
+        freeAgentVerified: idInVerifiedSet(sleeperId, options.verifiedFreeAgentIds),
+      });
       const row = { sleeper_id: String(sleeperId), ...decision };
       counts[decision.current_class] = (counts[decision.current_class] || 0) + 1;
       if (decision.eligible) included.push(row); else excluded.push(row);
     }
     return {
       version: VERSION,
-      policy: "Sleeper current player snapshot is authoritative for current fantasy eligibility; active must be true; missing/unknown status fails closed; retired/inactive records are excluded; teamless Active records are classified as free agents; IR/PUP/NFI and practice-squad records require a team.",
+      policy: "Current eligibility requires Sleeper active=true plus a recognized status. Team-backed Active, recognized IR/PUP/NFI and team-backed practice-squad records may qualify. Teamless Active records fail closed unless a separate current free-agent authority explicitly verifies that Sleeper ID. Missing/unknown status and retired/inactive records are excluded.",
       included,
       excluded,
       counts,
     };
   }
 
-  function filterProjectionPool(projections, sleeperPlayers, crosswalkByGsis = {}) {
+  function filterProjectionPool(projections, sleeperPlayers, crosswalkByGsis = {}, options = {}) {
     const bySleeper = sleeperPlayers || {};
     const included = [], excluded = [];
     for (const row of projections || []) {
@@ -107,7 +126,10 @@
         excluded.push({ row, reason: "no_current_sleeper_identity_fail_closed" });
         continue;
       }
-      const decision = classifyCurrentEligibility(bySleeper[String(sleeperId)]);
+      const decision = classifyCurrentEligibility(bySleeper[String(sleeperId)], {
+        ...options,
+        freeAgentVerified: idInVerifiedSet(sleeperId, options.verifiedFreeAgentIds),
+      });
       if (!decision.eligible) { excluded.push({ row, sleeper_id: String(sleeperId), reason: decision.reason }); continue; }
       included.push({ ...row, sleeper_id: String(sleeperId), lineup_eligibility: decision.lineup_eligibility, current_eligibility_class: decision.current_class });
     }
