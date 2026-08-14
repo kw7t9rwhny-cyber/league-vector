@@ -85,7 +85,9 @@
       return { projected_points: null, scoring_coverage: coverage, ranking_eligible: false };
     }
     let total = 0;
-    for (const [stat, weight] of Object.entries(coverage.scoring)) total += Number(projectedStats[stat]) * Number(weight);
+    for (const [stat, weight] of Object.entries(coverage.scoring)) {
+      total += Number(projectedStats[stat]) * Number(weight);
+    }
     return { projected_points: round(total), scoring_coverage: coverage, ranking_eligible: true };
   }
 
@@ -94,7 +96,9 @@
     if (!Number.isInteger(teams) || teams <= 0) {
       return { valid: false, reason: "invalid_or_missing_league_size", teams: null, dedicated: null, flex: null, unsupported_roster_slots: [] };
     }
-    const slots = Array.isArray(league?.roster_positions) ? league.roster_positions.map((x) => text(x).toUpperCase()).filter(Boolean) : [];
+    const slots = Array.isArray(league?.roster_positions)
+      ? league.roster_positions.map((x) => text(x).toUpperCase()).filter(Boolean)
+      : [];
     if (!slots.length) {
       return { valid: false, reason: "missing_roster_positions", teams, dedicated: null, flex: null, unsupported_roster_slots: [] };
     }
@@ -119,43 +123,164 @@
     return { valid: true, reason: null, teams, dedicated, flex, unsupported_roster_slots: [] };
   }
 
+  function expandedSlots(config) {
+    const slots = [];
+    const teams = Number(config?.teams || 0);
+    for (const group of IDP_GROUPS) {
+      const count = Math.max(0, Math.round(Number(config?.dedicated?.[group] || 0) * teams));
+      for (let i = 0; i < count; i += 1) slots.push({ id: `${group}:${i + 1}`, eligibility: [group], slot_group: group });
+    }
+    const flexCount = Math.max(0, Math.round(Number(config?.flex || 0) * teams));
+    for (let i = 0; i < flexCount; i += 1) {
+      slots.push({ id: `IDP_FLEX:${i + 1}`, eligibility: IDP_GROUPS.slice(), slot_group: "IDP_FLEX" });
+    }
+    return slots;
+  }
+
+  function playerIdentity(player, index) {
+    return String(player?.id || player?.sleeper_id || player?.gsis_id || player?.league_vector_player_id || `row:${index}`);
+  }
+
+  function eligibleForSlot(player, slot) {
+    const eligibility = Array.isArray(player?.lineup_eligibility) ? player.lineup_eligibility : [];
+    return slot.eligibility.some((position) => eligibility.includes(position));
+  }
+
+  // Current-season-only signed assignment. Unlike the older research helper, this
+  // intentionally preserves negative projected points because custom scoring can
+  // make required starters negative and lineup demand still has to be satisfied.
+  function maximumWeightAssignmentSigned(players, config) {
+    const slots = expandedSlots(config);
+    const normalized = (players || []).map((player, index) => ({
+      ...player,
+      _id: playerIdentity(player, index),
+      _points: Number(player?.points),
+    })).filter((player) => Number.isFinite(player._points) && Array.isArray(player.lineup_eligibility) && player.lineup_eligibility.length)
+      .sort((a, b) => b._points - a._points || a._id.localeCompare(b._id));
+
+    const playerById = new Map(normalized.map((player) => [player._id, player]));
+    const slotById = new Map(slots.map((slot) => [slot.id, slot]));
+    const slotToPlayer = new Map();
+    const playerToSlot = new Map();
+
+    function augment(playerIdValue, seenSlots, seenPlayers) {
+      if (seenPlayers.has(playerIdValue)) return false;
+      seenPlayers.add(playerIdValue);
+      const player = playerById.get(playerIdValue);
+      const candidateSlots = slots.filter((slot) => eligibleForSlot(player, slot)).sort((a, b) => a.id.localeCompare(b.id));
+      for (const slot of candidateSlots) {
+        if (seenSlots.has(slot.id)) continue;
+        seenSlots.add(slot.id);
+        const occupant = slotToPlayer.get(slot.id);
+        if (!occupant || augment(occupant, seenSlots, seenPlayers)) {
+          slotToPlayer.set(slot.id, playerIdValue);
+          playerToSlot.set(playerIdValue, slot.id);
+          return true;
+        }
+      }
+      return false;
+    }
+
+    for (const player of normalized) augment(player._id, new Set(), new Set());
+    const assignments = [...playerToSlot.entries()].map(([playerIdValue, slotId]) => {
+      const player = playerById.get(playerIdValue);
+      const slot = slotById.get(slotId);
+      return {
+        player_id: playerIdValue,
+        slot_id: slotId,
+        slot_group: slot.slot_group,
+        points: player._points,
+        lineup_eligibility: player.lineup_eligibility.slice(),
+      };
+    }).sort((a, b) => b.points - a.points || a.player_id.localeCompare(b.player_id));
+
+    return {
+      assignments,
+      selected_player_ids: assignments.map((row) => row.player_id),
+      total_points: assignments.reduce((sum, row) => sum + row.points, 0),
+      slots,
+    };
+  }
+
   function syntheticId(eligibility) { return `__replacement__:${eligibility.join("/")}`; }
 
-  function replacementEntryThreshold(players, config, eligibility, options = {}) {
-    const normalizedEligibility = [...new Set((eligibility || []).filter((p) => IDP_GROUPS.includes(p)))].sort();
-    if (!normalizedEligibility.length) return null;
-    const maxPoints = Math.max(1, ...players.map((p) => finite(p.points) ? Number(p.points) : 0));
+  function replacementEntryThresholdResult(players, config, eligibility, options = {}) {
+    const normalizedEligibility = [...new Set((eligibility || []).filter((position) => IDP_GROUPS.includes(position)))].sort();
+    if (!normalizedEligibility.length) return { status: "unavailable", value: null, reason: "no_supported_eligibility" };
+
+    const numericPoints = (players || []).map((player) => Number(player?.points)).filter(Number.isFinite);
+    if (!numericPoints.length) return { status: "unavailable", value: null, reason: "no_rankable_current_player_pool" };
+
     const id = syntheticId(normalizedEligibility);
     const selectedAt = (value) => {
       const candidate = { id, points: value, lineup_eligibility: normalizedEligibility };
-      return Foundation.maximumWeightAssignment([...players, candidate], config).selected_player_ids.includes(id);
+      return maximumWeightAssignmentSigned([...players, candidate], config).selected_player_ids.includes(id);
     };
-    if (!selectedAt(maxPoints * 2 + 1)) return null;
-    let low = 0;
-    let high = maxPoints * 2 + 1;
-    const iterations = Number.isInteger(options.iterations) ? options.iterations : 28;
+
+    const minPoints = Math.min(...numericPoints);
+    const maxPoints = Math.max(...numericPoints);
+    const span = Math.max(1, maxPoints - minPoints, Math.abs(minPoints), Math.abs(maxPoints));
+    let low = minPoints - span - 1;
+    let high = maxPoints + span + 1;
+
+    // If the synthetic player enters even at an extremely poor score, demand is
+    // deeper than the safely rankable pool and no finite replacement threshold exists.
+    if (selectedAt(low)) {
+      return { status: "unavailable", value: null, reason: "insufficient_current_pool_for_replacement" };
+    }
+    if (!selectedAt(high)) {
+      return { status: "unavailable", value: null, reason: "eligibility_cannot_fill_supported_starter_slot" };
+    }
+
+    const iterations = Number.isInteger(options.iterations) ? options.iterations : 32;
     for (let i = 0; i < iterations; i += 1) {
       const mid = (low + high) / 2;
       if (selectedAt(mid)) high = mid;
       else low = mid;
     }
-    return round(high);
+    return { status: "available", value: round(high), reason: null };
+  }
+
+  function replacementEntryThreshold(players, config, eligibility, options = {}) {
+    return replacementEntryThresholdResult(players, config, eligibility, options).value;
   }
 
   function buildReplacementThresholds(players, structure) {
     const config = { teams: structure.teams, dedicated: structure.dedicated, flex: structure.flex };
     const sets = new Map();
-    for (const player of players) {
-      const eligibility = [...new Set(player.lineup_eligibility || [])].sort();
-      if (!eligibility.length) continue;
-      sets.set(eligibility.join("/"), eligibility);
+    for (const player of players || []) {
+      const eligibility = [...new Set(player.lineup_eligibility || [])].filter((position) => IDP_GROUPS.includes(position)).sort();
+      if (eligibility.length) sets.set(eligibility.join("/"), eligibility);
     }
     for (const group of IDP_GROUPS) sets.set(group, [group]);
+
     const thresholds = {};
+    const availability = {};
     for (const [key, eligibility] of [...sets.entries()].sort((a, b) => a[0].localeCompare(b[0]))) {
-      thresholds[key] = replacementEntryThreshold(players, config, eligibility);
+      const result = replacementEntryThresholdResult(players, config, eligibility);
+      thresholds[key] = result.value;
+      availability[key] = { status: result.status, reason: result.reason };
     }
-    return thresholds;
+    return { thresholds, availability };
+  }
+
+  function duplicateIdentityAudit(rows) {
+    const dimensions = ["sleeper_id", "gsis_id", "league_vector_player_id"];
+    const duplicates = [];
+    for (const dimension of dimensions) {
+      const seen = new Map();
+      for (const row of rows || []) {
+        const value = text(row?.[dimension]);
+        if (!value) continue;
+        const prior = seen.get(value);
+        if (prior) duplicates.push({ dimension, value, first: prior, second: row });
+        else seen.set(value, row);
+      }
+    }
+    return {
+      valid: duplicates.length === 0,
+      duplicates: duplicates.map((item) => ({ dimension: item.dimension, value: item.value })),
+    };
   }
 
   function buildCandidate(input = {}) {
@@ -166,11 +291,16 @@
     const structure = leagueIdpStructure(league);
     const globalCoverage = scoringCoverage(league.scoring_settings || {});
     const blockedReasons = [];
+    const unavailableReasons = [];
+
     if (!structure.valid) blockedReasons.push(structure.reason);
     if (globalCoverage.status === "unavailable") blockedReasons.push("no_supported_active_idp_scoring");
     if (globalCoverage.unsupported_keys.length) blockedReasons.push("meaningful_unsupported_idp_scoring_keys");
 
     const currentPool = Foundation.filterProjectionPool(projections, sleeperPlayers, crosswalkByGsis);
+    const identityAudit = duplicateIdentityAudit(currentPool.included);
+    if (!identityAudit.valid) blockedReasons.push("duplicate_current_projection_identity_fail_closed");
+
     const safePlayers = [];
     const excluded = [...currentPool.excluded];
     for (const row of currentPool.included) {
@@ -179,31 +309,53 @@
         excluded.push({ row, sleeper_id: row.sleeper_id, reason: "incomplete_scoring_coverage", scoring_coverage: scored.scoring_coverage });
         continue;
       }
+      const currentSleeper = sleeperPlayers[String(row.sleeper_id)] || null;
       safePlayers.push({
         ...row,
         id: String(row.sleeper_id || row.gsis_id || row.league_vector_player_id),
+        current_team: currentSleeper ? (text(currentSleeper.team).toUpperCase() || null) : null,
         points: scored.projected_points,
         projected_points: scored.projected_points,
         scoring_coverage: scored.scoring_coverage,
       });
     }
 
-    const thresholds = structure.valid && !blockedReasons.length ? buildReplacementThresholds(safePlayers, structure) : {};
-    const rows = safePlayers.map((row) => {
-      const eligiblePositions = [...new Set(row.lineup_eligibility || [])].sort();
-      const replacement = thresholds[eligiblePositions.join("/")] ?? null;
-      const surplus = finite(replacement) ? round(row.projected_points - replacement) : null;
+    if (currentPool.included.length > 0 && safePlayers.length === 0 && !blockedReasons.length) {
+      unavailableReasons.push("no_rankable_current_idp_players");
+    }
+
+    const replacement = structure.valid && !blockedReasons.length && safePlayers.length
+      ? buildReplacementThresholds(safePlayers, structure)
+      : { thresholds: {}, availability: {} };
+
+    const sourceRows = blockedReasons.length || unavailableReasons.length ? [] : safePlayers;
+    const rows = sourceRows.map((row) => {
+      const eligiblePositions = [...new Set(row.lineup_eligibility || [])].filter((position) => IDP_GROUPS.includes(position)).sort();
+      const replacementKey = eligiblePositions.join("/");
+      const replacementPoints = replacement.thresholds[replacementKey] ?? null;
+      const replacementState = replacement.availability[replacementKey] || { status: "unavailable", reason: "replacement_not_computed" };
+      const surplus = replacementState.status === "available" && finite(replacementPoints)
+        ? round(row.projected_points - replacementPoints)
+        : null;
+      const warnings = [
+        "current-season projection only; not Dynasty Value",
+        "historical starter/reserve role model unavailable",
+        "role confidence limited because defensive snap/depth history is incomplete",
+      ];
+      if (replacementState.status !== "available") warnings.push(`current-season replacement unavailable: ${replacementState.reason}`);
       return {
         player_id: row.league_vector_player_id || row.gsis_id || row.sleeper_id,
         sleeper_id: row.sleeper_id || null,
         gsis_id: row.gsis_id || null,
         name: row.name || null,
-        team: row.team || null,
+        team: row.current_team,
+        team_source: "verified_current_sleeper_eligibility_authority",
         primary_position: row.position,
         eligible_positions: eligiblePositions,
         current_status: row.current_eligibility_class || null,
         projected_points: row.projected_points,
-        league_replacement_points: replacement,
+        league_replacement_points: replacementPoints,
+        replacement_availability: replacementState,
         projected_surplus: surplus,
         scoring_coverage: {
           status: row.scoring_coverage.status,
@@ -214,16 +366,12 @@
         role_confidence: "limited",
         historical_role_model_available: false,
         eligibility_verified: true,
-        current_season_ranking_available: structure.valid && !blockedReasons.length && finite(row.projected_points),
-        current_season_surplus_available: structure.valid && !blockedReasons.length && finite(surplus),
+        current_season_ranking_available: true,
+        current_season_surplus_available: finite(surplus),
         idp_dynasty_value_available: false,
         dynasty_value: null,
         experimental: true,
-        warnings: [
-          "current-season projection only; not Dynasty Value",
-          "historical starter/reserve role model unavailable",
-          "role confidence limited because defensive snap/depth history is incomplete",
-        ],
+        warnings,
       };
     });
 
@@ -240,10 +388,10 @@
     for (const position of IDP_GROUPS) {
       const positionRows = rows.filter((row) => row.primary_position === position);
       readiness[position] = {
-        current_season_ranking: structure.valid && !blockedReasons.length && positionRows.length > 0
+        current_season_ranking: !blockedReasons.length && !unavailableReasons.length && positionRows.length > 0
           ? "READY_FOR_EXPERIMENTAL_CURRENT_SEASON_RANKING"
           : "NOT_READY",
-        current_season_surplus: structure.valid && !blockedReasons.length && positionRows.some((row) => row.current_season_surplus_available)
+        current_season_surplus: !blockedReasons.length && !unavailableReasons.length && positionRows.some((row) => row.current_season_surplus_available)
           ? "READY_EXPERIMENTAL"
           : "NOT_READY",
         dynasty_value: "NOT_READY",
@@ -252,22 +400,28 @@
       };
     }
 
+    const status = blockedReasons.length ? "blocked" : unavailableReasons.length ? "unavailable" : "ready_experimental";
+
     return {
       version: VERSION,
       label: "Experimental IDP Current-Season Rankings v0.1",
-      status: blockedReasons.length ? "blocked" : "ready_experimental",
+      status,
       risk: "HIGH",
       blocked_reasons: blockedReasons,
+      unavailable_reasons: unavailableReasons,
       methodology: {
-        projection: "Score each safely current-eligible player's current-season projected IDP counting stats directly under the league's active Sleeper scoring settings.",
-        replacement: "For each exact lineup-eligibility set, find the minimum projected points required for an additional player with that same eligibility set to enter the globally optimized league IDP starter pool. Dedicated DL/LB/DB and IDP_FLEX slots are solved together; a player can occupy at most one slot.",
-        surplus: "projected_points - league_replacement_points for the player's exact eligibility set. This is one-season lineup surplus, not multi-year Dynasty Value.",
+        projection: "Score each safely current-eligible player's current-season projected IDP counting stats directly under the league's active Sleeper scoring settings. Signed scoring is preserved, including negative projected totals.",
+        replacement: "For each exact lineup-eligibility set, find the minimum signed projected points required for an additional player with that same eligibility set to enter the globally optimized league IDP starter pool. Dedicated DL/LB/DB and IDP_FLEX slots are solved together; a player can occupy at most one slot. If starter demand exceeds the safely rankable pool, replacement is unavailable rather than fabricated.",
+        surplus: "projected_points - league_replacement_points when a finite replacement threshold exists. This is one-season lineup surplus, not multi-year Dynasty Value.",
       },
       league_structure: structure,
       scoring_coverage: globalCoverage,
-      replacement_points_by_eligibility: thresholds,
+      identity_audit: identityAudit,
+      replacement_points_by_eligibility: replacement.thresholds,
+      replacement_availability_by_eligibility: replacement.availability,
       counts: {
         projection_ready_idp_before_current_gate: currentPool.included.length + currentPool.excluded.length,
+        safely_current_eligible: currentPool.included.length,
         safely_ranked: rows.length,
         excluded: excluded.length,
         by_primary_position: countsByPosition,
@@ -296,8 +450,11 @@
     scoringCoverage,
     scoreProjectedStats,
     leagueIdpStructure,
+    maximumWeightAssignmentSigned,
+    replacementEntryThresholdResult,
     replacementEntryThreshold,
     buildReplacementThresholds,
+    duplicateIdentityAudit,
     buildCandidate,
   });
 });
