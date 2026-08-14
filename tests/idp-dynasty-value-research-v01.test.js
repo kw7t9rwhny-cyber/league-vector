@@ -49,6 +49,22 @@ test('experience metadata fails closed instead of coercing missing rookie year t
   assert.equal(Empirical.safeExperience(2022,2025),4);
 });
 
+test('finer role audit distinguishes stable, multi-role, and unspecified player-seasons',()=>{
+  const observations=[
+    {gsis_id:'a',season:2024,position_group:'DL',role_hint:'EDGE'},
+    {gsis_id:'a',season:2024,position_group:'DL',role_hint:'EDGE'},
+    {gsis_id:'b',season:2024,position_group:'DB',role_hint:'CB'},
+    {gsis_id:'b',season:2024,position_group:'DB',role_hint:'S'},
+    {gsis_id:'c',season:2024,position_group:'LB',role_hint:null},
+  ];
+  const coverage=Empirical.roleCoverage(observations);
+  assert.equal(coverage.player_seasons,3);
+  assert.equal(coverage.stable_single_role_player_seasons,1);
+  assert.equal(coverage.multi_role_player_seasons,1);
+  assert.equal(coverage.unspecified_only_player_seasons,1);
+  assert.equal(coverage.stable_role_player_seasons.EDGE,1);
+});
+
 test('uncertainty remains separate by DL LB DB',()=>{
   const u=R.uncertaintyByPosition(sample());
   assert.deepEqual(Object.keys(u),['DL','LB','DB']);
