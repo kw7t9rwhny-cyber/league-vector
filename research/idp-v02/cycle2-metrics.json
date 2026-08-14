@@ -1,0 +1,40 @@
+{
+  "version": "lv-idp-research-v0.2",
+  "age_signal": {
+    "DL": {"targets":12,"age_better_targets":10,"mean_relative_mae_improvement_pct":0.35532155115691694,"median_relative_mae_improvement_pct":0.25525982221638227,"status":"predictive_age_signal_only_no_fitted_dynasty_curve"},
+    "LB": {"targets":12,"age_better_targets":8,"mean_relative_mae_improvement_pct":0.011371802693571556,"median_relative_mae_improvement_pct":0.12010560218788645,"status":"predictive_age_signal_only_no_fitted_dynasty_curve"},
+    "DB": {"targets":12,"age_better_targets":11,"mean_relative_mae_improvement_pct":0.5915332264956088,"median_relative_mae_improvement_pct":0.4389635357685274,"status":"predictive_age_signal_only_no_fitted_dynasty_curve"}
+  },
+  "projection_pool_recency_audit": {
+    "DL": {"n":593,"hist2025":284,"hist2024plus":345,"stale_pre2024":248,"team_null":310},
+    "LB": {"n":539,"hist2025":229,"hist2024plus":284,"stale_pre2024":255,"team_null":310},
+    "DB": {"n":615,"hist2025":250,"hist2024plus":312,"stale_pre2024":303,"team_null":353}
+  },
+  "replacement_scenarios": [
+    {"scenario":"12_balanced","position":"DL","starter_count":24,"starter_boundary_points":96.95880231258229,"rostered_count":33,"rosterable_boundary_points":81.18163241764466,"blended_boundary_points":89.07021736511348},
+    {"scenario":"12_balanced","position":"LB","starter_count":48,"starter_boundary_points":103.57436742378904,"rostered_count":68,"rosterable_boundary_points":81.10400238339601,"blended_boundary_points":92.33918490359252},
+    {"scenario":"12_balanced","position":"DB","starter_count":24,"starter_boundary_points":92.66282890780792,"rostered_count":43,"rosterable_boundary_points":80.51766777930261,"blended_boundary_points":86.59024834355526},
+    {"scenario":"14_deep","position":"DL","starter_count":29,"starter_boundary_points":88.53277708829292,"rostered_count":47,"rosterable_boundary_points":70.86955832099568,"blended_boundary_points":79.70116770464429},
+    {"scenario":"14_deep","position":"LB","starter_count":65,"starter_boundary_points":84.31997346323779,"rostered_count":89,"rosterable_boundary_points":69.6398104393102,"blended_boundary_points":76.979891951274},
+    {"scenario":"14_deep","position":"DB","starter_count":32,"starter_boundary_points":83.93997495558905,"rostered_count":60,"rosterable_boundary_points":69.92100510333069,"blended_boundary_points":76.93049002945986},
+    {"scenario":"10_shallow","position":"DL","starter_count":10,"starter_boundary_points":122.01727853542948,"rostered_count":16,"rosterable_boundary_points":106.40902092205452,"blended_boundary_points":114.213149728742},
+    {"scenario":"10_shallow","position":"LB","starter_count":30,"starter_boundary_points":125.15198330098583,"rostered_count":44,"rosterable_boundary_points":112.1628851504685,"blended_boundary_points":118.65743422572717},
+    {"scenario":"10_shallow","position":"DB","starter_count":10,"starter_boundary_points":105.69183832937922,"rostered_count":10,"rosterable_boundary_points":105.69183832937922,"blended_boundary_points":105.69183832937922}
+  ],
+  "replacement_definition_sensitivity": [
+    {"scenario":"12_balanced","definition_a":"starter","definition_b":"blended","spearman_all":0.9971669175629883,"top50_overlap":0.94,"top100_overlap":0.96},
+    {"scenario":"12_balanced","definition_a":"starter","definition_b":"rosterable","spearman_all":0.9877150283015174,"top50_overlap":0.94,"top100_overlap":0.92},
+    {"scenario":"12_balanced","definition_a":"blended","definition_b":"rosterable","spearman_all":0.9964491238483847,"top50_overlap":1,"top100_overlap":0.96},
+    {"scenario":"14_deep","definition_a":"starter","definition_b":"blended","spearman_all":0.9992988114127602,"top50_overlap":1,"top100_overlap":1},
+    {"scenario":"14_deep","definition_a":"starter","definition_b":"rosterable","spearman_all":0.9972394299397767,"top50_overlap":0.98,"top100_overlap":0.98},
+    {"scenario":"14_deep","definition_a":"blended","definition_b":"rosterable","spearman_all":0.9992583571172139,"top50_overlap":0.98,"top100_overlap":0.98},
+    {"scenario":"10_shallow","definition_a":"starter","definition_b":"blended","spearman_all":0.9939803172930203,"top50_overlap":0.88,"top100_overlap":0.95},
+    {"scenario":"10_shallow","definition_a":"starter","definition_b":"rosterable","spearman_all":0.9720711978905929,"top50_overlap":0.84,"top100_overlap":0.91},
+    {"scenario":"10_shallow","definition_a":"blended","definition_b":"rosterable","spearman_all":0.9915071038261439,"top50_overlap":0.96,"top100_overlap":0.96}
+  ],
+  "limitations": [
+    "This script consumes retained v0.3 artifacts; it does not refit raw player-season age curves.",
+    "Whole-player empirical coverage requires matched historical player-season residuals not retained in the current artifact.",
+    "Hybrid eligibility is not present in the compact projection artifact and must be supplied by a separate lineup-eligibility contract."
+  ]
+}
