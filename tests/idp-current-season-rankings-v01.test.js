@@ -93,6 +93,41 @@ test('hybrid replacement threshold uses exact eligibility set rather than max po
   assert.ok(hybrid < Math.max(dl, lb));
 });
 
+test('negative supported scoring is preserved and replacement can be negative', () => {
+  const scored = Rankings.scoreProjectedStats({ solo_tackles:5 }, { tkl_solo:-1 });
+  assert.equal(scored.ranking_eligible, true);
+  assert.equal(scored.projected_points, -5);
+
+  const players = [
+    { id:'lb-a', points:-5, lineup_eligibility:['LB'] },
+    { id:'lb-b', points:-10, lineup_eligibility:['LB'] },
+  ];
+  const result = Rankings.replacementEntryThresholdResult(players, { teams:1, dedicated:{DL:0,LB:1,DB:0}, flex:0 }, ['LB']);
+  assert.equal(result.status, 'available');
+  assert.ok(result.value < 0);
+  assert.ok(Math.abs(result.value - (-5)) < 0.01);
+});
+
+test('deep demand makes replacement unavailable instead of fabricating zero', () => {
+  const players = [{ id:'lb-a', points:-5, lineup_eligibility:['LB'] }];
+  const result = Rankings.replacementEntryThresholdResult(players, { teams:1, dedicated:{DL:0,LB:2,DB:0}, flex:0 }, ['LB']);
+  assert.equal(result.status, 'unavailable');
+  assert.equal(result.value, null);
+  assert.equal(result.reason, 'insufficient_current_pool_for_replacement');
+});
+
+test('equal-point assignment ties resolve deterministically by stable id', () => {
+  const players = [
+    { id:'b', points:10, lineup_eligibility:['LB'] },
+    { id:'a', points:10, lineup_eligibility:['LB'] },
+  ];
+  const config = { teams:1, dedicated:{DL:0,LB:1,DB:0}, flex:0 };
+  const first = Rankings.maximumWeightAssignmentSigned(players, config);
+  const second = Rankings.maximumWeightAssignmentSigned([...players].reverse(), config);
+  assert.deepEqual(first.selected_player_ids, ['a']);
+  assert.deepEqual(second.selected_player_ids, ['a']);
+});
+
 test('candidate excludes retired and unverified teamless players and never emits dynasty value', () => {
   const projections = [projection(1,'DL',1.2),projection(2,'DL',1),projection(3,'LB',1),projection(4,'DB',1),projection(5,'DB',2),projection(6,'LB',2)];
   const result = Rankings.buildCandidate({ league:league(), sleeper_players:sleeper(), projections });
@@ -108,13 +143,72 @@ test('candidate excludes retired and unverified teamless players and never emits
     assert.equal(row.role_confidence, 'limited');
     assert.equal(row.historical_role_model_available, false);
     assert.ok(Number.isFinite(row.projected_points));
-    assert.ok(Number.isFinite(row.league_replacement_points));
-    assert.ok(Number.isFinite(row.projected_surplus));
   }
   assert.equal(result.firewall.idp_dynasty_value_available, false);
   assert.equal(result.readiness.DL.dynasty_value, 'NOT_READY');
   assert.equal(result.readiness.LB.dynasty_value, 'NOT_READY');
   assert.equal(result.readiness.DB.dynasty_value, 'NOT_READY');
+});
+
+test('displayed current team comes from verified Sleeper authority, not stale projection team', () => {
+  const result = Rankings.buildCandidate({ league:league(), sleeper_players:sleeper(), projections:[projection(1,'DL'),projection(2,'DL'),projection(3,'LB'),projection(4,'DB')] });
+  const row = result.players.find((item)=>item.sleeper_id==='1');
+  assert.equal(row.team, 'GB');
+  assert.equal(row.team_source, 'verified_current_sleeper_eligibility_authority');
+  assert.notEqual(row.team, 'X');
+});
+
+test('duplicate current identities fail closed before replacement or display', () => {
+  const duplicate = { ...projection(1,'DL'), league_vector_player_id:'lv:duplicate-copy', gsis_id:'g-duplicate-copy' };
+  const result = Rankings.buildCandidate({ league:league(), sleeper_players:sleeper(), projections:[projection(1,'DL'),duplicate,projection(2,'DL'),projection(3,'LB'),projection(4,'DB')] });
+  assert.equal(result.status, 'blocked');
+  assert.ok(result.blocked_reasons.includes('duplicate_current_projection_identity_fail_closed'));
+  assert.equal(result.identity_audit.valid, false);
+  assert.ok(result.identity_audit.duplicates.some((item)=>item.dimension==='sleeper_id' && item.value==='1'));
+  assert.equal(result.players.length, 0);
+  assert.deepEqual(result.replacement_points_by_eligibility, {});
+});
+
+test('all current rows missing required projection stats is explicitly unavailable', () => {
+  const rows = [projection(1,'DL'),projection(2,'DL'),projection(3,'LB'),projection(4,'DB')].map((row) => {
+    const copy = { ...row, projected_stats:{...row.projected_stats} };
+    delete copy.projected_stats.sacks;
+    return copy;
+  });
+  const result = Rankings.buildCandidate({ league:league(), sleeper_players:sleeper(), projections:rows });
+  assert.equal(result.status, 'unavailable');
+  assert.ok(result.unavailable_reasons.includes('no_rankable_current_idp_players'));
+  assert.equal(result.players.length, 0);
+  assert.equal(result.counts.safely_ranked, 0);
+  assert.equal(result.readiness.DL.current_season_ranking, 'NOT_READY');
+  assert.equal(result.readiness.LB.current_season_ranking, 'NOT_READY');
+  assert.equal(result.readiness.DB.current_season_ranking, 'NOT_READY');
+});
+
+test('deep league demand keeps points ranking but marks surplus unavailable', () => {
+  const l = league({ roster_positions:['LB','LB','BN'], scoring_settings:{tkl_solo:1} });
+  const s = { '3': sleeper()['3'] };
+  const result = Rankings.buildCandidate({ league:l, sleeper_players:s, projections:[projection(3,'LB')] });
+  assert.equal(result.status, 'ready_experimental');
+  assert.equal(result.players.length, 1);
+  assert.equal(result.players[0].current_season_ranking_available, true);
+  assert.equal(result.players[0].current_season_surplus_available, false);
+  assert.equal(result.players[0].league_replacement_points, null);
+  assert.equal(result.players[0].replacement_availability.reason, 'insufficient_current_pool_for_replacement');
+});
+
+test('candidate sorting remains deterministic for equal projected points and surplus', () => {
+  const s = {
+    '10': { active:true, status:'Active', team:'GB', fantasy_positions:['LB'] },
+    '11': { active:true, status:'Active', team:'CHI', fantasy_positions:['LB'] },
+    '12': { active:true, status:'Active', team:'MIN', fantasy_positions:['LB'] },
+  };
+  const rows = [projection(11,'LB'), projection(10,'LB'), projection(12,'LB')];
+  const l = league({ roster_positions:['LB','BN'], scoring_settings:{tkl_solo:1} });
+  const first = Rankings.buildCandidate({ league:l, sleeper_players:s, projections:rows });
+  const second = Rankings.buildCandidate({ league:l, sleeper_players:s, projections:[...rows].reverse() });
+  assert.deepEqual(first.players.map((row)=>row.player_id), ['lv:10','lv:11','lv:12']);
+  assert.deepEqual(second.players.map((row)=>row.player_id), ['lv:10','lv:11','lv:12']);
 });
 
 test('candidate blocks all ranking output when meaningful league scoring coverage is incomplete', () => {
