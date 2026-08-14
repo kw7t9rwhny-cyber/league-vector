@@ -1,140 +1,123 @@
-# Development Orchestrator Stage 3B v0.1 — guarded label executor
+# Development Orchestrator Stage 3B v0.2 — guarded label executor
 
-Stage 3B introduces **future** capability to execute the narrow status/owner-label mutations produced by QA-approved Stage 3A plans. This candidate does **not activate real writes**.
+Stage 3B introduces **future** capability to execute the narrow status/owner-label mutations produced by QA-approved Stage 3A plans. This candidate remains **inactive and completely read only in checked-in GitHub Actions**. It contains no real GitHub write adapter.
 
 ## Foundation
 
-Stage 3B builds on the merged Stage-3A contract. QA-approved Stage-3A source head: `ffda7d6723ffa7270a50ef3888176e18ea4ee182`; Stage-3A merge commit: `d2b44e4eb2e153b5f8a6946058ce0286fc487dc5`.
+Stage 3B builds on merged Stage 3A. The authority chain remains:
 
-Architecture remains:
+`Stage 2 live state -> Stage 3A deterministic plan -> Stage 3B full live revalidation -> allowlisted label transaction`
 
-`Stage 2 live state -> Stage 3A deterministic plan -> Stage 3B live revalidation -> allowlisted label transaction`
-
-Stage 3B never independently decides what should happen. It re-runs Stage 2/Stage 3A against live state and requires the original replay fingerprint and planned mutations to remain valid.
+Stage 3B never independently decides what should happen and never treats a cached Stage-3A plan as a reusable authorization token.
 
 ## Mutation allowlist
 
-Stage 3B v0.1 recognizes only:
+The executor understands only exact `ADD_LABEL` and `REMOVE_LABEL` operations for exact canonical Stage-1 `status:*` and `owner:*` labels. Case variants, whitespace variants, Unicode lookalikes, unknown labels, unknown operations and arbitrary repository labels fail closed before any adapter write.
 
-- `ADD_LABEL` for a canonical `status:*` or canonical `owner:*` label;
-- `REMOVE_LABEL` for a canonical `status:*` or canonical `owner:*` label.
+## Full revalidation before every write
 
-The allowlist is derived from merged Stage-1 canonical states/owners. Arbitrary labels and arbitrary operations fail closed.
+Immediately before **every individual mutation**, Stage 3B performs the complete authority pipeline again:
 
-Stage 3A currently preserves technical owner and emits status-label mutations only. Stage 3B therefore does not invent owner/routing changes that were not already present in the authenticated Stage-3A plan.
+1. re-fetch the live repository/PR state;
+2. rebuild the full Stage-2 normalized work item and dependency graph;
+3. rerun Stage-3A `planItem()` against that fresh state;
+4. recompute Stage-3A provenance/replay fingerprint;
+5. independently construct the transaction's expected intermediate repository state from the original authorized snapshot plus only Stage 3B's already-completed mutations;
+6. rerun Stage 2 and Stage 3A over that expected intermediate state;
+7. require the fresh live plan/provenance to equal the expected intermediate plan/provenance;
+8. require the fresh mutation list to equal the exact remaining suffix of the originally authorized mutation list.
 
-## Forbidden actions
+This revalidates PR open state, exact candidate head SHA, all structured/singleton metadata, canonical owner, type, status, risk, priority, integration requirement, promotion type/authorization, Founder requirements/gate/decision, authenticated QA evidence/state/tested SHA, dependency IDs **and dependency status/head/QA snapshots**, current main SHA, relevant labels, replay fingerprint, fresh disposition and exact remaining mutations.
 
-Stage 3B cannot comment, create QA verdicts, edit PR bodies/titles, create PRs/branches, push commits, modify candidate code, merge, close PRs, deploy, trigger releases, approve/change Founder decisions, promote research, create promotion items, buy/license anything, contact vendors, modify secrets/settings/workflows, or modify Prospective Archive data.
-
-GitHub prose is untrusted data. The executor never executes text from PR bodies, comments, titles, branch names, or user prose.
-
-## Revalidation contract
-
-A cached Stage-3A plan is never executable by itself. Before execution, Stage 3B re-reads the repository and requires:
-
-- PR still open;
-- exact head equals `evaluated_head_sha`;
-- structured metadata/technical owner remain unchanged;
-- current Orchestrator status/owner labels equal the expected precondition;
-- QA state and exact `qa_tested_sha` remain unchanged;
-- authenticated QA contract still resolves identically;
-- Founder state remains unchanged;
-- dependencies remain unchanged/satisfied as required;
-- current main SHA matches plan provenance where captured;
-- Stage-3A replay fingerprint still matches;
-- fresh Stage-3A re-planning produces the same disposition and mutation list.
-
-Any mismatch aborts the whole item. Human changes are never overwritten to make an old plan fit.
-
-Immediately before every individual write boundary, Stage 3B re-reads live state again. Exact head, QA state, Founder state, dependencies and expected intermediate Orchestrator labels must still match the transaction.
+Any difference stops before the next write. There is no downstream route continuation after an abort.
 
 ## Transaction model
 
-Each execution record contains an exact expected-before state and desired-after Orchestrator-label state.
+A transaction records an immutable initial authorized repository snapshot, expected-before state, desired-after Orchestrator-label state and the original Stage-3A mutation sequence.
 
-For each mutation:
+For each operation:
 
-1. re-read protected state;
-2. require expected intermediate labels;
-3. apply one allowlisted label operation through the injected adapter;
-4. continue only if the transaction remains consistent;
-5. re-read after the final operation and require exact desired Orchestrator-label state.
+1. perform the full revalidation above;
+2. record the revalidation result;
+3. apply exactly one allowlisted operation through the injected adapter;
+4. treat only a clearly successful adapter return as completed;
+5. repeat from a fresh repository read for the next operation.
 
-If a later write fails after an earlier mutation completed, Stage 3B attempts a narrow inverse rollback of only mutations completed by that transaction. Rollback never overwrites unrelated human changes. Failure/partial state is reported loudly and downstream routing stops.
+A server-applied/client-error ambiguity is never reported as success. If the executor cannot prove what happened, the transaction is `failed-or-partial` and requires manual review.
 
-## Idempotency
+## Concurrency-safe rollback
 
-If the Stage-3A plan contains zero mutations because the desired state already exists, execution returns `no-op-success`. Re-running after a successful transition requires a fresh Stage-3A plan; old replay fingerprints do not become reusable authorization tokens.
+Rollback is **not** automatic authority to mutate.
 
-## QA / Founder / research authority
+Before every inverse operation Stage 3B:
 
-Stage 3B inherits the merged authenticated QA authority contract and never creates `QA PASS — tested head <SHA>` or `QA FAIL — tested head <SHA>`.
+- re-fetches live state;
+- reconstructs the exact expected partial transaction state;
+- verifies exact head and open state;
+- verifies all protected structured metadata, singleton-conflict state, QA evidence, Founder state and dependency snapshots;
+- verifies the current Orchestrator status/owner labels exactly match the state Stage 3B itself should have produced;
+- verifies the label effect being inverted is still present/absent exactly as expected;
+- refuses rollback if a same-label or conflicting Orchestrator human change occurred.
 
-It may execute a Stage-3A plan whose target status is `waiting-founder`; it can never create or change Founder approval.
+Unrelated non-Orchestrator labels may coexist with a provably safe rollback because rollback protection compares the authority state and Orchestrator-owned transaction labels rather than overwriting unrelated labels.
 
-Raw `type:research` cannot be routed into Core. A forged Core plan fails fresh Stage-3A re-planning. Production numerical model and research-promotion boundaries remain unchanged.
+After every inverse operation, Stage 3B re-reads again and verifies the protected post-state. If any rollback precondition or postcondition cannot be proven, rollback stops, `manual_review_required=true`, and the executor reports `failed-or-partial`. It never guesses or overwrites concurrent human state.
 
-## Execution gate
+## Exact default-branch authentication
 
-Two modes exist:
-
-- `dry-run` — default; zero writes;
-- `execute` — code path exists for mocked/local adapters, but requires all explicit gates.
-
-The executor gate requires all of:
+The mocked/test execute path requires all of:
 
 - `LEAGUE_VECTOR_ORCHESTRATOR_EXECUTE=1`;
 - `LEAGUE_VECTOR_STAGE3B_ACTIVATED=1`;
-- GitHub event is `workflow_dispatch`;
-- current ref is `main`;
-- execution is not from a fork.
+- GitHub event exactly `workflow_dispatch`;
+- repository default-branch provenance supplied as `GITHUB_DEFAULT_BRANCH`;
+- `GITHUB_REF === refs/heads/<default branch>`;
+- `GITHUB_REF_TYPE === branch`;
+- `GITHUB_REF_NAME === <default branch>`;
+- non-fork execution.
 
-**This candidate does not set `LEAGUE_VECTOR_STAGE3B_ACTIVATED=1` anywhere.** Production activation requires a separate Founder decision after HIGH-risk QA.
+A tag named `main`, another branch, push, schedule, pull request, missing activation/request flag, missing default-branch provenance or fork execution all fail closed.
 
-The checked-in GitHub Actions workflow remains read-only and never calls Stage 3B with `--execute`.
+The checked-in workflow never supplies the activation flags as `1` and never invokes Stage 3B with `--execute`.
 
-## Permission delta
+## Current zero-write boundary
 
-**Candidate/QA phase permission delta: none.** Workflow permissions remain:
+This candidate still exposes only `GitHubReadOnlyAdapter`, which can re-read live repository state. There is **no** real `addLabel`/`removeLabel` GitHub adapter checked in.
+
+Workflow permissions remain exactly:
 
 - `contents: read`
 - `pull-requests: read`
 - `issues: read`
 
-No `pull_request_target`.
+There is no `pull_request_target`, no `issues:write`, no `pull-requests:write`, no `contents:write`, and no `actions:write`.
 
-If Stage 3B is separately activated later, canonical PR label mutation should require only `issues: write` in addition to the existing read scopes. `pull-requests: write` and `contents: write` are not required for the v0.1 label-only design and must not be granted without a separate reviewed need.
+Stage 3B does not comment, assign, create PRs/branches, merge, deploy, make Founder decisions, promote models/research, invoke paid services, modify Prospective Archive data or modify production football behavior.
 
-## Adapter safety
+## Preserved authority
 
-Production code in this candidate exposes only a `GitHubReadOnlyAdapter`, which can re-read live repository state. There is **no real GitHub write adapter** checked into Stage 3B v0.1 candidate code. Tests inject an in-memory mock adapter to prove the executor and rollback semantics without touching real League Vector PRs.
+Stage 3B continues to inherit and re-evaluate:
 
-A future activation change must introduce/authorize a real label adapter in a separate exact-SHA reviewed candidate.
+- authenticated verdict-only QA evidence;
+- exact-SHA freshness and stale/head-movement invalidation;
+- same-timestamp conflicting QA fail-closed behavior;
+- canonical owner and duplicate-singleton metadata contracts;
+- raw-research/Core firewall and explicit promotion boundary;
+- Founder pending/rejected/approved semantics;
+- dependency blocking;
+- malicious GitHub prose inertness;
+- deterministic Stage-3A replay provenance.
 
-## Deterministic audit record
+## Audit output
 
-Every executor attempt returns:
+Audit records include executor version/mode, PR/head/fingerprint, expected-before and desired-after states, mutations attempted/completed, per-write revalidation results, rollback attempts/completions, rollback revalidation results, manual-review requirement, post-write verification and abort reason. Tokens/secrets are never included.
 
-- executor version;
-- mode;
-- PR;
-- evaluated head SHA;
-- replay fingerprint;
-- expected before-state;
-- desired after-state;
-- mutations attempted;
-- mutations completed;
-- rollback attempted/completed;
-- post-write verification;
-- abort reason.
+## Adversarial coverage
 
-No token, secret or raw authorization header is included.
+The test suite includes two-mutation transactions where, after mutation 1, each of the following independently changes: type to research, body owner, duplicate Owner metadata, duplicate Founder metadata, Founder decision, promotion metadata, status/risk/integration metadata, dependency **status** with unchanged dependency IDs, authenticated QA PASS to FAIL, QA conflict, candidate head SHA, current main SHA, relevant Orchestrator labels, fresh Stage-3A disposition and remaining mutation list. Mutation 2 must never execute in every case.
 
-## Security / adversarial coverage
-
-Tests cover moved head, stale/conflicted/new FAIL QA, unauthorized QA-looking evidence, Founder changes, dependency changes, human label changes, owner changes, duplicate metadata, noncanonical labels/operations, raw-research forged Core plan, explicit promotion item, partial write/rollback, idempotency, closed PR, malicious prose, deterministic audit output and the execution-gate truth table.
+Rollback tests cover unrelated human labels, same/conflicting Orchestrator status changes, head movement, QA/Founder/dependency changes and ambiguous server-applied writes. Unsafe rollback always becomes `failed-or-partial` with manual review required.
 
 ## Activation boundary
 
-Merging this implementation after QA would still **not activate real writes**. A later Founder-approved activation must be a separate change with exact-SHA QA and must prove the real label adapter, least-privilege `issues:write`, default-branch/manual-dispatch gate, concurrency behavior and rollback against non-production fixtures before any live League Vector mutation is allowed.
+Even after QA and merge, this Stage-3B architecture remains inactive because there is no real write adapter and no write permission. A future activation requires a separate Founder-authorized, exact-SHA independently QA-reviewed candidate. Stage 3C is not implemented or authorized here.
