@@ -16,6 +16,14 @@
     return matches ? matches.at(-1) : "";
   };
 
+  const sleeperDisplayName = (player) => {
+    if (!player) return null;
+    const full = String(player.full_name || "").trim();
+    if (full) return full;
+    const joined = [player.first_name, player.last_name].filter(Boolean).join(" ").trim();
+    return joined || null;
+  };
+
   function failClosed(message) {
     window.__leagueVectorIdpRankingsContract = {
       version: Rankings.VERSION,
@@ -42,10 +50,17 @@
       ]);
       if (current !== sequence) return;
       const index = ProjectionFrontend.buildIndex(projectionAsset.value);
+      const projections = index.records.map((row) => {
+        const currentSleeper = bundle.players?.[String(row.sleeper_id)] || null;
+        return {
+          ...row,
+          name: sleeperDisplayName(currentSleeper) || row.name || null,
+        };
+      });
       const contract = Rankings.buildCandidate({
         league: bundle.league,
         sleeper_players: bundle.players,
-        projections: index.records,
+        projections,
       });
       window.__leagueVectorIdpRankingsContract = contract;
       window.renderLeagueVectorIdpRankings?.(contract);
