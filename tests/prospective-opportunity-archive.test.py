@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
+import datetime as dt
 import importlib.util
 import pathlib
+import tempfile
 import unittest
 
 SCRIPT = pathlib.Path(__file__).resolve().parents[1] / "scripts" / "prospective-opportunity-archive.py"
@@ -38,13 +40,35 @@ class ProspectiveArchiveTests(unittest.TestCase):
         self.assertEqual(mod.sha256(a), mod.sha256(b))
 
     def test_auto_cadence_weekly_in_regular_window(self):
-        import datetime as dt
         tuesday = dt.datetime(2026, 10, 6, tzinfo=dt.timezone.utc)
         wednesday = dt.datetime(2026, 10, 7, tzinfo=dt.timezone.utc)
         august = dt.datetime(2026, 8, 14, tzinfo=dt.timezone.utc)
         self.assertTrue(mod.should_run_auto(tuesday))
         self.assertFalse(mod.should_run_auto(wednesday))
         self.assertTrue(mod.should_run_auto(august))
+
+    def test_observation_write_refuses_overwrite(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = pathlib.Path(td) / "observation.json"
+            mod.write_json(path, {"snapshot_id": "first"})
+            with self.assertRaisesRegex(RuntimeError, "immutability violation"):
+                mod.write_json(path, {"snapshot_id": "replacement"})
+            self.assertIn('"first"', path.read_text())
+
+    def test_structural_quality_fails_closed_on_incomplete_league(self):
+        now = dt.datetime(2026, 8, 14, 18, 0, tzinfo=dt.timezone.utc)
+        rows = []
+        for i in range(1000):
+            rows.append({
+                "team": f"T{i % 31:02d}",
+                "provider_depth_position": "WR",
+                "depth_order": 1,
+                "roster_status": "ACT",
+                "identity": {"gsis_id": f"G{i}", "provider_player_id": f"P{i}", "resolved": True},
+            })
+        report = mod.quality_report("depth_chart", rows, "2026-08-14T08:00:00Z", now)
+        self.assertFalse(report["structurally_valid"])
+        self.assertTrue(any("expected 32 NFL teams" in item for item in report["structural_failures"]))
 
 
 if __name__ == "__main__":
