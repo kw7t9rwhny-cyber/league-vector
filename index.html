@@ -7,6 +7,7 @@
   <title>League Vector — League-Aware Fantasy Intelligence</title>
   <link rel="stylesheet" href="styles.css?v=0.8.3">
   <link rel="stylesheet" href="experimental.css?v=0.3.2">
+  <link rel="stylesheet" href="idp-rankings-v01.css?v=0.1">
 </head>
 <body>
   <main class="wrap">
@@ -46,10 +47,19 @@
       <h2 class="section-title">DYNASTY VALUE — v0.8 Formula</h2><p class="section-sub">Dynasty value answers “What is this player worth?” Final value = rookie-adjusted market baseline × (1 + age adjustment + structural league adjustment + existing production adjustment). The experimental v0.3 display above is not an input.</p>
       <div class="projection-controls dynasty-controls"><label>Search dynasty players <input id="dynastySearch" type="search" placeholder="Player name" autocomplete="off" aria-describedby="dynastySearchStatus"></label></div><p id="dynastySearchStatus" class="source-note" role="status" aria-live="polite"></p>
       <div id="playerValues" class="player-values"></div><p class="source-note">Offensive market baseline: DynastyProcess open data. Existing valuation projection adapter: undocumented Sleeper source, treated as replaceable and explicitly monitored. IDP dynasty numeric values remain unavailable until a defensible licensed source is connected.</p>
+      <details id="experimentalIdpRankings" class="idp-rankings-shell" hidden>
+        <summary><div class="idp-rankings-heading"><div class="eyebrow">DEFENSE · CURRENT SEASON</div><h2>EXPERIMENTAL IDP RANKINGS</h2><p id="idpRankingSummary">Validated IDP contract required · Dynasty Value unavailable</p></div><span class="idp-experimental-badge">EXPERIMENTAL</span><span class="idp-rankings-action"><span class="idp-rankings-show">Show IDP rankings</span><span class="idp-rankings-hide">Hide IDP rankings</span></span></summary>
+        <div class="idp-rankings-body">
+          <p class="idp-firewall"><strong>Current-season defense only.</strong> These experimental rankings/projections are not League Vector Dynasty Values. The canonical current-season contract must keep <code>firewall.idp_dynasty_value_available=false</code>; otherwise this section fails closed.</p>
+          <p id="idpRankingStatus" class="idp-ranking-status" role="status" aria-live="polite">Waiting for an approved Experimental IDP Current-Season Rankings contract.</p>
+          <div class="idp-ranking-controls"><label>Search IDP players<input id="idpRankingSearch" type="search" placeholder="Player name" autocomplete="off"></label><div id="idpPositionFilters" class="idp-position-filters" role="group" aria-label="Experimental IDP position filter"><button type="button" data-idp-position="ALL" aria-pressed="true">ALL</button><button type="button" data-idp-position="DL" aria-pressed="false">DL</button><button type="button" data-idp-position="LB" aria-pressed="false">LB</button><button type="button" data-idp-position="DB" aria-pressed="false">DB</button><button type="button" data-idp-position="IDP FLEX" aria-pressed="false">IDP FLEX</button></div></div>
+          <div id="idpRankingRows" class="idp-ranking-rows"></div>
+        </div>
+      </details>
       <h2 class="section-title">Dynasty Team Analysis</h2><p class="section-sub">Numeric dynasty totals cover matched offensive players only. IDP exclusions and completeness are shown on every team.</p><div id="teamAnalysis" class="team-analysis"></div>
       <h2 class="section-title">League Rosters</h2><div id="teams" class="teams"></div>
     </section>
   </main>
-  <script src="core-v08.js?v=0.8" defer></script><script src="idp-scoring-context-v01.js?v=0.1" defer></script><script src="live-test-fixes-v01.js?v=0.2" defer></script><script src="dynasty-search-v01.js?v=0.2" defer></script><script src="data-sources-v08.js?v=0.8" defer></script><script src="app.js?v=0.8" defer></script><script src="projection-identity-v03.js?v=0.3.1" defer></script><script src="projection-frontend-v03.js?v=0.3.2" defer></script><script src="projection-frontend-v03-contract.js?v=0.3.2" defer></script><script src="idp-scoring-ui-v01.js?v=0.1" defer></script><script src="scoring-coverage-v032.js?v=0.3.2" defer></script><script src="experimental-ui-v03.js?v=0.3.4" defer></script><script src="experimental-ui-v03-enhancements.js?v=0.3.3" defer></script>
+  <script src="core-v08.js?v=0.8" defer></script><script src="idp-scoring-context-v01.js?v=0.1" defer></script><script src="live-test-fixes-v01.js?v=0.2" defer></script><script src="dynasty-search-v01.js?v=0.2" defer></script><script src="data-sources-v08.js?v=0.8" defer></script><script src="app.js?v=0.8" defer></script><script src="projection-identity-v03.js?v=0.3.1" defer></script><script src="projection-frontend-v03.js?v=0.3.2" defer></script><script src="projection-frontend-v03-contract.js?v=0.3.2" defer></script><script src="idp-scoring-ui-v01.js?v=0.1" defer></script><script src="scoring-coverage-v032.js?v=0.3.2" defer></script><script src="experimental-ui-v03.js?v=0.3.4" defer></script><script src="experimental-ui-v03-enhancements.js?v=0.3.3" defer></script><script src="idp-foundation-research-v03.js?v=0.3" defer></script><script src="idp-current-season-rankings-v01.js?v=0.1" defer></script><script src="idp-rankings-ui-v01.js?v=0.2" defer></script><script src="idp-current-season-integration-v01.js?v=0.1" defer></script>
 </body>
 </html>
