@@ -16,7 +16,7 @@ function boolValue(value) {
 }
 
 function cleanToken(value) {
-  return String(value || "").replace(/`/g, "").trim();
+  return String(value || "").replace(/`/g, "").replace(/\*\*/g, "").trim();
 }
 
 function parseDependencyText(text) {
