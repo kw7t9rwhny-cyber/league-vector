@@ -10,6 +10,31 @@ const REQUIRED_METADATA = [
   "founder_gate", "founder_decision", "dependencies"
 ];
 
+const SINGLETON_BODY_PATTERNS = {
+  owner: /(?:^|\n)(?:[-*]\s*)?(?:\*\*)?Owner(?:\*\*)?:\s*([^\n]+)/i,
+  risk: /(?:^|\n)(?:[-*]\s*)?(?:\*\*)?Risk(?:\*\*)?:\s*([^\n]+)/i,
+  status: /(?:^|\n)(?:[-*]\s*)?(?:\*\*)?Status(?:\*\*)?:\s*([^\n]+)/i,
+  type: /(?:^|\n)(?:[-*]\s*)?(?:\*\*)?Type(?:\*\*)?:\s*([^\n]+)/i,
+  priority: /(?:^|\n)(?:[-*]\s*)?(?:\*\*)?Priority(?:\*\*)?:\s*([^\n]+)/i,
+  integration_required: /(?:^|\n)(?:[-*]\s*)?(?:\*\*)?Integration required(?:\*\*)?:\s*([^\n]+)/i,
+  promotion_type: /(?:^|\n)(?:[-*]\s*)?(?:\*\*)?Promotion type(?:\*\*)?:\s*([^\n]+)/i,
+  promotion_authorized: /(?:^|\n)(?:[-*]\s*)?(?:\*\*)?Promotion authorized(?:\*\*)?:\s*([^\n]+)/i,
+  founder_decision_required: /(?:^|\n)(?:[-*]\s*)?(?:\*\*)?Founder decision required(?:\*\*)?:\s*([^\n]+)/i,
+  founder_gate: /(?:^|\n)(?:[-*]\s*)?(?:\*\*)?Founder gate(?:\*\*)?:\s*([^\n]+)/i,
+  founder_decision: /(?:^|\n)(?:[-*]\s*)?(?:\*\*)?Founder decision(?: when required)?(?:\*\*)?:\s*([^\n]+)/i,
+  dependencies: /(?:^|\n)(?:[-*]\s*)?(?:\*\*)?Dependencies(?:\*\*)?:\s*([^\n]+)/i
+};
+
+const AUDIT_ONLY_SINGLETON_PATTERNS = {
+  qa_evidence: /(?:^|\n)(?:[-*]\s*)?(?:\*\*)?QA evidence(?: when applicable)?(?:\*\*)?:\s*([^\n]+)/i,
+  exact_relevant_sha: /(?:^|\n)(?:[-*]\s*)?(?:\*\*)?Exact relevant SHA(?:\s*\/\s*source)?(?:\*\*)?:\s*([^\n]+)/i
+};
+
+const CANDIDATE_SHA_PATTERNS = [
+  /(?:^|\n)(?:[-*]\s*)?(?:\*\*)?Exact (?:candidate|READY FOR QA|RC|remediated|research) head(?: SHA)?(?:\*\*)?:\s*`?([0-9a-f]{40})`?/i,
+  /(?:^|\n)(?:[-*]\s*)?(?:\*\*)?Exact head(?:\*\*)?:\s*`?([0-9a-f]{40})`?/i
+];
+
 function boolValue(value) {
   if (value === true || value === "true" || value === "yes") return true;
   if (value === false || value === "false" || value === "no") return false;
@@ -33,30 +58,52 @@ function parseDependencyText(text) {
   return [...new Set(ids)];
 }
 
+function allMatches(text, regex) {
+  const flags = regex.flags.includes("g") ? regex.flags : `${regex.flags}g`;
+  return [...String(text).matchAll(new RegExp(regex.source, flags))];
+}
+
+function candidateShaEvidenceFromText(body = "") {
+  const occurrences = [];
+  for (const pattern of CANDIDATE_SHA_PATTERNS) {
+    for (const match of allMatches(body, pattern)) {
+      occurrences.push({ sha: match[1], index: match.index === undefined ? -1 : match.index });
+    }
+  }
+  occurrences.sort((a, b) => a.index - b.index || a.sha.localeCompare(b.sha));
+  if (occurrences.length === 0) return { sha: null, conflict: false, occurrences: [] };
+  if (occurrences.length === 1) return { sha: occurrences[0].sha, conflict: false, occurrences };
+  return { sha: null, conflict: true, occurrences };
+}
+
 function parseStructuredMetadata(body = "", labels = []) {
   const fields = {};
   const bodyFields = {};
+  const bodyOccurrences = {};
   const labelFields = { owner: [], risk: [], status: [], type: [], priority: [] };
   const conflicts = [];
-  const patterns = {
-    owner: /(?:^|\n)(?:[-*]\s*)?(?:\*\*)?Owner(?:\*\*)?:\s*([^\n]+)/i,
-    risk: /(?:^|\n)(?:[-*]\s*)?(?:\*\*)?Risk(?:\*\*)?:\s*([^\n]+)/i,
-    status: /(?:^|\n)(?:[-*]\s*)?(?:\*\*)?Status(?:\*\*)?:\s*([^\n]+)/i,
-    type: /(?:^|\n)(?:[-*]\s*)?(?:\*\*)?Type(?:\*\*)?:\s*([^\n]+)/i,
-    priority: /(?:^|\n)(?:[-*]\s*)?(?:\*\*)?Priority(?:\*\*)?:\s*([^\n]+)/i,
-    integration_required: /(?:^|\n)(?:[-*]\s*)?(?:\*\*)?Integration required(?:\*\*)?:\s*([^\n]+)/i,
-    promotion_type: /(?:^|\n)(?:[-*]\s*)?(?:\*\*)?Promotion type(?:\*\*)?:\s*([^\n]+)/i,
-    promotion_authorized: /(?:^|\n)(?:[-*]\s*)?(?:\*\*)?Promotion authorized(?:\*\*)?:\s*([^\n]+)/i,
-    founder_decision_required: /(?:^|\n)(?:[-*]\s*)?(?:\*\*)?Founder decision required(?:\*\*)?:\s*([^\n]+)/i,
-    founder_gate: /(?:^|\n)(?:[-*]\s*)?(?:\*\*)?Founder gate(?:\*\*)?:\s*([^\n]+)/i,
-    founder_decision: /(?:^|\n)(?:[-*]\s*)?(?:\*\*)?Founder decision(?: when required)?(?:\*\*)?:\s*([^\n]+)/i,
-    dependencies: /(?:^|\n)(?:[-*]\s*)?(?:\*\*)?Dependencies(?:\*\*)?:\s*([^\n]+)/i
-  };
+  const text = String(body);
 
-  for (const [key, regex] of Object.entries(patterns)) {
-    const match = String(body).match(regex);
-    if (match) bodyFields[key] = cleanToken(match[1]);
+  for (const [key, regex] of Object.entries(SINGLETON_BODY_PATTERNS)) {
+    const matches = allMatches(text, regex);
+    bodyOccurrences[key] = matches.map((match) => cleanToken(match[1]));
+    if (matches.length > 1) {
+      conflicts.push(`duplicate_${key}_declarations`);
+      continue;
+    }
+    if (matches.length === 1) bodyFields[key] = cleanToken(matches[0][1]);
   }
+
+  for (const [key, regex] of Object.entries(AUDIT_ONLY_SINGLETON_PATTERNS)) {
+    const matches = allMatches(text, regex);
+    bodyOccurrences[key] = matches.map((match) => cleanToken(match[1]));
+    if (matches.length > 1) conflicts.push(`duplicate_${key}_declarations`);
+  }
+
+  const candidateEvidence = candidateShaEvidenceFromText(text);
+  bodyOccurrences.candidate_sha = candidateEvidence.occurrences.map((entry) => entry.sha);
+  if (candidateEvidence.conflict) conflicts.push("duplicate_candidate_sha_declarations");
+
   for (const prefix of ["owner", "risk", "status", "type", "priority"]) {
     if (bodyFields[prefix]) bodyFields[prefix] = normalizePrefixed(bodyFields[prefix], prefix);
   }
@@ -92,7 +139,16 @@ function parseStructuredMetadata(body = "", labels = []) {
   if (fields.dependencies !== undefined) fields.dependencies = parseDependencyText(fields.dependencies);
 
   const missing = REQUIRED_METADATA.filter((key) => fields[key] === undefined);
-  return { fields, body_fields: bodyFields, label_fields: labelFields, conflicts, structured: missing.length === 0 && conflicts.length === 0, missing };
+  return {
+    fields,
+    body_fields: bodyFields,
+    body_occurrences: bodyOccurrences,
+    label_fields: labelFields,
+    candidate_sha_evidence: candidateEvidence,
+    conflicts: [...new Set(conflicts)].sort(),
+    structured: missing.length === 0 && conflicts.length === 0,
+    missing
+  };
 }
 
 function eventIdentifier(event) {
@@ -182,7 +238,12 @@ function normalizePr(pr) {
   const verdicts = parseVerdicts(pr.events || [], { authorizedQaAuthors: pr.authorized_qa_authors || [] });
   const latest = latestVerdict(verdicts);
   const current = latestVerdictForHead(verdicts, pr.head_sha);
-  const ownerValid = Boolean(meta.fields.owner && CONFIG.owners.includes(meta.fields.owner) && !meta.conflicts.some((x) => x.includes("owner")));
+  const conflicts = [...(meta.conflicts || [])];
+  const bodyCandidate = meta.candidate_sha_evidence || candidateShaEvidenceFromText(pr.body || "");
+  if (pr.candidate_sha_conflict === true && !conflicts.includes("duplicate_candidate_sha_declarations")) conflicts.push("duplicate_candidate_sha_declarations");
+  if (bodyCandidate.sha && pr.declared_candidate_sha && bodyCandidate.sha !== pr.declared_candidate_sha) conflicts.push("candidate_sha_adapter_body_conflict");
+  const structured = meta.missing.length === 0 && conflicts.length === 0;
+  const ownerValid = Boolean(meta.fields.owner && CONFIG.owners.includes(meta.fields.owner) && !conflicts.some((x) => x.includes("owner")));
   const item = {
     id: Number(pr.number), title: pr.title, owner: meta.fields.owner, risk: meta.fields.risk,
     status: meta.fields.status, type: meta.fields.type, priority: meta.fields.priority,
@@ -190,20 +251,20 @@ function normalizePr(pr) {
     promotion_authorized: meta.fields.promotion_authorized, founder_decision_required: meta.fields.founder_decision_required,
     founder_gate: meta.fields.founder_gate, founder_decision: meta.fields.founder_decision,
     dependencies: meta.fields.dependencies, head_sha: pr.head_sha,
-    declared_candidate_sha: pr.declared_candidate_sha || null,
+    declared_candidate_sha: pr.declared_candidate_sha || bodyCandidate.sha || null,
     qa_verdict: current ? current.verdict : null, qa_tested_sha: current ? current.tested_sha : null
   };
   return {
-    ...item, open: pr.state === "open", draft: Boolean(pr.draft), structured: meta.structured,
-    missing_metadata: meta.missing, metadata_conflicts: meta.conflicts, metadata_body_fields: meta.body_fields,
-    metadata_label_fields: meta.label_fields, owner_authority_valid: ownerValid,
-    legacy_observed_state: meta.structured ? null : observedLegacyState(pr), verdicts,
+    ...item, open: pr.state === "open", draft: Boolean(pr.draft), structured,
+    missing_metadata: meta.missing, metadata_conflicts: [...new Set(conflicts)].sort(), metadata_body_fields: meta.body_fields,
+    metadata_body_occurrences: meta.body_occurrences, metadata_label_fields: meta.label_fields, owner_authority_valid: ownerValid,
+    legacy_observed_state: structured ? null : observedLegacyState(pr), verdicts,
     latest_qa_verdict: latest, current_qa_verdict: current,
     qa_fresh: Boolean(current && current.verdict === "pass" && current.tested_sha === pr.head_sha),
     qa_failed_current: Boolean(current && current.verdict === "fail"),
     qa_conflicted_current: Boolean(current && current.verdict === "conflicted"),
     qa_stale: Boolean(latest && latest.tested_sha !== pr.head_sha),
-    head_matches_declared: pr.declared_candidate_sha ? pr.declared_candidate_sha === pr.head_sha : null
+    head_matches_declared: item.declared_candidate_sha ? item.declared_candidate_sha === pr.head_sha : null
   };
 }
 
@@ -278,13 +339,13 @@ function handoffFor(item) {
     `Founder gate: ${item.founder_gate || "none/unknown"}; decision: ${item.founder_decision || "unknown"}`,
     `Recommended next action: ${item.recommended_action}`
   ];
-  if (!item.structured || !item.owner_authority_valid) lines.push(`FAIL-CLOSED: legacy/unstructured or invalid owner authority; missing metadata: ${(item.missing_metadata || []).join(", ")}; conflicts: ${(item.metadata_conflicts || []).join(", ")}`);
+  if (!item.structured || !item.owner_authority_valid) lines.push(`FAIL-CLOSED: legacy/unstructured or invalid authority metadata; missing metadata: ${(item.missing_metadata || []).join(", ")}; conflicts: ${(item.metadata_conflicts || []).join(", ")}`);
   return lines.join("\n");
 }
 
 function statusSummary(queues, mainSha) {
   return {
-    version: "lv-development-orchestrator-stage2-v0.2", source: "live-github-read-only", main_sha: mainSha,
+    version: "lv-development-orchestrator-stage2-v0.3", source: "live-github-read-only", main_sha: mainSha,
     counts: { qa: queues.qa.length, core: queues.core.length, remediation: queues.remediation.length, founder: queues.founder.length, research: queues.research.length, legacy_unstructured: queues.legacy.length },
     qa: queues.qa.map(compactItem), core: queues.core.map(compactItem), remediation: queues.remediation.map(compactItem),
     founder: queues.founder.map(compactItem), research: queues.research.map(compactItem), legacy: queues.legacy.map(compactItem)
@@ -304,16 +365,8 @@ async function githubJson(url, token) {
 }
 
 function candidateShaFromText(body = "") {
-  const patterns = [
-    /Exact (?:candidate|READY FOR QA|RC|remediated|research) head(?: SHA)?:\s*`?([0-9a-f]{40})`?/i,
-    /Exact head:\s*`?([0-9a-f]{40})`?/i,
-    /READY FOR QA[^\n]*`([0-9a-f]{40})`/i
-  ];
-  for (const pattern of patterns) {
-    const match = String(body).match(pattern);
-    if (match) return match[1];
-  }
-  return null;
+  const evidence = candidateShaEvidenceFromText(body);
+  return evidence.conflict ? null : evidence.sha;
 }
 
 async function loadLiveRepository(repository, token, options = {}) {
@@ -335,10 +388,11 @@ async function loadLiveRepository(repository, token, options = {}) {
       qa_authorized: Boolean(x.user && authorizedQaAuthors.includes(x.user.login) && AUTHORIZED_QA_SOURCES.has(source))
     });
     const events = [...comments.map((x) => makeEvent(x, "comment")), ...reviews.map((x) => makeEvent(x, "review"))];
+    const candidateEvidence = candidateShaEvidenceFromText(pr.body || "");
     prs.push({
       number: pr.number, title: pr.title, body: pr.body || "", state: pr.state, draft: pr.draft,
       head_sha: pr.head.sha, labels: pr.labels || [], authorized_qa_authors: authorizedQaAuthors,
-      declared_candidate_sha: candidateShaFromText(`${pr.body || ""}\n${events.map((x) => x.body || "").join("\n")}`), events
+      declared_candidate_sha: candidateEvidence.sha, candidate_sha_conflict: candidateEvidence.conflict, events
     });
   }
   return { main_sha: mainRef.object.sha, qa_authority: { authorized_authors: authorizedQaAuthors, sources: [...AUTHORIZED_QA_SOURCES], record_policy: "verdict-only-exact-body" }, prs };
@@ -357,7 +411,8 @@ async function loadInput(args) {
 }
 
 module.exports = {
-  CANONICAL_VERDICT, AUTHORIZED_QA_SOURCES, REQUIRED_METADATA, parseStructuredMetadata,
+  CANONICAL_VERDICT, AUTHORIZED_QA_SOURCES, REQUIRED_METADATA, SINGLETON_BODY_PATTERNS,
+  AUDIT_ONLY_SINGLETON_PATTERNS, parseStructuredMetadata, candidateShaEvidenceFromText,
   authorizedQaAuthorsFromEnvironment, qaEventAuthorized, parseVerdicts, normalizePr, deriveQueues,
   handoffFor, statusSummary, candidateShaFromText, loadLiveRepository
 };
