@@ -1,80 +1,95 @@
 # League Vector Rookie Projection Research v0.1
 
-Status: research-only. Validated veteran v0.4 remains unchanged. `experimental=true`, `production_projection_eligible=false`, `dynasty_value_eligible=false`.
+Status: research-only HIGH-risk checkpoint. Validated veteran v0.4 remains unchanged. `experimental=true`, `production_projection_eligible=false`, `dynasty_value_eligible=false`. 2025 remains `retrospective_observed` only.
 
-## Evidence discipline
+## QA provenance remediation
 
-Branch: `codex/projection-rookie-v01`. Parent research state: Cycle 2 head `7ee8dbabea1188f1b9413cfaf0a17b3b6164006b`. Exact input is the validated frozen nflverse snapshot with composite SHA-256 `d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188`. Model selection uses chronological rookie cohorts 2018–2024 only. 2025 is retrospective observed and is not used to tune this checkpoint. Workflow run `31799096514` restored the frozen snapshot, verified its hash, executed the benchmark twice, and required byte-identical outputs.
+PR #18 failed HIGH-risk QA at `99bcf3162e0708af0b761d4b983592c5327b9691` because the old runner audited identity after rookie filtering and treated missing `draft_pick` operationally as undrafted without proving that state. This remediation changes data validation/cohort eligibility only; it does not change the candidate model family, hyperparameters, scoring target, or selection objective to preserve results.
 
-## Data inventory and identity
+Exact frozen input remains composite SHA-256 `d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188`.
 
-Available approved inputs in the frozen player/stat files are position, rookie season, birth date/rookie age, draft round, overall draft pick, NFL identity, team/stat outcomes. No proprietary rookie rankings, college production, recruiting rankings, combine/athletic testing, or paid projections are used.
+## Source → player identity contract
 
-The rookie frame contains 1,096 QB/RB/WR/TE rookie player-seasons across the full frozen history. There are zero missing player IDs and zero duplicate player-season identities. Draft pick is unavailable for 370 rows, primarily undrafted players; this is represented explicitly with a drafted indicator rather than treated as a normal pick. Rookie age is complete in the evaluated frame.
+Identity is audited before any rookie-season filtering. The frozen source contains 6,596 QB/RB/WR/TE player-seasons and 1,897 unique source player IDs. The source-to-`players.csv` join is `many_to_one player_id -> gsis_id` and now fails closed on any unmatched offensive row because an unmatched row could otherwise hide a rookie whose `rookie_season` metadata is unavailable.
 
-Development sample 2018–2024: QB N=62, RB N=217, WR N=289, TE N=126.
+Frozen-input result:
+- source rows with missing player ID: 0
+- duplicate source player-seasons: 0
+- duplicate `players.csv` GSIS identities: 0
+- missing `players.csv` GSIS identities: 0
+- unmatched offensive source rows: 0
 
-## Reproduction of Cycle 2 claim and expanded transform benchmark
+## Draft-state contract
 
-Every leading draft-capital model beat the position-only historical rookie mean in all seven chronological development cohorts at all four positions.
+The old assumption `missing draft_pick => undrafted` is removed.
 
-| Position | Leading simple architecture | Folds won | Mean MAE | Mean RMSE | Mean Spearman | Mean MAE gain vs position prior | Worst fold gain |
+Each row is classified before modeling:
+- `CONFIRMED_DRAFTED`: draft year, round, and overall pick are all present and pass integrity checks.
+- `UNRESOLVED_MISSING`: draft year, round, and overall pick are all absent.
+- inconsistent states: partial metadata, non-integer/out-of-range values, draft-year/rookie-season mismatch, duplicate ordinary overall pick, or impossible ordinary round/pick ordering.
+- supplemental selections encoded by this source as later-round `pick=1` are detected separately and are not silently treated as ordinary overall draft picks.
+
+The frozen `players.csv` contains no independent explicit UDFA marker. Therefore **zero rows are labeled confirmed undrafted** in v0.1. All-missing draft metadata stays unresolved and is excluded from model evidence. This is deliberately conservative: v0.1 would rather lose sample size than convert unknown provenance into a false UDFA label.
+
+Raw QB/RB/WR/TE rookie frame: 1,096 player-seasons. It contains 726 complete ordinary drafted rows and 370 all-missing/unresolved rows. In the 2018–2024 development window, 228 unresolved rows are excluded. No unresolved draft metadata reaches fitting or evaluation.
+
+Draft integrity checks also enforce:
+- `draft_year == rookie_season` for every eligible row
+- integer round/pick fields
+- round in 1–7 and overall pick in 1–300
+- no duplicate ordinary overall picks within draft year
+- monotonically increasing ordinary pick ranges across rounds
+- no duplicate eligible player-season identities
+
+## Corrected development cohorts
+
+After the fail-closed provenance gate, 2018–2024 model-eligible sample sizes are:
+
+| Position | Corrected N |
+|---|---:|
+| QB | 54 |
+| RB | 132 |
+| WR | 194 |
+| TE | 86 |
+
+These replace the prior N=62/217/289/126 claims, which included unresolved all-missing draft metadata as operational UDFAs.
+
+## Regenerated point-model evidence
+
+All metrics below were regenerated from the corrected cohorts using the same frozen inputs and the same candidate model architecture/search family as before. These remain post-selection development results, not nested independent validation.
+
+| Position | Leading development architecture | Folds won | Mean MAE | Mean RMSE | Mean Spearman | Mean MAE gain vs position prior | Worst fold gain |
 |---|---|---:|---:|---:|---:|---:|---:|
-| QB | linear log(overall pick) | 7/7 | 52.17 | 65.73 | .664 | +38.36% | +17.93% |
-| RB | linear log(pick) + age | 7/7 | 37.16 | 49.92 | .573 | +32.79% | +15.42% |
-| WR | linear log(pick) + age | 7/7 | 36.14 | 50.77 | .698 | +30.74% | +22.25% |
-| TE | Ridge log(pick) + age | 7/7 | 22.65 | 33.35 | .640 | +28.61% | +10.59% |
+| RB | linear log(overall pick) | 7/7 | 43.78 | 54.69 | .584 | +32.94% | +5.56% |
+| WR | linear log(overall pick) | 7/7 | 45.54 | 59.43 | .657 | +23.94% | +6.21% |
+| TE | Ridge raw overall pick | 7/7 | 31.27 | 42.05 | .474 | +14.42% | +0.74% |
+| QB | linear log(overall pick) | 6/6 evaluable | 55.15 | 70.52 | .643 | +37.63% | +26.31% |
 
-This reproduces and slightly strengthens Cycle 2's conclusion. Log draft pick is generally preferable to raw linear pick, inverse pick, or coarse round-only priors. Round buckets remain useful as a transparent baseline but do not beat the best pick-based models consistently.
+The draft-capital signal survives corrected provenance strongly for RB and materially for WR. TE remains positive in every evaluable development fold but is weaker and more volatile than the prior report. QB remains too small for promotion; after the stricter gate, only six folds meet the runner's minimum training/test size requirements.
 
-QB's percentage improvement is large but the cohort is only 62 players, with 7–11 players per fold. QB therefore remains a higher-uncertainty research position despite the 7/7 result. RB/WR have substantially stronger sample support. TE is smaller than RB/WR but its result is stable across all seven folds.
+Every reported fold win is reconstructed directly in the output with season, test N, train N, candidate MAE, prior MAE, gain percentage, and boolean win status. The workflow fails if the reconstructed fold-win count differs from the ranking summary.
 
-## Age
+## Chronology and determinism
 
-Age adds a modest incremental MAE improvement for RB and WR and is selected in the leading TE Ridge architecture. It materially reduces QB rank quality in the tested family, so the QB recommendation excludes age. The incremental age effect is much smaller than the draft-capital effect; draft capital is the dominant signal.
+Development/model-selection cohorts are exactly 2018–2024. 2025 is stored only as `retrospective_observed`; the workflow asserts no fold result has season >= 2025. The validated frozen snapshot is restored by artifact and its composite hash is checked before execution.
 
-Because model families were explored in this cycle, these are development conclusions, not independent future proof. 2026 actual outcomes should be reserved as a genuinely prospective evaluation when available.
+The runner executes twice and `cmp` requires byte-identical JSON. CI additionally fails unless identity audit, draft-integrity audit, corrected position sample sizes, claim reconstruction, 2025 isolation, and both production firewalls pass.
 
-## Uncertainty
+## Uncertainty, QB, and year-2 boundaries
 
-Rookie uncertainty is materially wider than veteran confidence should imply. The current rolling empirical 80% intervals around the selected rookie families achieved approximate mean development coverage/width:
+QA's contained P2 findings remain intentionally unresolved by this data-integrity remediation:
+- model-family ranking is development/post-selection evidence, not nested family-selection validation;
+- `interval_calibrated=false`; v0.1 still uses in-sample training residuals as a proxy and requires chronological out-of-fold calibration before any uncertainty promotion;
+- QB remains research-only because the cohort is small;
+- TE remains smaller/more volatile than RB/WR;
+- rookie-to-year-2 transition remains not evaluated and cannot replace/blend validated veteran v0.4 without a separate paired chronological study.
 
-- QB: 75.1% coverage, ~154.5 fantasy-point full width
-- RB: 80.6%, ~117.6 points
-- WR: 76.3%, ~96.9 points
-- TE: 71.7%, ~59.3 points
+No validation threshold was weakened to preserve the previous improvement claim.
 
-RB is close to nominal calibration; QB/WR/TE under-cover. Therefore the point models are more mature than the interval model. No position may claim a calibrated 80% production interval yet. A future uncertainty cycle should use rolling out-of-fold residual calibration rather than training residuals and should test calibration by draft tier.
+## Production firewall
 
-## Meaningful-role probability
+Nothing in this branch modifies production projection behavior, Dynasty Value, UI, Core, IDP valuation, scoring, or `main`. This remains an experimental research checkpoint only. A QA pass means safe for Founder/Core experimental review, not production promotion.
 
-A simple draft-capital/age logistic model shows useful ranking signal for fantasy relevance, with mean chronological AUC approximately QB .830, RB .833, WR .873, TE .904. This is promising as a separate probability/risk output, but the relevance thresholds are research definitions and are not production contracts.
+## Readiness
 
-## Outliers and failure modes
-
-Draft capital does not eliminate first-round busts, injuries, depth-chart surprises, or late-round/undrafted breakouts. QB fold MAE ranges from ~28.8 to ~78.6 despite winning every fold versus the position prior. RB's 2022 rank correlation falls to ~.31. These failures argue strongly for wide uncertainty and against deterministic rookie confidence.
-
-No arbitrary caps are introduced.
-
-## Rookie-to-year-2 transition
-
-This checkpoint does not promote a transition model. Cycle 2 showed direct second-year models are unstable. The correct next experiment is a dedicated paired-cohort model comparing validated v0.4 one-season evidence against chronological blends of the pre-NFL rookie prior and year-1 NFL evidence. Blend weights must be selected on pre-2025 cohorts only. Until that work succeeds, Core should preserve the rookie model metadata/prior and transition conservatively rather than abruptly trusting an unstable one-season model.
-
-## Data that could materially improve the model later
-
-Likely high-value additions are college production/opportunity, receiving/rushing market share, early-declare/experience context, athletic testing, and richer team/depth-chart opportunity information. None should be acquired or used until exact provenance, commercial rights, redistribution obligations, and historical availability are approved by Founder/legal review. This checkpoint makes no claim that those sources are necessary for a useful first rookie model.
-
-## Position readiness
-
-- RB: strongest combination of sample size, 7/7 fold stability, and large MAE gain. Candidate is appropriate for HIGH-risk independent QA of an experimental research output.
-- WR: strongest rank quality plus large stable MAE gain; appropriate for HIGH-risk independent QA.
-- TE: stable 7/7 gain and reasonable rank signal, but smaller sample and currently under-calibrated uncertainty. Point candidate can be QA'd; uncertainty is not ready.
-- QB: draft capital clearly beats the position prior, but N=62 is small and fold errors are volatile. Keep research-only pending additional prospective evidence; do not promote merely because the percentage gain is large.
-
-## Core contract if later approved
-
-A future experimental rookie object should contain: `point_projection`, `model_family`, `rookie_model=true`, `history_depth=0`, `draft_capital_source`, `input_snapshot_sha256`, `low_estimate`, `high_estimate`, `interval_nominal`, `interval_calibrated`, `uncertainty_tier`, `meaningful_role_probability` only if separately validated, `projection_eligibility`, and explicit confidence/limitation notes. Missing draft capital must remain explicit. Nothing in this contract should automatically alter Dynasty Value.
-
-## Readiness decision
-
-The zero-history point-projection signal is strong enough for independent HIGH-risk QA for RB and WR, and for TE point estimates with an uncertainty caveat. QB remains research-only because sample size/variance are materially weaker. The uncertainty layer and rookie-to-year-2 bridge require more research before any product integration decision.
+A new exact branch head may be marked `READY FOR QA — HIGH RISK` only after the branch workflow passes the frozen-snapshot, deterministic reproduction, identity, draft-integrity, sample-size, fold-claim, chronology, and firewall gates.
