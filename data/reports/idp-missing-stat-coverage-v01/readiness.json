@@ -1,0 +1,30 @@
+{
+  "version": "idp-missing-stat-coverage-v0.1",
+  "validated_scoring_contract_sha": "5550c83380432abce3ae0e68cc9d2daa0e720ea2",
+  "input_snapshot_sha256": "d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188",
+  "development_seasons": [2020, 2021, 2022, 2023, 2024],
+  "retrospective_observed": 2025,
+  "categories": {
+    "bonus_sack_2p": {"class": "C", "decision": "candidate_high_risk_qa", "output": "expected_2plus_sack_bonus_games"},
+    "fum_rec_td": {"class": "E", "decision": "unsupported_too_sparse"},
+    "idp_blk_kick": {"class": "E", "decision": "unsupported_too_sparse"},
+    "idp_fum_ret_yd": {"class": "E", "decision": "unsupported_unstable"},
+    "idp_int_ret_yd": {"class": "G", "decision": "more_research_required"},
+    "idp_pass_def_3p": {"class": "C", "decision": "candidate_high_risk_qa", "output": "expected_3plus_pass_def_bonus_games"},
+    "idp_sack_yd": {"class": "B", "decision": "candidate_high_risk_qa", "output": "projected_sack_yards"},
+    "st_ff": {"class": "D", "decision": "unsupported_data_missing"},
+    "st_fum_rec": {"class": "D", "decision": "unsupported_data_missing"},
+    "st_td": {"class": "E", "decision": "unsupported_too_sparse"}
+  },
+  "candidate_keys": ["bonus_sack_2p", "idp_pass_def_3p", "idp_sack_yd"],
+  "current_player_key_coverage": {"supported": 12, "total": 22, "pct": 54.5},
+  "post_candidate_if_qa_passes": {"supported": 15, "total": 22, "pct": 68.2, "full_founder_scoring_rankable": false},
+  "firewalls": {
+    "experimental": true,
+    "production_projection_eligible": false,
+    "idp_dynasty_value_available": false,
+    "dynasty_value": null,
+    "combined_offense_idp_dynasty_rankings_available": false,
+    "zero_fill_missing_stats": false
+  }
+}
