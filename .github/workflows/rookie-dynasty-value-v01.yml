@@ -6,6 +6,7 @@ on:
   pull_request:
     paths:
       - 'scripts/rookie-dynasty-value-v01.py'
+      - 'scripts/rookie-dynasty-value-v01-runner.py'
       - 'docs/rookie-dynasty-value-v01.md'
       - '.github/workflows/rookie-dynasty-value-v01.yml'
   workflow_dispatch:
@@ -50,8 +51,8 @@ jobs:
       - name: Run twice and require byte-identical evidence
         run: |
           mkdir -p data/reports/rookie-dynasty-value-v01
-          python scripts/rookie-dynasty-value-v01.py .cache/lv-rookie-dynasty-v01 data/reports/rookie-dynasty-value-v01/run-a.json
-          python scripts/rookie-dynasty-value-v01.py .cache/lv-rookie-dynasty-v01 data/reports/rookie-dynasty-value-v01/run-b.json
+          python scripts/rookie-dynasty-value-v01-runner.py .cache/lv-rookie-dynasty-v01 data/reports/rookie-dynasty-value-v01/run-a.json
+          python scripts/rookie-dynasty-value-v01-runner.py .cache/lv-rookie-dynasty-v01 data/reports/rookie-dynasty-value-v01/run-b.json
           cmp data/reports/rookie-dynasty-value-v01/run-a.json data/reports/rookie-dynasty-value-v01/run-b.json
           sha256sum data/reports/rookie-dynasty-value-v01/run-a.json > data/reports/rookie-dynasty-value-v01/result.sha256
       - name: Enforce research firewalls and chronology
@@ -79,7 +80,9 @@ jobs:
           assert f['core_integration_authorized'] is False
           assert f['production_ui_authorized'] is False
           assert all(x['eval_rookie_season'] + x['horizon'] <= 2024 for x in r['early_nfl_updating_fold_results'])
-          print('chronology/firewall gates PASS')
+          # League-wide top-tier sanity: mature cohorts must not label nearly every rookie top-tier.
+          assert all(x['top_tier_y1_rate'] < 0.75 for x in r['position_specific_persistence'])
+          print('chronology/firewall/top-tier gates PASS')
           PY
       - uses: actions/upload-artifact@v4
         with:
