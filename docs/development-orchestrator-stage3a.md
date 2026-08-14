@@ -18,6 +18,43 @@ Stage 3B and Stage 3C are not implemented or authorized.
 
 Stage 3A consumes Stage 2, so authorization defects are fixed in the shared Stage-2 live adapter/parser rather than hidden in Stage 3A.
 
+### Duplicate singleton metadata policy
+
+Security- and authorization-sensitive work-item metadata is **singleton by contract**. The parser enumerates all body declarations instead of taking the first or last match.
+
+For every singleton field:
+
+- zero occurrences of a required field → missing / fail closed;
+- exactly one occurrence → parse normally, subject to canonical-value and label-consistency validation;
+- more than one occurrence → fail closed as `duplicate_<field>_declarations`, even when every repeated value is identical.
+
+No first-match-wins or last-match-wins behavior is permitted for authorization metadata.
+
+The duplicate guard covers the required structured fields:
+
+- Owner;
+- Status;
+- Type;
+- Risk;
+- Priority;
+- Integration required;
+- Promotion type;
+- Promotion authorized;
+- Founder decision required;
+- Founder gate;
+- Founder decision;
+- Dependencies.
+
+It also audits optional authority/provenance fields when represented in structured body metadata:
+
+- QA evidence;
+- Exact relevant SHA / source;
+- exact candidate / READY FOR QA / RC / remediated / research head declarations.
+
+Candidate-head parsing is likewise singleton. Multiple candidate declarations return no declared candidate authority and mark the item unstructured. A body candidate declaration that disagrees with adapter-supplied candidate metadata also fails closed.
+
+Duplicate body metadata cannot be rescued by a matching canonical label. An item with duplicate Owner declarations, for example, remains unstructured even if `owner:projection` agrees with the first Owner line.
+
 ### Canonical QA authority
 
 Canonical verdict syntax alone is not authority.
@@ -41,14 +78,14 @@ An authorized PASS is fresh only when the exact tested SHA equals the current ca
 
 ### Owner authority
 
-Before Stage 2 recommends, or Stage 3A emits, **any routable action**, the normalized technical owner must be:
+After the work item has first passed the structured/singleton metadata contract, and before Stage 2 recommends or Stage 3A emits **any routable action**, the normalized technical owner must be:
 
 - present;
 - one of the Stage-1 canonical owners from `CONFIG.owners`;
 - unambiguous;
 - internally consistent between body metadata and canonical `owner:*` labels.
 
-Unsupported body-only owners, missing owners, multiple owner labels, unsupported owner labels, or a body/label disagreement fail closed. In Stage 3A the result is `NO_MUTATION` with an explicit reason and no `proposed_route`.
+Unsupported body-only owners, missing owners, duplicate Owner declarations, multiple owner labels, unsupported owner labels, or a body/label disagreement fail closed. In Stage 3A the result is `NO_MUTATION` with no `proposed_route`.
 
 This owner check applies before `SEND_TO_QA`, `RETURN_TO_OWNER`, `READY_FOR_CORE_REVIEW`, `WAITING_ON_FOUNDER`, `MORE_RESEARCH_REQUIRED`, or any future routable mapping. A QA failure can therefore route only to a validated canonical original owner.
 
@@ -77,24 +114,29 @@ No owner label is changed.
 
 Bulk planning suppresses legacy/unstructured PR noise.
 
-A targeted `plan <PR>` request still returns a deterministic explicit fail-closed record. Depending on which required authority field is first provably absent, the explicit reason is `legacy_or_unstructured_metadata` or a more specific authority failure such as `missing_owner`. In every case it contains:
+A targeted `plan <PR>` checks legacy/unstructured classification **before owner routing authority**. Any legacy, missing-required-metadata, duplicate-singleton-metadata, or otherwise unstructured item therefore returns the deterministic reason:
+
+`legacy_or_unstructured_metadata`
+
+with:
 
 - `disposition: NO_MUTATION`;
 - no route;
 - zero proposed mutations;
+- explicit missing/conflicting metadata details;
 - replay provenance.
 
-Legacy prose never becomes operational authorization.
+A structured item that passes the singleton contract may then receive a more specific owner-authority failure such as `unsupported_owner`. Legacy prose never becomes operational authorization.
 
 ## Exact-SHA and replay provenance
 
-Each plan fingerprint includes authorization-relevant state: current main SHA, current PR head, declared candidate SHA, labels, structured metadata/conflicts, Founder state, dependency snapshots, resolved QA state, and retained QA-event provenance. QA raw bodies are represented by hashes in Stage-3A replay provenance rather than copied as executable-looking text.
+Each plan fingerprint includes authorization-relevant state: current main SHA, current PR head, declared candidate SHA, labels, structured metadata/conflicts and body-occurrence audit, Founder state, dependency snapshots, resolved QA state, and retained QA-event provenance. QA raw bodies are represented by hashes in Stage-3A replay provenance rather than copied as executable-looking text.
 
 A future executor would have to re-read live GitHub and reproduce authorization state before any mutation. Stage 3A itself cannot execute anything.
 
 ## Deterministic output
 
-Fixture/observed timestamps may be supplied explicitly through input `generated_at` or `ORCHESTRATOR_GENERATED_AT`. Stage 3A no longer injects the current wall-clock time into otherwise unchanged live JSON; without an explicit observed timestamp `generated_at` is `null`. Replay fingerprints remain deterministic from repository state.
+Fixture/observed timestamps may be supplied explicitly through input `generated_at` or `ORCHESTRATOR_GENERATED_AT`. Stage 3A does not inject the current wall-clock time into otherwise unchanged live JSON; without an explicit observed timestamp `generated_at` is `null`. Replay fingerprints remain deterministic from repository state.
 
 Human and JSON output are deterministic for the same observed input.
 
@@ -111,12 +153,14 @@ The generated Command Center preview is workflow-artifact-only, `operational:fal
 Stage 3A preserves:
 
 - exact-SHA QA freshness and head-movement invalidation;
+- authenticated QA author/source and verdict-only records;
 - same-timestamp conflict fail-closed behavior;
 - dependency blocking;
 - raw-research/Core firewall and separate promotion boundary;
 - Founder pending/rejected/approved semantics;
 - production-numerical-model Founder gate;
 - closed/draft/legacy behavior;
+- deterministic generated-at behavior;
 - advisory-only handoffs;
 - football, UI, scoring, IDP, projection, Dynasty Value, Sleeper, identity, replacement, and Prospective Archive isolation.
 
