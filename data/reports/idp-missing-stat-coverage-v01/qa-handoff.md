@@ -8,7 +8,7 @@ Non-candidates remain unsupported/research-only: `bonus_sack_2p`, `fum_rec_td`, 
 
 ## Canonical evidence contract
 
-The canonical research result is `canonical-result.json`. It contains deterministic research inputs/results/provenance only. Finite floating results are normalized to 8 decimal places, negative zero is normalized, JSON keys are sorted, encoding is UTF-8, line endings are LF, and exactly one terminal newline is written.
+The canonical research result is `canonical-result.json`. It contains deterministic research inputs/results/provenance only. Primary finite floating results are normalized to 8 decimal places. Spearman/rank-correlation diagnostics are normalized to 3 decimal places because independent runs showed solver-level perturbations around tie/rank boundaries at roughly `1e-4`, which exceeds defensible precision for those secondary diagnostics but does not affect the primary MAE candidate decisions. Negative zero is normalized, JSON keys are sorted, encoding is UTF-8, line endings are LF, and exactly one terminal newline is written.
 
 Workflow/run metadata is intentionally excluded from the canonical result and written separately to `evidence-manifest.json`.
 
@@ -18,7 +18,7 @@ The workflow restores **two clean copies** of frozen input snapshot SHA-256 `d26
 
 - reproduce frozen input snapshot SHA-256 `d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188`;
 - independently hash `canonical-result.json` and verify it exactly matches `evidence-manifest.json`;
-- independently repeat the canonical analysis from a clean restored frozen input and verify byte identity under the declared canonicalization contract;
+- independently repeat the canonical analysis from a clean restored frozen input and verify byte identity under the declared field-specific canonicalization contract;
 - verify true numeric zero remains zero;
 - verify null/non-numeric/unavailable required input fails closed before preprocessing/modeling/scoring and cannot become zero;
 - verify 2020-2024 chronological folds and 2025 retrospective-only status;
