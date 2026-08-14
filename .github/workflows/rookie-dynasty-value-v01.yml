@@ -3,6 +3,11 @@ name: Rookie Dynasty Value v0.1 Research
 on:
   push:
     branches: [agent/rookie-dynasty-value-v01]
+  pull_request:
+    paths:
+      - 'scripts/rookie-dynasty-value-v01.py'
+      - 'docs/rookie-dynasty-value-v01.md'
+      - '.github/workflows/rookie-dynasty-value-v01.yml'
   workflow_dispatch:
 
 permissions:
