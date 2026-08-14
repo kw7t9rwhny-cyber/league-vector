@@ -4,9 +4,9 @@
 
 Research-only HIGH-risk cycle based on validated PR #30 head `5550c83380432abce3ae0e68cc9d2daa0e720ea2`. PR #30's fail-closed scoring contract is immutable. No zero-fill, production scoring change, Dynasty Value, UI, Core, or main change is authorized.
 
-Frozen input snapshot SHA-256: `d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188`. Model development uses 2020-2024 only. 2025 remains retrospective observed evidence only. Hardened deterministic workflow `31831681111` ran the research twice from identical inputs and produced byte-identical result SHA-256 `13896f3d6bb0c6ed0d05b2fb5fc76f45760748251f6135ef0e4d291568f823c5`.
+Frozen input snapshot SHA-256: `d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188`. Model development uses 2020-2024 only. 2025 remains retrospective observed evidence only. Hardened deterministic workflow `31831681111` established byte-identical result SHA-256 `13896f3d6bb0c6ed0d05b2fb5fc76f45760748251f6135ef0e4d291568f823c5`. The same analysis reran successfully on candidate-contract head `b43fe701c3ca1f07e67b75efdfc91310bea1cfc8` in workflow `31831920153`, again executing two identical runs from the frozen input.
 
-The hardened source audit verifies that every required nflverse field used by this study is present and numeric in the frozen 2015-2025 weekly files. True numeric zero is recorded separately from unavailable/non-numeric state. If any required source value is unavailable the runner now fails closed instead of coercing it to zero.
+The hardened source audit verifies that every required nflverse field used by this study is present and numeric in the frozen 2015-2025 weekly files. True numeric zero is recorded separately from unavailable/non-numeric state. If any required source value is unavailable the runner fails closed instead of coercing it to zero.
 
 ## Sleeper semantics
 
