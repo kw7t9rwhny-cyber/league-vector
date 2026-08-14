@@ -1,0 +1,34 @@
+name: IDP Dynasty Research v0.1
+
+on:
+  push:
+    branches: [codex/idp-dynasty-value-research-v01]
+  workflow_dispatch:
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Validate isolated research code
+        run: npm run validate
+      - name: Build historical IDP dynasty research evidence
+        run: npm run research:idp-dynasty-v01
+      - name: Verify Dynasty Value firewall
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const p='data/reports/idp-dynasty-value-v01/idp-dynasty-value-research.json';
+          const x=JSON.parse(fs.readFileSync(p,'utf8'));
+          if (x.idp_dynasty_value_available !== false) throw new Error('IDP dynasty firewall opened');
+          if (x.status !== 'RESEARCH_ONLY') throw new Error(`unexpected status ${x.status}`);
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: idp-dynasty-value-research-v01
+          path: data/reports/idp-dynasty-value-v01/idp-dynasty-value-research.json
