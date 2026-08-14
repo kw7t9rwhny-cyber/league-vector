@@ -1,0 +1,50 @@
+name: Projection v0.4 Cycle2 Research
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cycle2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Freeze and verify canonical input snapshot
+        run: |
+          node scripts/projection-v04-freeze-inputs.js .cache/lv-v041-cycle2
+          node - <<'NODE'
+          const fs=require('fs');
+          const m=JSON.parse(fs.readFileSync('.cache/lv-v041-cycle2/snapshot-manifest.json','utf8'));
+          const expected='d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188';
+          if(m.snapshot_sha256!==expected) throw new Error(`validated control snapshot drift: ${m.snapshot_sha256}`);
+          console.log('control snapshot verified',m.snapshot_sha256);
+          NODE
+      - name: Reproduce validated v0.4 control on frozen snapshot
+        run: node scripts/projection-v04-canonical.js data/reports/projection-v041-cycle2/control .cache/lv-v041-cycle2
+      - name: Cycle2 run A
+        run: node scripts/projection-v041-cycle2.js data/reports/projection-v041-cycle2/run-a .cache/lv-v041-cycle2 data/reports/projection-v041-cycle2/control/candidate-player-seasons.json
+      - name: Cycle2 run B
+        run: node scripts/projection-v041-cycle2.js data/reports/projection-v041-cycle2/run-b .cache/lv-v041-cycle2 data/reports/projection-v041-cycle2/control/candidate-player-seasons.json
+      - name: Prove deterministic cycle2 research
+        run: |
+          cmp data/reports/projection-v041-cycle2/run-a/cycle2-summary.json data/reports/projection-v041-cycle2/run-b/cycle2-summary.json
+          cmp data/reports/projection-v041-cycle2/run-a/cycle2-summary.sha256 data/reports/projection-v041-cycle2/run-b/cycle2-summary.sha256
+          cp .cache/lv-v041-cycle2/snapshot-manifest.json data/reports/projection-v041-cycle2/snapshot-manifest.json
+          printf '{"deterministic":true,"comparison":"run-a byte-identical to run-b","control_snapshot":"d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188"}\n' > data/reports/projection-v041-cycle2/determinism-proof.json
+      - name: Upload cycle2 evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: league-vector-projection-v041-cycle2
+          path: |
+            data/reports/projection-v041-cycle2/
+          if-no-files-found: error
+          retention-days: 30
