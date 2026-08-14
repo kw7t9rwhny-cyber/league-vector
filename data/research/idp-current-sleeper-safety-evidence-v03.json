@@ -1,0 +1,35 @@
+{
+  "version": "lv-idp-current-sleeper-safety-evidence-v0.3",
+  "source": {
+    "workflow_run_id": 31813959968,
+    "artifact_id": 9224234009,
+    "artifact_name": "league-vector-historical-audit",
+    "artifact_digest": "sha256:29b64b7c1fc2c8e32aae2352db5f98d14605bca59427613769c33a04b984e38b",
+    "head_sha": "a05f82a611feba4974e7d30f4b1100f5a0130914",
+    "player_identity_report_generated_at": "2026-08-14T15:20:18.262Z"
+  },
+  "identity_report": {
+    "total_sleeper_records": 12218,
+    "by_activity": {
+      "active": { "total": 9411, "resolved": 6390, "unmatched": 2963, "ambiguous": 58, "coverage_pct": 67.9 },
+      "inactive": { "total": 2807, "resolved": 2062, "unmatched": 722, "ambiguous": 23, "coverage_pct": 73.5 }
+    },
+    "active_fantasy_relevant": { "total": 7273, "resolved": 4874, "unmatched": 2354, "ambiguous": 45, "coverage_pct": 67.0 }
+  },
+  "unresolved_review_status_evidence": {
+    "scope_note": "These counts are from the unresolved/ambiguous/conflicting identity review subset only; they are evidence of contradictory/stale field combinations, not prevalence estimates for the full Sleeper universe.",
+    "active_true_status_active": { "count": 2758, "teamless": 2336 },
+    "active_true_status_inactive": { "count": 223, "teamless": 207 },
+    "active_true_status_missing": { "count": 32, "teamless": 0 },
+    "active_true_status_injured_reserve": { "count": 8, "teamless": 8 },
+    "active_false_status_active": { "count": 19 },
+    "active_false_status_inactive": { "count": 703 }
+  },
+  "research_conclusion": {
+    "active_boolean_alone_safe": false,
+    "teamless_active_safe_as_free_agent_without_independent_verification": false,
+    "required_policy": "Fail closed on contradictory, missing, unknown, or teamless-unverified current states. Free-agent inclusion requires a separate current authority proving the specific player is currently an NFL free agent rather than a stale historical Sleeper record.",
+    "production_eligible": false,
+    "dynasty_value_eligible": false
+  }
+}

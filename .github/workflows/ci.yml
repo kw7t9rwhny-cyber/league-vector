@@ -68,7 +68,7 @@ jobs:
 
   projection-v03:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -78,6 +78,28 @@ jobs:
       - run: npm ci
       - name: Build v0.3 benchmark and experimental 2026 projections
         run: npm run projection:v03 -- --seasons 2015,2016,2017,2018,2019,2020,2021,2022,2023,2024,2025 --folds 2020,2021,2022,2023,2024,2025 --outputDir data/reports/projection-v03 --refresh true
+      - name: Audit current IDP eligibility and hybrid population
+        if: github.event_name == 'pull_request' && github.head_ref == 'codex/idp-foundation-research-v03'
+        run: npm run research:idp-current-pool-v03 -- --input data/reports/projection-v03/2026-projections.json --output data/reports/idp-foundation-v03/current-idp-eligibility.json --refresh true
+      - name: Build historical player-season IDP age curves
+        if: github.event_name == 'pull_request' && github.head_ref == 'codex/idp-foundation-research-v03'
+        run: npm run research:idp-age-v03 -- --seasons 2015,2016,2017,2018,2019,2020,2021,2022,2023,2024,2025 --output data/reports/idp-foundation-v03/idp-player-season-age-curves.json --refresh true
+      - name: Build hybrid-aware IDP replacement sensitivity
+        if: github.event_name == 'pull_request' && github.head_ref == 'codex/idp-foundation-research-v03'
+        run: npm run research:idp-replacement-v03 -- --input data/reports/projection-v03/2026-projections.json --output data/reports/idp-foundation-v03/idp-replacement-sensitivity.json --refresh true
+      - name: Print IDP foundation evidence summary
+        if: github.event_name == 'pull_request' && github.head_ref == 'codex/idp-foundation-research-v03'
+        run: |
+          node - <<'NODE'
+          const fs=require('fs');
+          const e=JSON.parse(fs.readFileSync('data/reports/idp-foundation-v03/current-idp-eligibility.json','utf8'));
+          const a=JSON.parse(fs.readFileSync('data/reports/idp-foundation-v03/idp-player-season-age-curves.json','utf8'));
+          const r=JSON.parse(fs.readFileSync('data/reports/idp-foundation-v03/idp-replacement-sensitivity.json','utf8'));
+          console.log('IDP_CURRENT_ELIGIBILITY_SUMMARY='+JSON.stringify({counts:e.counts,included_by_position:e.included_by_position,included_by_current_class:e.included_by_current_class,hybrid_eligibility_sets:e.hybrid_eligibility_sets,excluded_by_reason:e.excluded_by_reason}));
+          console.log('IDP_AGE_SAMPLE='+JSON.stringify(a.sample));
+          console.log('IDP_AGE_CURVES_N30='+JSON.stringify(a.curves.filter(x=>x.n_player_seasons>=30)));
+          console.log('IDP_REPLACEMENT_SUMMARY='+JSON.stringify({pool:r.pool,configs:r.configs}));
+          NODE
       - name: Build compact browser projection asset
         run: npm run build:projection-frontend -- --input data/reports/projection-v03/2026-projections.json --output data/experimental/2026-projections.json
       - name: Assemble static experimental preview
@@ -105,6 +127,14 @@ jobs:
           name: league-vector-projection-v03
           path: data/reports/projection-v03/
           if-no-files-found: error
+          retention-days: 14
+      - name: Upload IDP foundation research evidence
+        if: always() && github.event_name == 'pull_request' && github.head_ref == 'codex/idp-foundation-research-v03'
+        uses: actions/upload-artifact@v4
+        with:
+          name: league-vector-idp-foundation-v03
+          path: data/reports/idp-foundation-v03/
+          if-no-files-found: warn
           retention-days: 14
       - name: Upload experimental site preview
         if: success()

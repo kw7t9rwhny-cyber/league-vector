@@ -1,0 +1,140 @@
+{
+  "version": "lv-idp-foundation-evidence-v0.3",
+  "generated_from": {
+    "branch": "codex/idp-foundation-research-v03",
+    "head_sha": "af3a6e1608f16b872dc2c9f26a130093a7ff3fa4",
+    "workflow_run_id": 31814458512,
+    "workflow_name": "Validate League Vector",
+    "workflow_conclusion": "success",
+    "jobs": {
+      "validate": "success",
+      "historical-data-audit": "success",
+      "projection-benchmark": "success",
+      "projection-v03": "success",
+      "publish-live-projection-asset": "skipped"
+    },
+    "artifacts": {
+      "idp_foundation": {
+        "id": 9224459790,
+        "digest": "sha256:a38e34dda4f202ccb062311e750db1c05db8445eedb532410062771a2b6fd5a9"
+      },
+      "projection_v03": {
+        "id": 9224459522,
+        "digest": "sha256:8992f37c851c0c63bbdbaacfa426b17c709b0631271d8c76a5032f8fae0962ad"
+      },
+      "historical_audit": {
+        "id": 9224423079,
+        "digest": "sha256:4476c873bb925c3fae03607f9c424f0d7f7b3a93339277645f597c5ca8a120b3"
+      }
+    }
+  },
+  "projection_context": {
+    "observations": 191089,
+    "player_seasons": 16035,
+    "historical_predictions": 249586,
+    "current_2026_projection_records": 3121,
+    "current_projection_ready": 3119,
+    "production_eligible": false,
+    "dynasty_value_eligible": false
+  },
+  "current_idp_eligibility": {
+    "projection_ready_idp": 1747,
+    "included": 753,
+    "excluded": 994,
+    "included_by_position": {
+      "DL": 278,
+      "LB": 222,
+      "DB": 253
+    },
+    "included_by_current_class": {
+      "active_roster": 753
+    },
+    "excluded_by_reason": {
+      "teamless_active_unverified_fail_closed": 838,
+      "injury_status_without_team_fail_closed": 25,
+      "inactive_status:inactive": 131
+    },
+    "hybrids": 48,
+    "hybrid_eligibility_sets": {
+      "DL/LB": 47,
+      "DB/LB": 1
+    },
+    "conclusion": "The current gate prevents stale retired/inactive and unverified teamless historical records from entering the projection-ready IDP pool. Teamless free agents remain excluded unless separately verified by a current authority."
+  },
+  "player_season_age_curves": {
+    "idp_weekly_observations": 90819,
+    "player_seasons": 9439,
+    "player_seasons_with_age": 9439,
+    "missing_age": 0,
+    "age_cutoff": "September 1 of each historical season",
+    "opportunity_rows_with_defensive_snaps": 0,
+    "role_survival_status": "BLOCKED_WITHOUT_POINT_IN_TIME_ROLE_OR_SNAP_AUTHORITY",
+    "selected_diagnostics": {
+      "DB": {
+        "age_24": { "n": 496, "next_season_participation_rate": 0.7407, "conditional_yoy_points_per_observed_week_delta": -0.0512 },
+        "age_27": { "n": 324, "next_season_participation_rate": 0.7276, "conditional_yoy_points_per_observed_week_delta": -0.5732 },
+        "age_30": { "n": 147, "next_season_participation_rate": 0.5515, "conditional_yoy_points_per_observed_week_delta": -0.8443 }
+      },
+      "DL": {
+        "age_24": { "n": 430, "next_season_participation_rate": 0.7781, "conditional_yoy_points_per_observed_week_delta": 0.0814 },
+        "age_27": { "n": 320, "next_season_participation_rate": 0.7865, "conditional_yoy_points_per_observed_week_delta": -0.3042 },
+        "age_30": { "n": 164, "next_season_participation_rate": 0.75, "conditional_yoy_points_per_observed_week_delta": -0.6632 }
+      },
+      "LB": {
+        "age_24": { "n": 483, "next_season_participation_rate": 0.7987, "conditional_yoy_points_per_observed_week_delta": 0.1474 },
+        "age_28": { "n": 217, "next_season_participation_rate": 0.7801, "conditional_yoy_points_per_observed_week_delta": -1.0152 },
+        "age_31": { "n": 70, "next_season_participation_rate": 0.4688, "conditional_yoy_points_per_observed_week_delta": -1.8096 }
+      }
+    },
+    "warning": "These are survivor-conditioned participation/production diagnostics, not causal dynasty age multipliers. True opportunity and role survival are unavailable in the normalized source and were not imputed."
+  },
+  "hybrid_aware_replacement": {
+    "reference_scoring_only": true,
+    "current_eligible_pool": 753,
+    "hybrid_players": 48,
+    "configs": {
+      "shallow_12": {
+        "starters": 48,
+        "hybrid_aware_total_points": 6588.309,
+        "single_position_counterfactual_total_points": 6570.87,
+        "hybrid_effect_points": 17.439,
+        "selected_player_overlap": 44,
+        "selected_hybrids": 11,
+        "replacement_shadow_price": { "DL": 124.187, "LB": 124.187, "DB": 102.752, "IDP_FLEX": 124.187 }
+      },
+      "balanced_12": {
+        "starters": 96,
+        "hybrid_aware_total_points": 11781.467,
+        "single_position_counterfactual_total_points": 11776.124,
+        "hybrid_effect_points": 5.343,
+        "selected_player_overlap": 94,
+        "selected_hybrids": 17,
+        "replacement_shadow_price": { "DL": 99.675, "LB": 99.675, "DB": 92.663, "IDP_FLEX": 99.675 }
+      },
+      "deep_14": {
+        "starters": 126,
+        "hybrid_aware_total_points": 14484.307,
+        "single_position_counterfactual_total_points": 14484.307,
+        "hybrid_effect_points": 0,
+        "selected_player_overlap": 126,
+        "selected_hybrids": 21,
+        "replacement_shadow_price": { "DL": 82.957, "LB": 82.957, "DB": 82.957, "IDP_FLEX": 82.957 }
+      }
+    },
+    "conclusion": "Hybrid eligibility changes optimized starter selection and replacement in some league structures, but not all. Therefore hybrid value must emerge from one constrained league-wide assignment, never from choosing the player's highest independent positional VORP."
+  },
+  "position_readiness": {
+    "DL": { "ready_for_qa": false, "reason": "True role/opportunity survival unavailable; replacement and age evidence are research diagnostics only." },
+    "LB": { "ready_for_qa": false, "reason": "True role/opportunity survival unavailable and prior whole-player/role stability evidence remains weakest." },
+    "DB": { "ready_for_qa": false, "closest": true, "reason": "Age/participation evidence is stronger but still survivor-conditioned; true role/opportunity survival remains unavailable." }
+  },
+  "firewall": {
+    "idp_dynasty_value_available": false,
+    "numeric_idp_dynasty_values": false,
+    "offense_idp_normalization": false,
+    "combined_offense_defense_rankings": false,
+    "production_change": false,
+    "main_change": false,
+    "ready_for_qa": false
+  }
+}
