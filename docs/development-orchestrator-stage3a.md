@@ -77,10 +77,9 @@ No owner label is changed.
 
 Bulk planning suppresses legacy/unstructured PR noise.
 
-A targeted `plan <PR>` request still returns a deterministic explicit record with:
+A targeted `plan <PR>` request still returns a deterministic explicit fail-closed record. Depending on which required authority field is first provably absent, the explicit reason is `legacy_or_unstructured_metadata` or a more specific authority failure such as `missing_owner`. In every case it contains:
 
 - `disposition: NO_MUTATION`;
-- an explicit legacy/unstructured or missing-authority reason;
 - no route;
 - zero proposed mutations;
 - replay provenance.
