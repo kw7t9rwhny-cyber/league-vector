@@ -38,16 +38,16 @@ jobs:
           python -c "import json,pathlib; m=json.loads(pathlib.Path('.cache/lv-dynasty-v03/snapshot-manifest.json').read_text()); assert m['snapshot_sha256']=='d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188'; print(m['snapshot_sha256'])"
       - name: Install pinned dependencies
         run: python -m pip install pandas==2.2.3 numpy==2.2.3 scipy==1.15.2 scikit-learn==1.6.1
-      - name: Run calibrated diagnostics twice deterministically
+      - name: Run projection contract red team twice deterministically
         run: |
-          python scripts/dynasty-valuation-v03-diagnostics.py .cache/lv-dynasty-v03 data/reports/dynasty-v03/diagnostics-a.json
-          python scripts/dynasty-valuation-v03-diagnostics.py .cache/lv-dynasty-v03 data/reports/dynasty-v03/diagnostics-b.json
-          cmp data/reports/dynasty-v03/diagnostics-a.json data/reports/dynasty-v03/diagnostics-b.json
-          sha256sum data/reports/dynasty-v03/diagnostics-a.json > data/reports/dynasty-v03/diagnostics.sha256
+          python scripts/dynasty-valuation-v03-projection-contract.py .cache/lv-dynasty-v03 data/reports/dynasty-v03/projection-contract-a.json
+          python scripts/dynasty-valuation-v03-projection-contract.py .cache/lv-dynasty-v03 data/reports/dynasty-v03/projection-contract-b.json
+          cmp data/reports/dynasty-v03/projection-contract-a.json data/reports/dynasty-v03/projection-contract-b.json
+          sha256sum data/reports/dynasty-v03/projection-contract-a.json > data/reports/dynasty-v03/projection-contract.sha256
       - name: Upload research evidence
         uses: actions/upload-artifact@v4
         with:
-          name: league-vector-dynasty-valuation-v03-diagnostics
+          name: league-vector-dynasty-valuation-v03-projection-contract
           path: data/reports/dynasty-v03/
           if-no-files-found: error
           retention-days: 30
