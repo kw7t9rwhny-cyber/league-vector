@@ -4,101 +4,97 @@
 
 Research-only HIGH-risk cycle based on validated PR #30 head `5550c83380432abce3ae0e68cc9d2daa0e720ea2`. PR #30's fail-closed scoring contract is immutable. No zero-fill, production scoring change, Dynasty Value, UI, Core, or main change is authorized.
 
-Frozen input snapshot SHA-256: `d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188`. Model development uses 2020-2024 only. 2025 remains retrospective observed evidence only. Deterministic workflow `31830876463` ran the research twice from identical inputs and produced byte-identical output SHA-256 `8152cd3bcc2118a9b7d4fa8f9469e994ab9105e956afccb6d206917446ea4f53`.
+Frozen input snapshot SHA-256: `d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188`. Model development uses 2020-2024 only. 2025 remains retrospective observed evidence only. Hardened deterministic workflow `31831681111` ran the research twice from identical inputs and produced byte-identical result SHA-256 `13896f3d6bb0c6ed0d05b2fb5fc76f45760748251f6135ef0e4d291568f823c5`.
 
-The frozen weekly nflverse player-stat files contain player-level `def_sack_yards`, `def_interception_yards`, `def_punt_blocks`, `def_pat_blocks`, `def_fg_blocks`, `fumble_recovery_tds`, `fumble_recovery_yards_opp`, and `special_teams_tds`. Separate player-level special-teams forced-fumble and special-teams fumble-recovery fields are not present.
+The hardened source audit verifies that every required nflverse field used by this study is present and numeric in the frozen 2015-2025 weekly files. True numeric zero is recorded separately from unavailable/non-numeric state. If any required source value is unavailable the runner now fails closed instead of coercing it to zero.
 
-## Sleeper semantics used
+## Sleeper semantics
 
-Sleeper's documented scoring menu separates Special Teams Player from Special Teams Defense and lists IDP sack, blocked punt/PAT/FG, interception-return yards, fumble-return yards and pass defended as individual-player categories. The validated PR #30 contract freezes the ten internal league keys and weights. `bonus_sack_2p` is treated as a qualifying 2+ sack game bonus and `idp_pass_def_3p` as a qualifying 3+ passes-defended game bonus; these are modeled as discrete qualifying-game events, never by thresholding a fractional expected season total.
+Sleeper's documented scoring menu separates IDP, Special Teams Player, Special Teams Defense, Team Defense and Miscellaneous scoring. The validated PR #30 scoring contract freezes the ten live player-level keys and weights. This research interprets `bonus_sack_2p` as the qualifying 2+ sack-game bonus and `idp_pass_def_3p` as the qualifying 3+ passes-defended-game bonus; they are discrete event bonuses and cannot be obtained by thresholding a fractional expected season total.
 
 ## Readiness matrix
 
-| Key | Weight | Classification | Historical field/event | Pre-2025 evidence | Research decision |
+| Key | Weight | Classification | Historical input | Pre-2025 result | Decision |
 |---|---:|---|---|---|---|
-| `bonus_sack_2p` | 2 | **C — PROJECTABLE WITH A NEW VALIDATED MODEL** | weekly `def_sacks >= 2` qualifying game | unified chronological logistic Brier 0.0711 vs position-rate 0.0873; improved all 5 folds. Expected-count MAE 0.2569 vs naive season-threshold 0.2629. | **candidate for HIGH-risk QA** as expected qualifying-game count/probability; never threshold fractional sacks |
-| `fum_rec_td` | 6 | **E — TOO SPARSE / TOO UNSTABLE TO PROJECT** | `fumble_recovery_tds` | positive player-season rate roughly 1.5-2.2% in development folds; prior/player features show negligible persistence | keep unsupported |
-| `idp_blk_kick` | 3 | **E — TOO SPARSE / TOO UNSTABLE TO PROJECT** | `def_punt_blocks + def_pat_blocks + def_fg_blocks` | positive player-season rate ~6.4% DL, ~2% LB/DB; historical persistence weak and event-rate baseline is essentially as good as player modeling | keep unsupported |
-| `idp_fum_ret_yd` | 0.1 | **E — TOO SPARSE / TOO UNSTABLE TO PROJECT** | `fumble_recovery_yards_opp` | zero has lower MAE than prior/count-rate/Ridge at DL/LB/DB; Ridge only modestly improves RMSE | keep unsupported; do not infer yards from recoveries |
-| `idp_int_ret_yd` | 0.1 | **G — MORE RESEARCH REQUIRED** | `def_interception_yards` | data volume is meaningful for DB, but tested player-history/count-rate/Ridge models do not beat zero on MAE; Ridge improves DB RMSE/rank but is not enough for promotion | test a future model driven by validated projected INT probability/count rather than raw lag only |
-| `idp_pass_def_3p` | 2 | **C — PROJECTABLE WITH A NEW VALIDATED MODEL** | weekly `def_pass_defended >= 3` qualifying game | unified chronological logistic Brier 0.0456 vs position-rate 0.0506, improved all 5 folds; expected-count MAE 0.1447 vs naive threshold 0.3208 | **candidate for HIGH-risk QA** as expected qualifying-game count/probability |
-| `idp_sack_yd` | 0.1 | **B — PROJECTABLE NOW FROM EXISTING HISTORICAL DATA** | `def_sack_yards` | DL Ridge MAE 12.90 vs zero 16.56; LB 10.11 vs 12.23, stable across all five folds. DB zero wins MAE because median is zero, but Ridge improves RMSE 4.93 vs 5.54, produces useful rank correlation ~0.29, and removes the large negative zero bias. | **candidate for HIGH-risk QA** using position-aware direct/shrunk sack-yard expectation; no zero fallback |
-| `st_ff` | 1 | **D — DATA SOURCE MISSING** | no separate player-level special-teams FF field in frozen weekly input | unavailable | keep unsupported; play-by-play derivation would require a separate identity/semantics audit |
-| `st_fum_rec` | 1 | **D — DATA SOURCE MISSING** | no separate player-level special-teams fumble-recovery field in frozen weekly input | unavailable | keep unsupported |
-| `st_td` | 6 | **E — TOO SPARSE / TOO UNSTABLE TO PROJECT** | `special_teams_tds` | only 55 IDP-position special-teams TDs in 2015-2024 frozen weekly data; pre-2025 player-season event rates ~0% DL, 0.5% LB, 0.9% DB | keep unsupported |
+| `bonus_sack_2p` | 2 | **G — MORE RESEARCH REQUIRED** | weekly `def_sacks >= 2` event | logistic Brier 0.0711 vs position-rate 0.0873, better in all 5 folds; however expected event-count MAE 0.2569 is worse than zero 0.1571 | probability signal is real, but not ready to add expected fantasy points |
+| `fum_rec_td` | 6 | **E — TOO SPARSE / TOO UNSTABLE TO PROJECT** | `fumble_recovery_tds` | roughly 1-3% player-season event rate; prior-event prediction does not produce stable improvement | keep unsupported |
+| `idp_blk_kick` | 3 | **E — TOO SPARSE / TOO UNSTABLE TO PROJECT** | `def_punt_blocks + def_pat_blocks + def_fg_blocks` | ~6% DL and ~2% LB/DB positive seasons; personalized history does not beat simple rates stably | keep unsupported |
+| `idp_fum_ret_yd` | 0.1 | **E — TOO SPARSE / TOO UNSTABLE TO PROJECT** | `fumble_recovery_yards_opp` | zero has lower MAE than prior/count-rate/Ridge for DL/LB/DB | keep unsupported; never infer yards from recoveries |
+| `idp_int_ret_yd` | 0.1 | **G — MORE RESEARCH REQUIRED** | `def_interception_yards` | meaningful DB/LB data and stable yards/INT rates, but tested player-history/count-rate/Ridge models do not beat zero MAE | future model should be driven by independently validated projected INT count/probability |
+| `idp_pass_def_3p` | 2 | **G — MORE RESEARCH REQUIRED** | weekly `def_pass_defended >= 3` event | logistic Brier 0.0456 vs position-rate 0.0506, better all 5 folds; expected event-count MAE 0.1447 is worse than zero 0.0662 | probability signal is real, but not ready to add expected fantasy points |
+| `idp_sack_yd` | 0.1 | **C — PROJECTABLE WITH A NEW VALIDATED MODEL** | `def_sack_yards` | all-position Ridge MAE ~8.06 vs zero ~9.49 and RMSE ~12.23 vs ~17.75; DL/LB improve strongly and sack-yards-per-sack is highly stable | **only current HIGH-risk QA candidate** |
+| `st_ff` | 1 | **D — DATA SOURCE MISSING** | no separate special-teams-player FF field in frozen weekly schema | unavailable | keep unsupported |
+| `st_fum_rec` | 1 | **D — DATA SOURCE MISSING** | no separate special-teams-player recovery field in frozen weekly schema | unavailable | keep unsupported |
+| `st_td` | 6 | **E — TOO SPARSE / TOO UNSTABLE TO PROJECT** | `special_teams_tds` | only 55 IDP-position special-teams TDs in 2015-2024; player persistence is weak | keep unsupported |
 
-No category is classified A. None of these ten can be obtained exactly from the existing season-level projected IDP stat line without either a new projected statistic or a probability model for a discrete bonus.
+No category is A. No missing event may be zero-filled merely to clear scoring coverage.
 
-## Threshold-bonus result
+## Why sack yards pass the research gate
 
-Naive thresholding is structurally wrong because Sleeper awards the bonus on discrete qualifying games/events. A player projected for 1.8 sacks cannot be treated as having either certainly earned or certainly missed a 2+ sack-game bonus. The candidate therefore predicts the expected number/probability of qualifying games from chronology-safe history and position.
+Sack yards are the largest of the currently missing Founder-weight categories by average historical contribution and have a stable physical rate. Across 2015-2024, yards per sack remain tightly centered around roughly 6.3-7.0 for DL/LB and similarly stable in aggregate. The tested Ridge uses only chronology-safe prior sacks, prior sack yards, prior games and prior tackle volume.
 
-For the 2+ sack-game event, Brier improved from 0.0873 to 0.0711 on average across 2020-2024 and improved in every fold. For the 3+ PD-game event, Brier improved from 0.0506 to 0.0456 in every fold. Expected-count modeling also materially outperformed naive thresholding for the PD bonus (0.1447 vs 0.3208 MAE).
+Across 2020-2024, the all-position Ridge reduces sack-yard MAE from approximately 9.49 (zero) to 8.06 and RMSE from 17.75 to 12.23. DL improves from roughly 16.56 zero MAE to 12.90 Ridge MAE; LB improves from roughly 12.23 to 10.11. DB is the explicit caveat: zero wins DB MAE because most DB player-seasons contain no sacks, while Ridge improves DB RMSE and provides nonzero ranking signal. This tradeoff must be independently reviewed rather than hidden.
 
-The already-observed 2025 season is consistent but is not selection evidence: sack-bonus Brier 0.0673 vs 0.0821 position-rate baseline; PD-bonus Brier 0.0480 vs 0.0527. No architecture was changed based on these 2025 numbers.
+At the Founder weight of 0.1 points per sack yard, historical mean contribution is about 1.53 points per DL season, 1.04 per LB season and 0.17 per DB season. The category is not a large ranking driver, but its underlying statistic is sufficiently predictable to justify a category-specific experimental model.
 
-## Sack-yard result
+## Threshold bonuses are not ready
 
-Sack yards are the most important missing category by historical Founder-weight contribution. Historical mean contribution across all IDP player-seasons is about 0.84 fantasy points per player-season, but is concentrated in DL/LB: ~1.53 DL, ~1.04 LB and ~0.17 DB.
+The first version of this cycle correctly rejected naive thresholding of fractional sack/PD projections, but it compared expected-count models only against naive threshold rules. The hardened rerun adds the required zero baseline.
 
-Sack-yard-per-sack is positionally stable around roughly 6.6-6.9 yards per sack over the frozen sample. Direct Ridge using prior sacks, sack yards, games and tackle/opportunity history beats zero MAE in every 2020-2024 DL fold and every LB fold. For DB, the zero median forecast wins MAE because most DB seasons have zero sacks, but it is badly negatively biased; Ridge improves RMSE and ranking. This supports expected-value modeling, not a zero substitute.
+For `bonus_sack_2p`, the probability model is genuinely better calibrated: Brier improves from 0.0873 to 0.0711 across development folds. But season event-count MAE is 0.2569 versus 0.1571 for zero. For `idp_pass_def_3p`, Brier improves from 0.0506 to 0.0456, yet event-count MAE is 0.1447 versus 0.0662 for zero.
 
-Retrospective 2025 remains directionally consistent: DL Ridge sack-yard MAE 12.61 vs zero 15.08; LB 10.60 vs 12.56; DB Ridge MAE 2.70 vs zero 1.96 but RMSE 4.61 vs zero 5.31. No tuning used 2025.
+These probability signals may eventually be useful for uncertainty or a better count distribution, but they do not currently demonstrate that adding expected fantasy points improves the point projection. They therefore remain unsupported under PR #30.
 
-## Continuous-return-yard findings
+## Return-yard findings
 
-Interception-return yards are real and material for DBs: 3,279 DB interceptions and 42,275 DB return yards appear in the frozen 2015-2024 sample. However raw lag/count-rate/Ridge models do not beat zero on MAE because most individual player-seasons still have no interception return. Ridge does improve DB RMSE (21.51 vs 24.96) and rank correlation (~0.33), so the category remains worth research, but it does not clear the current promotion bar.
+Interception-return yards are historically available and material for DBs. DB return-yards-per-interception is stable around roughly 11-15 yards, with thousands of interceptions in the sample. However the tested player-level season models lose MAE to zero because interception occurrence dominates the problem. This should be revisited only by conditioning on an independently validated projected interception count/distribution.
 
-Fumble-return yards are much sparser. Zero wins MAE at DL/LB/DB; no tested expected-yard architecture clears promotion. The field exists, but existence is not predictability.
+Fumble-return yards are both less frequent and less stable. Zero wins MAE at every IDP position. The existence of the field is not enough to claim predictability.
 
 ## Rare-event findings
 
-Fumble-recovery TDs, blocked kicks and special-teams TDs are legitimate individual player events, but player-level persistence is weak. Historical event-rate/position priors perform approximately as well as more personalized history. Adding a tiny expected value to every player would technically be nonzero, but the cycle rejects that as insufficient evidence for a player-level projection feature.
-
-Special-teams player FF and fumble recovery are not separately available in the frozen weekly player-stat schema. They must remain explicit data-source gaps; they cannot be inferred from defensive FF/recovery fields without play-level role attribution.
+Fumble-recovery TDs, blocked kicks and special-teams TDs are legitimate player events, but simple player-history persistence is too weak to justify individual expected scoring. `st_ff` and `st_fum_rec` are not separately represented in the frozen weekly player-stat schema and must remain explicit data-source gaps.
 
 ## Founder-like scoring impact
 
-Historical average missing-category contribution under the frozen Founder weights, across all IDP player-seasons, is approximately:
+Across 2015-2024 player-seasons, average historical contributions for the eight observable unsupported categories are approximately ordered as:
 
-1. `idp_sack_yd`: 0.843 points/player-season
-2. `idp_int_ret_yd`: 0.551
-3. `bonus_sack_2p`: 0.273
-4. `idp_pass_def_3p`: 0.154
-5. `fum_rec_td`: 0.142
-6. `idp_fum_ret_yd`: 0.137
-7. `idp_blk_kick`: 0.115
-8. `st_td`: 0.034
+1. `idp_sack_yd` ~0.84 points/player-season
+2. `idp_int_ret_yd` ~0.55
+3. `bonus_sack_2p` ~0.27
+4. `idp_pass_def_3p` ~0.15
+5. `fum_rec_td` ~0.14
+6. `idp_fum_ret_yd` ~0.14
+7. `idp_blk_kick` ~0.12
+8. `st_td` ~0.03
 
-`st_ff` and `st_fum_rec` cannot be estimated from this frozen schema without unsafe inference.
+`st_ff` and `st_fum_rec` cannot be estimated safely from this schema.
 
-The three candidate categories (`idp_sack_yd`, `bonus_sack_2p`, `idp_pass_def_3p`) add on average about 2.08 historical points to DL, 1.43 to LB and 0.53 to DB under Founder weights. They modestly change ordering rather than rewrite it: historical supported-score vs supported+candidate rank correlation remains >0.9997 by position and average top-24 overlap remains ~98%.
+Observed supported-only versus supported-plus-all-eight-observable scoring preserves >0.999 average rank correlation by position, with average top-24 overlap approximately 22.0 DB, 23.1 DL and 23.3 LB. The missing categories therefore modestly perturb ranking rather than dominate it. That does not authorize ignoring nonzero league settings; unsupported keys must still block exact scoring.
 
-That small aggregate rank movement does not make the categories dispensable. A nonzero active scoring category must either be modeled or remain an explicit blocker.
+## Coverage consequence
 
-## Coverage after candidate categories
+If `idp_sack_yd` alone later survives HIGH-risk QA and Core experimental integration, player-relevant active-key coverage would move from 12/22 (54.5%) to 13/22 (59.1%). The Founder-like league would remain fail-closed because nine meaningful player keys would still lack approved projections.
 
-If the three passing categories later survive independent QA and Core experimental integration, individual-player key coverage would move from 12/22 (54.5%) to 15/22 (68.2%) by active-key count.
+## Frozen candidate contract
 
-The Founder-like league would **still not be fully rankable** under the PR #30 contract because seven meaningful nonzero player categories would remain unsupported. The fail-closed gate must therefore remain intact.
+The only v0.1 candidate is `idp_sack_yd`:
 
-## Core contract if QA later passes candidates
+- model family: position-aware Ridge expectation;
+- target: season individual defensive sack yards;
+- chronology: for season Y, train/features use only seasons < Y;
+- features: prior sacks, prior sack yards, prior games, prior solo-tackle volume;
+- nonnegative output sanitation only after model prediction;
+- no zero fallback for missing source state;
+- source snapshot SHA-256 and model version required on every artifact;
+- 2025 remains retrospective observed evidence only;
+- `experimental=true`;
+- `production_projection_eligible=false`;
+- `idp_dynasty_value_available=false`;
+- `dynasty_value=null`.
 
-Core may eventually consume only the specific passed research outputs:
-
-- `expected_2plus_sack_bonus_games` / probability metadata;
-- `expected_3plus_pass_def_bonus_games` / probability metadata;
-- `projected_sack_yards` with model version, position family, uncertainty and source snapshot hash.
-
-Every output must carry `data_as_of`, model version, source snapshot SHA-256, supported position semantics, and uncertainty/provenance. No threshold may be applied directly to fractional projected sacks/PD. No missing category may be defaulted to zero.
-
-Firewalls remain unchanged:
-
-- `idp_dynasty_value_available=false`
-- `dynasty_value=null`
-- combined offense+IDP Dynasty rankings unavailable
-- `production_projection_eligible=false`
+PR #30's completeness gate is unchanged. Even if QA passes sack yards, the remaining unsupported keys still block exact Founder-like ranking.
 
 ## Readiness
 
-Specific research candidates exist for `bonus_sack_2p`, `idp_pass_def_3p`, and `idp_sack_yd`. The other seven categories remain unsupported for the reasons above. These candidates do not make the full Founder scoring shape rankable and do not weaken PR #30's fail-closed completeness gate.
+`idp_sack_yd` is ready for independent HIGH-risk QA as a contained research candidate. The other nine categories are not.
