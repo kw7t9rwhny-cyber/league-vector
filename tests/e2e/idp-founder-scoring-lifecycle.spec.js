@@ -91,8 +91,8 @@ test('full Founder scoring shape fails closed on the exact unprojected player ca
 
 test('same lifecycle renders nonzero rows when active player scoring is fully projectable', async ({page}) => {
   await mockLifecycle(page, defensibleScoring);
-  const offensiveBefore = await page.locator('#playerValues .lv-value').first().textContent();
   const contract = await analyze(page);
+  const offensiveBefore = await page.locator('#playerValues .lv-value').first().textContent();
   expect(contract.status).toBe('ready_experimental');
   expect(contract.players.length).toBeGreaterThan(0);
   expect(contract.players.every((row) => Number.isFinite(row.projected_points))).toBe(true);
