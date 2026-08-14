@@ -1,0 +1,85 @@
+{
+  "version": "lv-development-orchestrator-v0.1",
+  "states": [
+    "active",
+    "blocked",
+    "ready-for-qa",
+    "qa-failed",
+    "qa-passed",
+    "ready-for-core",
+    "waiting-founder",
+    "live-test",
+    "closed"
+  ],
+  "transitions": {
+    "active": ["blocked", "ready-for-qa", "waiting-founder", "closed"],
+    "blocked": ["active", "waiting-founder", "closed"],
+    "ready-for-qa": ["qa-failed", "qa-passed"],
+    "qa-failed": ["active", "ready-for-qa"],
+    "qa-passed": ["ready-for-core", "waiting-founder", "closed"],
+    "ready-for-core": ["active", "blocked", "waiting-founder", "live-test"],
+    "waiting-founder": ["active", "blocked", "ready-for-core", "live-test", "closed"],
+    "live-test": ["active", "blocked", "closed"],
+    "closed": []
+  },
+  "owners": ["core", "projection", "rookie", "dynasty", "idp", "opportunity", "ui", "qa", "product"],
+  "risks": ["low", "medium", "high"],
+  "types": ["bug", "feature", "research", "ui", "infrastructure"],
+  "priorities": ["urgent", "high", "normal"],
+  "promotion_types": ["none", "experimental-integration", "production-numerical-model"],
+  "founder_gates": ["release", "data-license", "production-model-promotion", "business-decision"],
+  "founder_gate_required_for": [
+    "production Dynasty Value architecture changes",
+    "first production activation of major numerical models",
+    "public launch",
+    "pricing",
+    "paid data licensing",
+    "material infrastructure spending",
+    "legal/privacy decisions",
+    "partnerships",
+    "major release decisions explicitly marked Founder-gated"
+  ],
+  "exact_sha_contract": {
+    "qa_pass_requires_verdict_pass": true,
+    "qa_pass_requires_tested_sha": true,
+    "qa_pass_requires_current_head_sha": true,
+    "head_change_invalidates_qa_pass": true,
+    "qa_required_states": ["qa-passed", "ready-for-core", "live-test"],
+    "integration_fails_closed_on_stale_or_missing_qa": true
+  },
+  "transition_authorization_contract": {
+    "structural_topology_is_not_authorization": true,
+    "operational_transition_requires_item_metadata": true,
+    "operational_cli_requires_item_metadata": true,
+    "missing_metadata_fails_closed": true
+  },
+  "founder_gate_contract": {
+    "gated_states": ["ready-for-core", "live-test"],
+    "required_decision": "approved",
+    "rejected_decision_blocks_progress": true
+  },
+  "research_promotion_contract": {
+    "raw_research_core_eligible": false,
+    "promotion_requires_separate_non_research_work_item": true,
+    "promotion_item_must_depend_on_validated_research": true,
+    "promotion_item_requires_explicit_authorization": true,
+    "production_model_promotion_requires_founder_gate": true
+  },
+  "promotion_contract": {
+    "promotion_type_required": true,
+    "promotion_authorized_required_when_promoting": true,
+    "production_numerical_model_implies_founder_gate": true,
+    "production_numerical_model_required_gate": "production-model-promotion"
+  },
+  "inboxes": {
+    "qa": "status:ready-for-qa",
+    "core": "status:ready-for-core",
+    "projection": "owner:projection AND (status:active OR status:qa-failed)",
+    "rookie": "owner:rookie AND (status:active OR status:qa-failed)",
+    "dynasty": "owner:dynasty AND (status:active OR status:qa-failed)",
+    "idp": "owner:idp AND (status:active OR status:qa-failed)",
+    "opportunity": "owner:opportunity AND (status:active OR status:qa-failed OR status:blocked)",
+    "ui": "owner:ui AND (status:active OR status:qa-failed)",
+    "product": "owner:product AND status:active"
+  }
+}
