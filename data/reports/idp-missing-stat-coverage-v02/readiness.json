@@ -1,0 +1,40 @@
+{
+  "version": "idp-missing-stat-coverage-v0.2",
+  "status": "RESEARCH CHECKPOINT — NO NEW SCORING CANDIDATE",
+  "qa_approved_control_head": "fe936d37f346e3e8b027e33964e272dd34b04e9b",
+  "frozen_input_sha256": "d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188",
+  "development_seasons": [2020, 2021, 2022, 2023, 2024],
+  "retrospective_observed": 2025,
+  "validated_control": {
+    "idp_sack_yd": {
+      "supported_positions": ["DL", "LB"],
+      "unsupported_positions": ["DB"],
+      "changed_in_v02": false
+    }
+  },
+  "categories": {
+    "idp_int_ret_yd": "UNSUPPORTED — ZERO BASELINE WINS",
+    "bonus_sack_2p": "UNSUPPORTED — ZERO BASELINE WINS",
+    "idp_pass_def_3p": "UNSUPPORTED — ZERO BASELINE WINS",
+    "fum_rec_td": "UNSUPPORTED — ZERO BASELINE WINS",
+    "idp_fum_ret_yd": "UNSUPPORTED — ZERO BASELINE WINS",
+    "idp_blk_kick": "UNSUPPORTED — ZERO BASELINE WINS",
+    "st_td": "UNSUPPORTED — ZERO BASELINE WINS",
+    "st_ff": "UNSUPPORTED — DATA BLOCKED",
+    "st_fum_rec": "UNSUPPORTED — DATA BLOCKED"
+  },
+  "global_scoring_gate": {
+    "idp_sack_yd_globally_supported": false,
+    "founder_like_scoring_rankable": false
+  },
+  "firewalls": {
+    "experimental": true,
+    "production_projection_eligible": false,
+    "idp_dynasty_value_available": false,
+    "dynasty_value": null,
+    "combined_offense_idp_dynasty_rankings_available": false,
+    "core_integration_authorized": false,
+    "ui_authorized": false,
+    "production_authorized": false
+  }
+}
