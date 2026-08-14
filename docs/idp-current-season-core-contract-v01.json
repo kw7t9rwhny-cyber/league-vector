@@ -1,0 +1,33 @@
+{
+  "contract": "Experimental IDP Current-Season Rankings v0.1",
+  "row_schema": {
+    "player_id": "stable League Vector / GSIS / Sleeper identity",
+    "name": "current player display name",
+    "team": "current NFL team",
+    "primary_position": "single historical model family: DL | LB | DB",
+    "eligible_positions": ["full current canonical Sleeper eligibility set"],
+    "current_status": "verified current eligibility class",
+    "projected_points": "league-scored current-season projection",
+    "league_replacement_points": "entry threshold for exact eligibility set",
+    "projected_surplus": "projected_points - league_replacement_points",
+    "scoring_coverage": "complete/partial/unavailable plus exact unsupported/missing keys",
+    "role_confidence": "limited",
+    "historical_role_model_available": false,
+    "eligibility_verified": true,
+    "idp_dynasty_value_available": false,
+    "dynasty_value": null
+  },
+  "sorting": {
+    "default_candidate_sort": ["projected_surplus desc", "projected_points desc", "player_id asc"],
+    "permitted_user_sort": ["projected_points", "projected_surplus", "primary_position"],
+    "note": "No Dynasty Value sort exists."
+  },
+  "fail_closed": [
+    "unsafe current eligibility",
+    "meaningful unsupported active IDP scoring key",
+    "missing projected stat required by active supported scoring",
+    "invalid league size",
+    "missing roster positions",
+    "unsupported IDP-like starter slot"
+  ]
+}

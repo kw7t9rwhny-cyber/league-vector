@@ -1,0 +1,52 @@
+{
+  "version": "lv-idp-current-season-rankings-v0.1-readiness",
+  "status": "READY_FOR_QA",
+  "risk": "HIGH",
+  "candidate": "Experimental IDP Current-Season Rankings v0.1",
+  "parent_research_head": "e6423f31bd841696b0fc576080f9e89be04e815f",
+  "current_eligibility_evidence": {
+    "projection_ready_idp_before_gate": 1747,
+    "safely_current_rostered": 753,
+    "by_primary_position": { "DL": 278, "LB": 222, "DB": 253 },
+    "excluded": 994,
+    "excluded_teamless_active_unverified": 838,
+    "excluded_injury_status_without_team": 25,
+    "excluded_explicit_inactive": 131,
+    "safe_hybrids": 48,
+    "hybrid_eligibility_sets": { "DL/LB": 47, "DB/LB": 1 }
+  },
+  "readiness": {
+    "DL": {
+      "current_season_ranking": "READY_FOR_EXPERIMENTAL_CURRENT_SEASON_RANKING",
+      "dynasty_value": "NOT_READY"
+    },
+    "LB": {
+      "current_season_ranking": "READY_FOR_EXPERIMENTAL_CURRENT_SEASON_RANKING",
+      "dynasty_value": "NOT_READY"
+    },
+    "DB": {
+      "current_season_ranking": "READY_FOR_EXPERIMENTAL_CURRENT_SEASON_RANKING",
+      "dynasty_value": "NOT_READY"
+    }
+  },
+  "current_season_contract": {
+    "eligibility": "PR20 fail-closed current Sleeper eligibility",
+    "scoring": "direct league.scoring_settings scoring with meaningful unsupported keys failing closed",
+    "replacement": "minimum entry point for an additional player with the exact same eligibility set into the globally optimized league IDP starter pool",
+    "surplus": "projected_points - league_replacement_points",
+    "role_confidence": "limited",
+    "historical_role_model_available": false
+  },
+  "firewall": {
+    "idp_dynasty_value_available": false,
+    "combined_offense_idp_dynasty_rankings_available": false,
+    "production_activation_authorized": false
+  },
+  "remaining_dynasty_blockers": [
+    "historical defensive-snap opportunity unavailable in current normalized source",
+    "true starter/reserve role survival not established",
+    "multi-year age-survival integration not independently validated",
+    "multi-year surplus/uncertainty not independently validated",
+    "offense-vs-IDP normalization not authorized"
+  ]
+}
