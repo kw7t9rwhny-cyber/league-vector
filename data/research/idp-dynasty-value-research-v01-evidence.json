@@ -1,0 +1,129 @@
+{
+  "version": "lv-idp-dynasty-value-research-v0.1-evidence-checkpoint-2",
+  "status": "RESEARCH_ONLY",
+  "idp_dynasty_value_available": false,
+  "source_head_before_evidence_commit": "d5e86dc08bfd23ec686393c1cdb86dc95a763416",
+  "workflow": {
+    "run_id": 31833395177,
+    "artifact_id": 9231560886,
+    "artifact_zip_sha256": "0b7d2603effe2c2d36d95b5a79c6f3a8327ecfdaebf934107388724279a82e77",
+    "report_sha256": "66a637d919385278a51040855c10b13ffc1310e1265c52d6552cf7b249ee4388",
+    "deterministic_double_execution_byte_identical": true,
+    "validate_passed": true,
+    "firewall_check_passed": true
+  },
+  "sample": {
+    "seasons": [2015,2016,2017,2018,2019,2020,2021,2022,2023,2024,2025],
+    "normalized_weekly_observations": 90819,
+    "player_seasons": 9439,
+    "by_position": {"DL":3129,"LB":3014,"DB":3296},
+    "experience_coverage": {
+      "player_bios": 25035,
+      "bios_with_valid_rookie_year": 0,
+      "player_seasons_with_valid_experience": 0,
+      "status": "BLOCKED",
+      "policy": "Do not infer experience from first observed season."
+    }
+  },
+  "position_readiness": {
+    "DL": {
+      "multi_year_production_research": "SUPPORTED_FOR_CHRONOLOGICAL_BACKTEST",
+      "dynasty_horizon": "UNFROZEN",
+      "numeric_dynasty_value": "BLOCKED",
+      "rank_persistence_spearman": {"year_plus_1":0.61,"year_plus_2":0.5586,"year_plus_3":0.4679},
+      "p50_production_relevance_survival": {"year_plus_1":0.6801,"year_plus_2":0.5946,"year_plus_3":0.5189},
+      "p75_production_relevance_survival": {"year_plus_1":0.6194,"year_plus_2":0.5503,"year_plus_3":0.451},
+      "yoy_total_points_delta_stdev": 36.9698
+    },
+    "LB": {
+      "multi_year_production_research": "SUPPORTED_FOR_CHRONOLOGICAL_BACKTEST",
+      "dynasty_horizon": "UNFROZEN",
+      "numeric_dynasty_value": "BLOCKED",
+      "rank_persistence_spearman": {"year_plus_1":0.6441,"year_plus_2":0.523,"year_plus_3":0.4202},
+      "p50_production_relevance_survival": {"year_plus_1":0.6977,"year_plus_2":0.5727,"year_plus_3":0.4551},
+      "p75_production_relevance_survival": {"year_plus_1":0.595,"year_plus_2":0.4984,"year_plus_3":0.3752},
+      "yoy_total_points_delta_stdev": 46.8158
+    },
+    "DB": {
+      "multi_year_production_research": "SUPPORTED_FOR_CHRONOLOGICAL_BACKTEST",
+      "dynasty_horizon": "UNFROZEN",
+      "numeric_dynasty_value": "BLOCKED",
+      "rank_persistence_spearman": {"year_plus_1":0.5971,"year_plus_2":0.4599,"year_plus_3":0.4139},
+      "p50_production_relevance_survival": {"year_plus_1":0.6756,"year_plus_2":0.535,"year_plus_3":0.4307},
+      "p75_production_relevance_survival": {"year_plus_1":0.532,"year_plus_2":0.3917,"year_plus_3":0.3328},
+      "yoy_total_points_delta_stdev": 39.5259
+    }
+  },
+  "survival_contract": "Year+1/Year+2/Year+3 values are production-percentile fantasy-relevance survival, not starter/depth/role survival. Absence or broad-position change counts as not production-relevant at that horizon.",
+  "age_decline_evidence": {
+    "status": "DESCRIPTIVE_SURVIVOR_CONDITIONED_ONLY",
+    "earliest_two_age_run_of_negative_conditional_points_per_week_delta": {"DL":25,"LB":25,"DB":24},
+    "warning": "These descriptive ages are not causal decline points, dynasty multipliers, retirement curves, or role-survival estimates. Selection and role/opportunity confounding remain unresolved."
+  },
+  "finer_role_evidence": {
+    "stable_single_role_player_seasons": 6283,
+    "unspecified_only_player_seasons": 3156,
+    "stable_role_rate": 0.6656,
+    "sample_gate_minimum": 250,
+    "groups": {
+      "EDGE": {"stable_player_seasons":1621,"sample_gate":"PASS_ONLY","empirically_justified":false},
+      "INTERIOR_DL": {"stable_player_seasons":1478,"sample_gate":"PASS_ONLY","empirically_justified":false},
+      "OFF_BALL_LB": {"stable_player_seasons":297,"sample_gate":"PASS_ONLY","empirically_justified":false},
+      "CB": {"stable_player_seasons":1904,"sample_gate":"PASS_ONLY","empirically_justified":false},
+      "S": {"stable_player_seasons":388,"sample_gate":"PASS_ONLY","empirically_justified":false}
+    },
+    "production_role_inference_authorized": false,
+    "warning": "Normalized role hints are not licensed point-in-time depth/starter roles. Passing sample size does not justify a finer-role dynasty model without provenance and chronological predictive lift over DL/LB/DB."
+  },
+  "scoring_profile_sensitivity": {
+    "status": "DETERMINISTIC_RESEARCH_PROFILES_ONLY",
+    "required_stat_coverage": {"eligible_weekly_observations":90819,"complete_weekly_observations":90819,"incomplete_weekly_observations":0},
+    "profiles": {
+      "balanced_reference": {
+        "year_plus_1_rank_spearman": {"DL":0.61,"LB":0.6441,"DB":0.5971},
+        "year_plus_1_p75_relevance_survival": {"DL":0.6194,"LB":0.595,"DB":0.532},
+        "replacement_12_team_2_starters": {"DL":98,"LB":143.75,"DB":108.5}
+      },
+      "tackle_heavy": {
+        "year_plus_1_rank_spearman": {"DL":0.5964,"LB":0.6335,"DB":0.5927},
+        "year_plus_1_p75_relevance_survival": {"DL":0.607,"LB":0.5994,"DB":0.5424},
+        "replacement_12_team_2_starters": {"DL":91.5,"LB":157.5,"DB":129}
+      },
+      "pressure_heavy": {
+        "year_plus_1_rank_spearman": {"DL":0.6189,"LB":0.6574,"DB":0.5931},
+        "year_plus_1_p75_relevance_survival": {"DL":0.6241,"LB":0.605,"DB":0.5351},
+        "replacement_12_team_2_starters": {"DL":119.5,"LB":142.5,"DB":83}
+      },
+      "coverage_big_play": {
+        "year_plus_1_rank_spearman": {"DL":0.6058,"LB":0.6407,"DB":0.5995},
+        "year_plus_1_p75_relevance_survival": {"DL":0.6115,"LB":0.6126,"DB":0.5418},
+        "replacement_12_team_2_starters": {"DL":75.25,"LB":121.75,"DB":113.5}
+      }
+    },
+    "warning": "Profiles are fixed research perturbations, not production Sleeper defaults. Exact target-league settings must be imported and re-scored before any coefficients are used."
+  },
+  "replacement_and_roster_sensitivity": {
+    "replacement_level": "SUPPORTED_AS_DETERMINISTIC_RESEARCH_SENSITIVITY",
+    "starter_count": "SUPPORTED_AS_REPLACEMENT_DEMAND_SENSITIVITY",
+    "idp_flex_historical_effect": "BLOCKED_WITHOUT_POINT_IN_TIME_ELIGIBILITY",
+    "hybrid_position_historical_effect": "BLOCKED_WITHOUT_POINT_IN_TIME_ELIGIBILITY"
+  },
+  "multi_year_surplus_architecture": {
+    "status": "ARCHITECTURE_ONLY",
+    "candidate": "sum_h discount_position(h) * P(fantasy_relevant_h | information available at valuation time) * max(0, expected_league_scored_points_h - league_replacement_points_h)",
+    "alternative_to_backtest": "signed surplus without zero clipping",
+    "offense_defaults_inherited": false,
+    "production_numeric_output": false
+  },
+  "blockers": [
+    "historical point-in-time depth/starter role authority",
+    "historical point-in-time hybrid eligibility",
+    "historical rookie-year/entry-year metadata for experience curves",
+    "chronological multi-year forecast backtest by DL/LB/DB",
+    "position-specific horizon validation",
+    "discount-function validation",
+    "exact target-league scoring refit before coefficient use",
+    "uncertainty calibration",
+    "offense-vs-IDP normalization"
+  ]
+}

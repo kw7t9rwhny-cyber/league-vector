@@ -1,0 +1,48 @@
+name: IDP Dynasty Research v0.1
+
+on:
+  push:
+    branches: [codex/idp-dynasty-value-research-v01]
+  workflow_dispatch:
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Validate isolated research code
+        run: npm run validate
+      - name: Build deterministic historical IDP dynasty research evidence twice
+        run: |
+          set -euo pipefail
+          EVIDENCE_TS="$(git show -s --format=%cI HEAD)"
+          mkdir -p data/reports/idp-dynasty-value-v01 /tmp/idp-dynasty-v01
+          node scripts/idp-dynasty-empirical-v01.js --generated-at "$EVIDENCE_TS" --output /tmp/idp-dynasty-v01/run-a.json
+          node scripts/idp-dynasty-empirical-v01.js --generated-at "$EVIDENCE_TS" --output /tmp/idp-dynasty-v01/run-b.json
+          cmp /tmp/idp-dynasty-v01/run-a.json /tmp/idp-dynasty-v01/run-b.json
+          cp /tmp/idp-dynasty-v01/run-a.json data/reports/idp-dynasty-value-v01/idp-dynasty-value-research.json
+          sha256sum data/reports/idp-dynasty-value-v01/idp-dynasty-value-research.json
+      - name: Verify Dynasty Value firewall and research status
+        run: |
+          node - <<'NODE'
+          const fs=require('node:fs');
+          const p='data/reports/idp-dynasty-value-v01/idp-dynasty-value-research.json';
+          const x=JSON.parse(fs.readFileSync(p,'utf8'));
+          if (x.idp_dynasty_value_available !== false) throw new Error('IDP dynasty firewall opened');
+          if (x.status !== 'RESEARCH_ONLY') throw new Error(`unexpected status ${x.status}`);
+          for (const position of ['DL','LB','DB']) {
+            if (x.position_horizon_readiness?.[position]?.status !== 'UNFROZEN') throw new Error(`${position} horizon frozen prematurely`);
+            if (x.position_horizon_readiness?.[position]?.offense_horizon_inherited !== false) throw new Error(`${position} inherited offense horizon`);
+          }
+          if (x.finer_role_split_readiness?.production_role_inference_authorized !== false) throw new Error('role inference authorized prematurely');
+          if (x.multi_year_surplus_candidate_architecture?.production_numeric_output !== false) throw new Error('numeric dynasty output authorized prematurely');
+          NODE
+      - uses: actions/upload-artifact@v4
+        with:
+          name: idp-dynasty-value-research-v01
+          path: data/reports/idp-dynasty-value-v01/idp-dynasty-value-research.json
