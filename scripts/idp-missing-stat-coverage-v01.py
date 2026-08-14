@@ -19,6 +19,8 @@ SNAP = 'd261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188'
 POS = ['DL', 'LB', 'DB']
 DEV = range(2020, 2025)
 CANONICAL_FLOAT_DECIMALS = 8
+CANONICAL_RANK_DECIMALS = 3
+RANK_DIAGNOSTIC_KEYS = {'spearman', 'spearman_supported_vs_observed8'}
 REQ = [
     'def_sacks', 'def_sack_yards', 'def_interceptions', 'def_interception_yards',
     'def_pass_defended', 'def_punt_blocks', 'def_pat_blocks', 'def_fg_blocks',
@@ -295,18 +297,19 @@ def scoring_impact(annual):
     return {'category_contribution': rows, 'rank_impact_observed_8_of_10': rank}
 
 
-def canonicalize(value):
+def canonicalize(value, key=None):
     if isinstance(value, dict):
-        return {key: canonicalize(value[key]) for key in sorted(value)}
+        return {child_key: canonicalize(value[child_key], child_key) for child_key in sorted(value)}
     if isinstance(value, list):
-        return [canonicalize(item) for item in value]
+        return [canonicalize(item, key) for item in value]
     if isinstance(value, (np.integer,)):
         return int(value)
     if isinstance(value, (np.floating, float)):
         number = float(value)
         if not math.isfinite(number):
             raise RuntimeError('canonical research result contains non-finite numeric output')
-        rounded = float(f'{number:.{CANONICAL_FLOAT_DECIMALS}f}')
+        decimals = CANONICAL_RANK_DECIMALS if key in RANK_DIAGNOSTIC_KEYS else CANONICAL_FLOAT_DECIMALS
+        rounded = float(f'{number:.{decimals}f}')
         return 0.0 if rounded == 0 else rounded
     return value
 
@@ -315,10 +318,12 @@ def build_result(cache):
     weekly, manifest, audit = load(cache)
     annual = annualize(weekly)
     return {
-        'version': 'idp-missing-stat-coverage-v0.1.2-canonical',
+        'version': 'idp-missing-stat-coverage-v0.1.3-canonical',
         'canonicalization': {
-            'contract': 'finite floats rounded to fixed decimal precision; negative zero normalized; JSON keys sorted; UTF-8; LF; one terminal newline',
-            'float_decimal_places': CANONICAL_FLOAT_DECIMALS,
+            'contract': 'primary finite floats rounded to fixed precision; Spearman/rank-correlation diagnostics rounded separately to their declared evidentiary precision; negative zero normalized; JSON keys sorted; UTF-8; LF; one terminal newline',
+            'primary_float_decimal_places': CANONICAL_FLOAT_DECIMALS,
+            'rank_diagnostic_decimal_places': CANONICAL_RANK_DECIMALS,
+            'rank_diagnostic_keys': sorted(RANK_DIAGNOSTIC_KEYS),
             'ephemeral_workflow_metadata_included': False,
         },
         'input_snapshot_sha256': manifest['snapshot_sha256'],
@@ -384,12 +389,13 @@ def self_test_source_states():
             pass
         else:
             raise AssertionError('unavailable source state did not fail closed')
-    sample = {'b': -0.0, 'a': 1.123456789123, 'nested': [2.000000004, 0.0]}
+    sample = {'b': -0.0, 'a': 1.123456789123, 'spearman': 0.48294685, 'nested': [2.000000004, 0.0]}
     text_a = serialize_canonical(sample)
     text_b = serialize_canonical(sample)
     assert text_a == text_b
     assert '"a": 1.12345679' in text_a
     assert '"b": 0.0' in text_a
+    assert '"spearman": 0.483' in text_a
     print('SOURCE_STATE_AND_CANONICALIZATION_SELF_TEST_PASS')
 
 
