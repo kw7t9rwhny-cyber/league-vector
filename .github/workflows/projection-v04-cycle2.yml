@@ -1,0 +1,47 @@
+name: Projection v0.4 Cycle 2 Research
+
+on:
+  push:
+    branches:
+      - codex/projection-research-v04-cycle2
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cycle2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: npm ci
+      - name: Freeze canonical input snapshot
+        run: node scripts/projection-v04-freeze-inputs.js .cache/lv-v04-cycle2
+      - name: Require exact validated v0.4 snapshot
+        run: |
+          node -e "const m=require('./.cache/lv-v04-cycle2/snapshot-manifest.json'); if(m.snapshot_sha256!=='d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188') throw new Error('snapshot moved: '+m.snapshot_sha256)"
+      - name: Reproduce validated v0.4 control
+        run: node scripts/projection-v04-canonical.js data/reports/projection-v04-cycle2/control .cache/lv-v04-cycle2
+      - name: Install pinned research dependencies
+        run: python -m pip install pandas==2.2.3 numpy==2.2.3 scipy==1.15.2 scikit-learn==1.6.1
+      - name: Run Cycle 2 analysis twice
+        run: |
+          python scripts/projection-v04-cycle2-analysis.py .cache/lv-v04-cycle2 data/reports/projection-v04-cycle2/control/candidate-player-seasons.json data/reports/projection-v04-cycle2/run-a.json
+          python scripts/projection-v04-cycle2-analysis.py .cache/lv-v04-cycle2 data/reports/projection-v04-cycle2/control/candidate-player-seasons.json data/reports/projection-v04-cycle2/run-b.json
+          cmp data/reports/projection-v04-cycle2/run-a.json data/reports/projection-v04-cycle2/run-b.json
+          sha256sum data/reports/projection-v04-cycle2/run-a.json > data/reports/projection-v04-cycle2/result.sha256
+      - name: Upload Cycle 2 evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: league-vector-projection-v04-cycle2
+          path: data/reports/projection-v04-cycle2/
+          if-no-files-found: error
+          retention-days: 30
