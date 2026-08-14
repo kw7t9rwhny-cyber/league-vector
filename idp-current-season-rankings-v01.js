@@ -13,20 +13,28 @@
   const VERSION = "lv-idp-current-season-rankings-v0.1";
   const IDP_GROUPS = Object.freeze(["DL", "LB", "DB"]);
   const SUPPORTED_SCORING = Object.freeze({
-    tkl: "total_tackles", idp_tkl: "total_tackles",
-    tkl_solo: "solo_tackles", idp_tkl_solo: "solo_tackles",
-    tkl_ast: "assisted_tackles", idp_tkl_ast: "assisted_tackles",
-    tkl_loss: "tackles_for_loss", idp_tkl_loss: "tackles_for_loss",
-    sack: "sacks", idp_sack: "sacks",
-    qb_hit: "qb_hits", idp_qb_hit: "qb_hits",
-    int: "interceptions", idp_int: "interceptions",
-    pass_def: "passes_defended", idp_pass_def: "passes_defended",
-    ff: "forced_fumbles", idp_ff: "forced_fumbles",
-    fum_rec: "fumble_recoveries", idp_fum_rec: "fumble_recoveries",
-    def_td: "defensive_td", idp_def_td: "defensive_td",
-    safe: "safeties", idp_safe: "safeties",
+    idp_tkl: "total_tackles",
+    idp_tkl_solo: "solo_tackles",
+    idp_tkl_ast: "assisted_tackles",
+    idp_tkl_loss: "tackles_for_loss",
+    idp_sack: "sacks",
+    idp_qb_hit: "qb_hits",
+    idp_int: "interceptions",
+    idp_pass_def: "passes_defended",
+    idp_ff: "forced_fumbles",
+    idp_fum_rec: "fumble_recoveries",
+    idp_def_td: "defensive_td",
+    idp_safe: "safeties",
   });
-  const KNOWN_IDP_KEY = /(?:^idp_|^tkl|sack|qb_hit|pass_def|(^|_)ff$|fum_rec|def_td|safe|blk_kick|def_2pt|int_ret|fum_ret|def_st|st_td|kick_ret|punt_ret)/;
+  const TEAM_DEFENSE_SCORING_KEYS = new Set([
+    "def_td", "sack", "sack_yd", "qb_hit", "int", "int_ret_yd",
+    "fum_rec", "fum_ret_yd", "tkl", "tkl_solo", "tkl_ast", "tkl_loss",
+    "safe", "ff", "blk_kick", "pass_def", "def_2pt",
+  ]);
+  const KNOWN_PLAYER_IDP_KEY = /(?:^idp_|^st_|^bonus_sack_|^fum_rec_td$)/;
+  function isNonPlayerScoringKey(key) {
+    return TEAM_DEFENSE_SCORING_KEYS.has(key) || /^def_st_/.test(key);
+  }
   const ROSTER_SLOT_MAP = Object.freeze({
     DL: "DL", DE: "DL", DT: "DL", EDGE: "DL",
     LB: "LB", ILB: "LB", OLB: "LB",
@@ -56,13 +64,18 @@
     const mapped = {};
     const supportedKeys = [];
     const unsupportedKeys = [];
+    const nonPlayerKeys = [];
     for (const [key, rawWeight] of Object.entries(scoringSettings || {})) {
       if (!finite(rawWeight) || Number(rawWeight) === 0) continue;
       const stat = SUPPORTED_SCORING[key];
       if (stat) {
         mapped[stat] = (mapped[stat] || 0) + Number(rawWeight);
         supportedKeys.push(key);
-      } else if (KNOWN_IDP_KEY.test(key)) unsupportedKeys.push(key);
+      } else if (isNonPlayerScoringKey(key)) {
+        nonPlayerKeys.push(key);
+      } else if (KNOWN_PLAYER_IDP_KEY.test(key)) {
+        unsupportedKeys.push(key);
+      }
     }
     const activeSupportedStats = Object.keys(mapped);
     const missingProjectedStats = projectedStats
@@ -74,6 +87,7 @@
       status: complete ? "complete" : hasSupportedScoring ? "partial" : "unavailable",
       supported_keys: supportedKeys.sort(),
       unsupported_keys: unsupportedKeys.sort(),
+      non_player_keys: nonPlayerKeys.sort(),
       active_supported_stats: activeSupportedStats.sort(),
       missing_projected_stats: missingProjectedStats.sort(),
       meaningful_incomplete: unsupportedKeys.length > 0 || missingProjectedStats.length > 0,
@@ -358,6 +372,7 @@
           status: row.scoring_coverage.status,
           supported_keys: row.scoring_coverage.supported_keys,
           unsupported_keys: row.scoring_coverage.unsupported_keys,
+          non_player_keys: row.scoring_coverage.non_player_keys,
           missing_projected_stats: row.scoring_coverage.missing_projected_stats,
         },
         role_confidence: "limited",
