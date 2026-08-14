@@ -1,0 +1,28 @@
+{
+  "version": "lv-projection-v04-vs-nested-v03",
+  "v03_comparator_workflow_run": 31762396961,
+  "v04_source_workflow_run": 31761905600,
+  "comparison_design": "v0.3 and v0.4 both use chronological outer folds; v0.3 target-model choices use only earlier outer folds; v0.4 position gate is chosen only from 2021-2024 development folds; 2025 remains untouched",
+  "v04_position_gate_chosen_before_2025": {"QB":"fixed 60/30/10","RB":"target-specific family2 candidate","WR":"target-specific family2 candidate","TE":"target-specific family2 candidate"},
+  "final_2025": {
+    "QB": {"n":67,"v03_nested_mae":62.9189,"v04_mae":62.2163,"mae_change_pct":1.1166,"rmse_change_pct":0.6446,"spearman_delta":0.00601,"paired_mae_advantage_points":0.7026,"bootstrap_95_pct_ci_points":[-0.1842,1.5955]},
+    "RB": {"n":121,"v03_nested_mae":43.8763,"v04_mae":42.9986,"mae_change_pct":2.0004,"rmse_change_pct":0.9066,"spearman_delta":0.00982,"paired_mae_advantage_points":0.8777,"bootstrap_95_pct_ci_points":[-0.6721,2.4084]},
+    "WR": {"n":191,"v03_nested_mae":38.6855,"v04_mae":36.3728,"mae_change_pct":5.9783,"rmse_change_pct":5.9477,"spearman_delta":0.01719,"paired_mae_advantage_points":2.3127,"bootstrap_95_pct_ci_points":[1.1961,3.4907]},
+    "TE": {"n":114,"v03_nested_mae":26.4195,"v04_mae":26.0454,"mae_change_pct":1.4161,"rmse_change_pct":1.0418,"spearman_delta":0.01389,"paired_mae_advantage_points":0.3741,"bootstrap_95_pct_ci_points":[-0.2150,0.9505]}
+  },
+  "pooled_final_2025": {"n":493,"v03_nested_mae":40.4166,"v04_mae":39.1231,"mae_change_pct":3.2002,"v03_nested_rmse":58.7311,"v04_rmse":57.2530,"rmse_change_pct":2.5167,"paired_mae_advantage_points":1.2934,"bootstrap_95_pct_ci_points":[0.6815,1.9009],"bootstrap_probability_candidate_better":1.0},
+  "rolling_fold_mae_change_pct_v04_vs_nested_v03": {
+    "QB":{"2021":1.1475,"2022":0.7594,"2023":1.1643,"2024":1.3037,"2025":1.1166},
+    "RB":{"2021":3.6659,"2022":-1.5705,"2023":5.0356,"2024":2.9990,"2025":2.0004},
+    "WR":{"2021":2.1885,"2022":2.2422,"2023":4.6448,"2024":7.4979,"2025":5.9783},
+    "TE":{"2021":2.1976,"2022":0.5276,"2023":4.5080,"2024":3.4914,"2025":1.4161}
+  },
+  "interpretation": [
+    "The selection-safe v0.3 comparator confirms that the apparent v0.4 edge is not merely an artifact of comparing against fixed 60/30/10.",
+    "WR is the strongest independent proof: final-holdout MAE/RMSE/rank all improve and paired bootstrap excludes zero.",
+    "RB has operationally meaningful gains but one historical loss and a final-position bootstrap interval crossing zero.",
+    "TE is consistently positive versus nested v0.3 across rolling folds, but the absolute final-holdout gain is modest.",
+    "QB improvement comes from refusing unstable v0.4 complexity and retaining the transparent baseline rather than from a new richer QB model."
+  ],
+  "readiness": "EXPERIMENTAL OUTPUT READY FOR CORE REVIEW"
+}
