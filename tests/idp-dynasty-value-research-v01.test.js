@@ -2,6 +2,7 @@ const test=require('node:test');
 const assert=require('node:assert/strict');
 const R=require('../scripts/idp-dynasty-value-research-v01.js');
 const Empirical=require('../scripts/idp-dynasty-empirical-v01.js');
+const Horizon=require('../scripts/idp-dynasty-horizon-v01.js');
 
 function row(id,season,position,points,age,exp,ppw=points/10){return {gsis_id:id,season,model_position:position,reference_points:points,points_per_observed_week:ppw,observed_week_availability_proxy:.8,player_season_age:age,experience_season:exp,next_season_any_idp_observed:false,next_season_same_model_position:false,conditional_yoy_points_per_observed_week_delta:null};}
 function sample(){
@@ -94,4 +95,49 @@ test('hybrid and IDP flex effects are not reconstructed retrospectively from cur
   const out=R.buildFromPlayerSeasons(sample());
   assert.match(out.idp_flex_effects.status,/HISTORICAL_EFFECT_BLOCKED/);
   assert.match(out.hybrid_position_effects.status,/CURRENT_ONLY/);
+});
+
+test('multi-horizon relevance survival exposes year+1 year+2 year+3 without calling it role survival',()=>{
+  const s=Horizon.multiHorizonRelevanceSurvival(sample(),3);
+  for(const p of ['DL','LB','DB']){
+    assert.deepEqual(s[p].horizons.map(x=>x.horizon_years),[1,2,3]);
+    assert.match(s[p].note,/not starter\/depth\/role survival/i);
+    assert.ok(Number.isFinite(s[p].horizons[0].p50_relevance_survival_rate));
+  }
+});
+
+test('position horizon readiness remains unfrozen and never inherits offense horizon',()=>{
+  const rows=sample();
+  const ready=Horizon.horizonReadiness(R.persistenceByPosition(rows,3),Horizon.multiHorizonRelevanceSurvival(rows,3),R.uncertaintyByPosition(rows));
+  for(const p of ['DL','LB','DB']){
+    assert.equal(ready[p].status,'UNFROZEN');
+    assert.equal(ready[p].offense_horizon_inherited,false);
+    assert.ok(Object.hasOwn(ready[p].p50_relevance_survival,'y1'));
+  }
+});
+
+test('finer role splits require both sample and provenance and never authorize production inference',()=>{
+  const coverage={stable_role_player_seasons:{EDGE:300,DT:260,ILB:280,CB:500,S:450}};
+  const ready=Horizon.roleSplitReadiness(coverage,250);
+  assert.equal(ready.groups.EDGE.status,'SAMPLE_GATE_ONLY');
+  assert.equal(ready.groups.INTERIOR_DL.status,'SAMPLE_GATE_ONLY');
+  assert.equal(ready.groups.OFF_BALL_LB.status,'SAMPLE_GATE_ONLY');
+  assert.equal(ready.production_role_inference_authorized,false);
+  for(const group of Object.values(ready.groups)) assert.equal(group.empirically_justified,false);
+});
+
+test('candidate surplus architecture is research-only and explicitly compares clipped vs signed surplus',()=>{
+  const a=Horizon.surplusArchitecture();
+  assert.equal(a.status,'ARCHITECTURE_ONLY');
+  assert.equal(a.production_numeric_output,false);
+  assert.match(a.candidate_equation,/P\(fantasy_relevant at h/i);
+  assert.match(a.alternative_signed_surplus_equation,/expected_league_scored_points_h - league_replacement_points_h/i);
+  assert.ok(a.blocked_assumptions.includes('offensive dynasty horizon'));
+});
+
+test('scoring FLEX and hybrid sensitivity contracts fail closed where historical point-in-time evidence is missing',()=>{
+  const s=Horizon.sensitivityReadiness();
+  assert.match(s.league_scoring.status,/REQUIRES_HISTORICAL_STAT_RESCORING/);
+  assert.match(s.idp_flex.status,/HISTORICAL_EFFECT_BLOCKED/);
+  assert.match(s.hybrid_positions.status,/HISTORICAL_POINT_IN_TIME_ELIGIBILITY_REQUIRED/);
 });
