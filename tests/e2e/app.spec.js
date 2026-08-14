@@ -134,6 +134,8 @@ test("shows League Vector v0.3 experimental projections with truthful scoring co
   await expect(page.locator("#experimentalProjectionRows")).toContainText("Test Runner");
   await expect(page.locator("#experimentalProjectionRows")).toContainText("Test Defender");
   await expect(page.locator("#experimentalProjectionRows")).toContainText("bonus_pass_yd_400");
+  await page.getByText("Show projections", { exact: true }).click();
+  await expect(page.locator("#experimentalProjectionPanel")).toHaveAttribute("open", "");
   await expect(page.getByLabel("Fantasy team")).toBeVisible();
   await expect(page.getByLabel("Sort")).toBeVisible();
   await page.locator("#experimentalProjectionRows details").first().locator("summary").click();
