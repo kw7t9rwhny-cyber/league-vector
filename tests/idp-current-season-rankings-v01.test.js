@@ -76,21 +76,21 @@ test('unknown IDP-like roster slot fails closed', () => {
 
 test('hybrid replacement threshold uses exact eligibility set rather than max positional VORP', () => {
   const players = [
-    { id:'hybrid', points:100, lineup_eligibility:['DL','LB'] },
-    { id:'dl', points:95, lineup_eligibility:['DL'] },
-    { id:'lb', points:90, lineup_eligibility:['LB'] },
-    { id:'db', points:80, lineup_eligibility:['DB'] },
-    { id:'nextdl', points:70, lineup_eligibility:['DL'] },
-    { id:'nextlb', points:60, lineup_eligibility:['LB'] },
+    { id:'dl1', points:117, lineup_eligibility:['DL'] },
+    { id:'dl2', points:44, lineup_eligibility:['DL'] },
+    { id:'dl3', points:117, lineup_eligibility:['DL'] },
+    { id:'hybrid', points:104, lineup_eligibility:['DL','LB'] },
+    { id:'lb1', points:75, lineup_eligibility:['LB'] },
+    { id:'lb2', points:93, lineup_eligibility:['LB'] },
   ];
-  const config = { teams:1, dedicated:{DL:1,LB:1,DB:1}, flex:0 };
+  const config = { teams:1, dedicated:{DL:1,LB:1,DB:0}, flex:1 };
   const hybrid = Rankings.replacementEntryThreshold(players, config, ['DL','LB']);
   const dl = Rankings.replacementEntryThreshold(players, config, ['DL']);
   const lb = Rankings.replacementEntryThreshold(players, config, ['LB']);
   assert.ok(Number.isFinite(hybrid));
   assert.ok(Number.isFinite(dl));
   assert.ok(Number.isFinite(lb));
-  assert.notEqual(hybrid, Math.max(dl, lb));
+  assert.ok(hybrid < Math.max(dl, lb));
 });
 
 test('candidate excludes retired and unverified teamless players and never emits dynasty value', () => {
