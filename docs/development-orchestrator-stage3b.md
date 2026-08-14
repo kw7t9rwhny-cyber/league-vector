@@ -121,3 +121,5 @@ Rollback tests cover unrelated human labels, same/conflicting Orchestrator statu
 ## Activation boundary
 
 Even after QA and merge, this Stage-3B architecture remains inactive because there is no real write adapter and no write permission. A future activation requires a separate Founder-authorized, exact-SHA independently QA-reviewed candidate. Stage 3C is not implemented or authorized here.
+
+This document describes the inactive architecture under HIGH-risk QA. It does not authorize Stage 3B execution or Stage 3C.
