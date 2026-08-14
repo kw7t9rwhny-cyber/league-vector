@@ -78,6 +78,10 @@ function parseStructuredMetadata(body = "", labels = []) {
   return { fields, structured: missing.length === 0, missing };
 }
 
+function eventIdentifier(event) {
+  return event.id === undefined || event.id === null ? null : String(event.id);
+}
+
 function parseVerdicts(events = []) {
   const verdicts = [];
   for (const event of events) {
@@ -90,17 +94,43 @@ function parseVerdicts(events = []) {
         verdict: match[1].toLowerCase(),
         tested_sha: match[2],
         created_at: event.submitted_at || event.created_at || "",
-        source: event.source || "comment"
+        source: event.source || "comment",
+        event_id: eventIdentifier(event)
       });
     }
   }
-  verdicts.sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+  verdicts.sort((a, b) => {
+    const byTime = String(a.created_at).localeCompare(String(b.created_at));
+    if (byTime) return byTime;
+    const bySha = a.tested_sha.localeCompare(b.tested_sha);
+    if (bySha) return bySha;
+    const byVerdict = a.verdict.localeCompare(b.verdict);
+    if (byVerdict) return byVerdict;
+    const bySource = String(a.source).localeCompare(String(b.source));
+    if (bySource) return bySource;
+    return String(a.event_id || "").localeCompare(String(b.event_id || ""));
+  });
   return verdicts;
 }
 
 function latestVerdictForHead(verdicts, headSha) {
   const applicable = verdicts.filter((entry) => entry.tested_sha === headSha);
-  return applicable.length ? applicable[applicable.length - 1] : null;
+  if (!applicable.length) return null;
+  const latestTimestamp = applicable[applicable.length - 1].created_at;
+  const latestEvents = applicable.filter((entry) => entry.created_at === latestTimestamp);
+  const decisions = new Set(latestEvents.map((entry) => entry.verdict));
+  if (decisions.size > 1) {
+    return {
+      verdict: "conflicted",
+      tested_sha: headSha,
+      created_at: latestTimestamp,
+      source: "conflicting-canonical-verdicts",
+      event_id: null,
+      conflicted: true,
+      evidence_count: latestEvents.length
+    };
+  }
+  return latestEvents[latestEvents.length - 1];
 }
 
 function latestVerdict(verdicts) {
@@ -152,6 +182,7 @@ function normalizePr(pr) {
     current_qa_verdict: current,
     qa_fresh: Boolean(current && current.verdict === "pass" && current.tested_sha === pr.head_sha),
     qa_failed_current: Boolean(current && current.verdict === "fail"),
+    qa_conflicted_current: Boolean(current && current.verdict === "conflicted"),
     qa_stale: Boolean(latest && latest.tested_sha !== pr.head_sha),
     head_matches_declared: pr.declared_candidate_sha ? pr.declared_candidate_sha === pr.head_sha : null
   };
@@ -171,7 +202,7 @@ function safeNextAction(item, byId) {
   if (!item.structured) return item.legacy_observed_state === "more-research-required" ? "MORE_RESEARCH_REQUIRED" : "NO_ACTION";
   const deps = dependencyState(item, byId);
   if (!deps.satisfied) return "BLOCKED_DEPENDENCY";
-  if (item.qa_failed_current) return "RETURN_TO_OWNER";
+  if (item.qa_conflicted_current || item.qa_failed_current) return "RETURN_TO_OWNER";
   if (item.status === "ready-for-qa") return "SEND_TO_QA";
   if (item.status === "waiting-founder") return "WAITING_ON_FOUNDER";
   if (item.type === "research") return item.status === "blocked" ? "BLOCKED_DEPENDENCY" : "MORE_RESEARCH_REQUIRED";
@@ -188,13 +219,13 @@ function deriveQueues(prs) {
     item.dependencies_satisfied = deps.satisfied;
     item.blocked_dependencies = deps.missing;
     item.recommended_action = safeNextAction(item, byId);
-    item.recommended_qa_depth = item.structured && item.risk ? qaDepth(item.risk, item.qa_failed_current) : null;
+    item.recommended_qa_depth = item.structured && item.risk ? qaDepth(item.risk, item.qa_failed_current || item.qa_conflicted_current) : null;
   }
   const structuredOpen = items.filter((item) => item.open && item.structured);
   return {
-    qa: structuredOpen.filter((item) => item.status === "ready-for-qa" && !item.qa_fresh),
+    qa: structuredOpen.filter((item) => item.status === "ready-for-qa" && !item.qa_fresh && !item.qa_failed_current && !item.qa_conflicted_current),
     core: structuredOpen.filter((item) => item.recommended_action === "READY_FOR_CORE_REVIEW"),
-    remediation: structuredOpen.filter((item) => item.qa_failed_current || item.status === "qa-failed"),
+    remediation: structuredOpen.filter((item) => item.qa_conflicted_current || item.qa_failed_current || item.status === "qa-failed"),
     founder: structuredOpen.filter((item) => item.status === "waiting-founder" && item.founder_decision !== "approved"),
     research: structuredOpen.filter((item) => item.type === "research"),
     legacy: items.filter((item) => item.open && !item.structured),
@@ -212,7 +243,7 @@ function compactItem(item) {
     head_sha: item.head_sha,
     declared_candidate_sha: item.declared_candidate_sha,
     head_matches_declared: item.head_matches_declared,
-    qa_status: item.qa_failed_current ? "fail" : item.qa_fresh ? "pass-fresh" : item.qa_stale ? "stale" : "none",
+    qa_status: item.qa_conflicted_current ? "conflicted" : item.qa_failed_current ? "fail" : item.qa_fresh ? "pass-fresh" : item.qa_stale ? "stale" : "none",
     previous_qa_verdict: item.latest_qa_verdict,
     dependencies: item.dependencies || [],
     dependencies_satisfied: item.dependencies_satisfied,
@@ -235,7 +266,7 @@ function handoffFor(item) {
     `Owner: ${item.owner || "legacy/unstructured"}`,
     `Risk: ${item.risk || "unknown"}`,
     `Status: ${item.status || item.legacy_observed_state || "unknown"}`,
-    `QA: ${item.qa_failed_current ? `FAIL on ${item.head_sha}` : item.qa_fresh ? `PASS on ${item.head_sha}` : item.qa_stale ? `STALE (latest tested ${item.latest_qa_verdict.tested_sha})` : "none"}`,
+    `QA: ${item.qa_conflicted_current ? `CONFLICTED on ${item.head_sha}` : item.qa_failed_current ? `FAIL on ${item.head_sha}` : item.qa_fresh ? `PASS on ${item.head_sha}` : item.qa_stale ? `STALE (latest tested ${item.latest_qa_verdict.tested_sha})` : "none"}`,
     `Dependencies: ${(item.dependencies || []).length ? item.dependencies.map((id) => `#${id}`).join(", ") : "none declared"}`,
     `Founder gate: ${item.founder_gate || "none/unknown"}; decision: ${item.founder_decision || "unknown"}`,
     `Recommended next action: ${item.recommended_action}`
@@ -304,8 +335,8 @@ async function loadLiveRepository(repository, token) {
       githubJson(`${base}/pulls/${pr.number}/reviews?per_page=100`, token)
     ]);
     const events = [
-      ...comments.map((x) => ({ body: x.body, created_at: x.created_at, source: "comment" })),
-      ...reviews.map((x) => ({ body: x.body, submitted_at: x.submitted_at, source: "review" }))
+      ...comments.map((x) => ({ body: x.body, created_at: x.created_at, source: "comment", id: x.id })),
+      ...reviews.map((x) => ({ body: x.body, submitted_at: x.submitted_at, source: "review", id: x.id }))
     ];
     prs.push({
       number: pr.number,
