@@ -7,6 +7,16 @@
   "selection_period": [2020, 2021, 2022, 2023, 2024],
   "retrospective_observed": [2025],
   "status": "READY FOR QA — HIGH RISK",
+  "canonical_evidence_contract": {
+    "canonical_result_file": "canonical-result.json",
+    "canonical_sha_file": "canonical-result.sha256",
+    "workflow_manifest_file": "evidence-manifest.json",
+    "float_decimal_places": 8,
+    "serialization": "finite numeric results rounded to 8 decimal places; negative zero normalized; JSON keys sorted; UTF-8; LF line endings; exactly one terminal newline",
+    "ephemeral_metadata_separation": "workflow run id, run attempt, runner OS and exact GitHub head live only in evidence-manifest.json and are excluded from canonical-result.json",
+    "byte_identity_claim": "applies only to canonical-result.json after the declared canonicalization step; workflow must build from two separately restored clean copies of the frozen input and cmp them byte-for-byte",
+    "sha_declaration_rule": "evidence-manifest.json must declare the SHA-256 computed from the actual uploaded canonical-result.json; no manually carried canonical hash is authoritative"
+  },
   "model": {
     "family": "ridge",
     "alpha": 10,
@@ -16,26 +26,24 @@
     "features": ["prior_sacks", "prior_sack_yards", "prior_games", "prior_solo_tackles"],
     "training_rule": "target season Y may use only seasons before Y",
     "output_rule": "finite model prediction, sanitized nonnegative",
-    "missing_data_rule": "fail closed; never coerce unavailable/non-numeric source state to zero",
+    "missing_data_rule": "fail closed; true numeric zero remains zero; null/non-numeric/unavailable required source state throws before preprocessing/modeling/scoring and is never coerced to zero",
     "position_gate": "DB remains unsupported because Ridge worsens DB MAE despite improved RMSE/rank"
   },
   "development_evidence": {
-    "dl_zero_mae": 16.5580,
+    "dl_zero_mae": 16.5583,
     "dl_ridge_mae": 12.9023,
     "dl_fold_wins_vs_zero": "5/5",
-    "lb_zero_mae": 12.2340,
-    "lb_ridge_mae": 10.1140,
+    "lb_zero_mae": 12.2345,
+    "lb_ridge_mae": 10.1142,
     "lb_fold_wins_vs_zero": "5/5",
     "db_zero_mae": 1.8907,
-    "db_ridge_mae": 2.7300,
-    "db_zero_rmse": 5.5366,
-    "db_ridge_rmse": 4.9320,
-    "db_ridge_spearman": 0.288
+    "db_ridge_mae": 2.7303,
+    "db_fold_wins_vs_zero": "0/5"
   },
   "founder_scoring_weight": 0.1,
   "threshold_probability_research_only": {
-    "bonus_sack_2p": {"brier_improves_all_folds": true, "expected_count_mae_beats_zero": false},
-    "idp_pass_def_3p": {"brier_improves_all_folds": true, "expected_count_mae_beats_zero": false}
+    "bonus_sack_2p": {"brier_improves_all_folds": true, "expected_count_mae_beats_zero": false, "scoring_output_authorized": false},
+    "idp_pass_def_3p": {"brier_improves_all_folds": true, "expected_count_mae_beats_zero": false, "scoring_output_authorized": false}
   },
   "firewalls": {
     "experimental": true,
@@ -43,12 +51,14 @@
     "idp_dynasty_value_available": false,
     "dynasty_value": null,
     "combined_offense_idp_dynasty_rankings_available": false,
-    "global_founder_scoring_rankable": false
+    "global_founder_scoring_rankable": false,
+    "zero_fill_missing_stats": false
   },
   "non_candidates": ["bonus_sack_2p","fum_rec_td","idp_blk_kick","idp_fum_ret_yd","idp_int_ret_yd","idp_pass_def_3p","st_ff","st_fum_rec","st_td"],
   "qa_focus": [
-    "reproduce frozen input hash and deterministic outputs",
-    "verify no zero-fill or missing-state coercion",
+    "reproduce frozen input hash and byte-identical canonical output from separately restored clean inputs",
+    "verify evidence-manifest canonical SHA equals the actual uploaded canonical-result.json SHA-256",
+    "verify true numeric zero is preserved and null/non-numeric/unavailable source state fails closed before modeling",
     "verify chronological folds and 2025 retrospective-only policy",
     "independently reconstruct DL/LB sack-yard metrics and 5/5 fold wins",
     "verify DB remains unsupported and cannot silently receive a zero or DL/LB model",
