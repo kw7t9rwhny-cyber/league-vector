@@ -12,6 +12,11 @@ spec.loader.exec_module(mod)
 
 
 class ProspectiveArchiveTests(unittest.TestCase):
+    def test_team_aliases_are_canonical(self):
+        self.assertEqual(mod.normalize_team("AZ"), "ARI")
+        self.assertEqual(mod.normalize_team("ARI"), "ARI")
+        self.assertEqual(mod.normalize_team("WSH"), "WAS")
+
     def test_transition_semantics(self):
         previous = [
             {"identity": {"gsis_id": "A"}, "team": "GB", "provider_depth_position": "QB", "depth_order": 2},
@@ -32,6 +37,20 @@ class ProspectiveArchiveTests(unittest.TestCase):
         self.assertFalse(identity["resolved"])
         self.assertIsNone(identity["league_vector_player_id"])
         self.assertEqual(identity["provider_player_id"], "123")
+
+    def test_cross_team_identity_conflict_fails_closed(self):
+        rows = []
+        for i in range(1000):
+            rows.append({
+                "identity": {"gsis_id": "A" if i < 2 else f"G{i}", "resolved": True},
+                "team": "GB" if i != 1 else "CHI",
+                "provider_depth_position": "QB",
+                "depth_order": 1,
+                "roster_status": "ACT",
+            })
+        report = mod.quality_report("roster", rows, "week:1", dt.datetime(2026, 8, 14, tzinfo=dt.timezone.utc))
+        self.assertFalse(report["structurally_valid"])
+        self.assertGreater(report["cross_team_identity_conflict_count"], 0)
 
     def test_content_hash_is_deterministic(self):
         a = mod.canonical_json_bytes({"z": 1, "a": [2, 3]})
