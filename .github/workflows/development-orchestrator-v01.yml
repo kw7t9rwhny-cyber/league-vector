@@ -1,4 +1,4 @@
-name: Development Orchestrator v0.1
+name: Development Orchestrator Stage 1+2
 
 on:
   pull_request:
@@ -18,12 +18,28 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Syntax check
+      - name: Stage 1 syntax check
         run: node --check scripts/development-orchestrator-v01.js
-      - name: Deterministic orchestrator tests
+      - name: Stage 1 deterministic orchestrator tests
         run: node --test tests/development-orchestrator-v01.test.js
-      - name: Validate schema is readable
+      - name: Stage 2 syntax check
+        run: node --check scripts/development-orchestrator-v02.js
+      - name: Stage 2 deterministic queue/adversarial tests
+        run: node --test tests/development-orchestrator-v02.test.js
+      - name: Validate Stage 1 schema is readable
         run: node scripts/development-orchestrator-v01.js
+      - name: Dogfood Stage 2 against live GitHub state (read only)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          node scripts/development-orchestrator-v02.js status --json > /tmp/orchestrator-stage2-status.json
+          node scripts/development-orchestrator-v02.js queue qa --json > /tmp/orchestrator-stage2-qa.json
+          node scripts/development-orchestrator-v02.js queue core --json > /tmp/orchestrator-stage2-core.json
+          node scripts/development-orchestrator-v02.js queue remediation --json > /tmp/orchestrator-stage2-remediation.json
+          node scripts/development-orchestrator-v02.js queue founder --json > /tmp/orchestrator-stage2-founder.json
+          node scripts/development-orchestrator-v02.js queue research --json > /tmp/orchestrator-stage2-research.json
+          node -e 'const s=require("/tmp/orchestrator-stage2-status.json"); if(s.source!=="live-github-read-only") process.exit(1); console.log(JSON.stringify(s.counts));'
 
   pr-metadata-audit:
     if: github.event_name == 'pull_request'
@@ -49,6 +65,7 @@ jobs:
           print("orchestrator metadata is non-contradictory")
           PY
 
-# Security contract: this workflow intentionally has read-only permissions.
-# It never runs pull_request_target, never executes privileged untrusted code,
-# never merges, never deploys, and never mutates labels or Founder gates in v0.1.
+# Security contract: Stage 1 and Stage 2 are intentionally read-only.
+# No pull_request_target. No privileged untrusted execution. No labels, assignments,
+# comments, branches, PRs, merges, deployments, Founder decisions, paid-service calls,
+# business/legal actions, or production-model promotion are mutated by this workflow.
