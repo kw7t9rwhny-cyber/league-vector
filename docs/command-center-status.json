@@ -1,0 +1,15 @@
+{
+  "version": "lv-command-center-status-v0.1",
+  "source": "generated from GitHub PR/issue metadata; example fixture until Stage 3 generator is enabled",
+  "production": {
+    "health": "unknown_until_generated",
+    "main_sha": "838f000c6992c981ea2bdddfe83e1ba88ca05239"
+  },
+  "active": [],
+  "research_candidates": [],
+  "qa_queue": [],
+  "core_queue": [],
+  "blocked": [],
+  "founder_decisions": [],
+  "live_test_queue": []
+}
