@@ -2,6 +2,14 @@ name: Projection v0.4 Cycle2 Research
 
 on:
   pull_request:
+    paths:
+      - 'scripts/projection-v041-cycle2.js'
+      - 'scripts/projection-v041-cycle2-deep.js'
+      - 'scripts/projection-v041-te-root-cause.js'
+      - 'scripts/projection-v041-te-huber.js'
+      - 'scripts/projection-v041-te-target-robust.js'
+      - 'scripts/projection-v041-rookie-canonical.js'
+      - '.github/workflows/projection-v041-cycle2.yml'
   workflow_dispatch:
 
 permissions:
