@@ -1,0 +1,39 @@
+name: Core IDP scoring scope patch
+on:
+  push:
+    branches: [codex/idp-scoring-founder-hotfix-v01]
+    paths: [.github/workflows/core-idp-scoring-scope-patch.yml]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/idp-scoring-founder-hotfix-v01
+      - name: Scope player IDP scoring correctly
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('idp-current-season-rankings-v01.js')
+          s=p.read_text()
+          old='''  const SUPPORTED_SCORING = Object.freeze({\n    tkl: "total_tackles", idp_tkl: "total_tackles",\n    tkl_solo: "solo_tackles", idp_tkl_solo: "solo_tackles",\n    tkl_ast: "assisted_tackles", idp_tkl_ast: "assisted_tackles",\n    tkl_loss: "tackles_for_loss", idp_tkl_loss: "tackles_for_loss",\n    sack: "sacks", idp_sack: "sacks",\n    qb_hit: "qb_hits", idp_qb_hit: "qb_hits",\n    int: "interceptions", idp_int: "interceptions",\n    pass_def: "passes_defended", idp_pass_def: "passes_defended",\n    ff: "forced_fumbles", idp_ff: "forced_fumbles",\n    fum_rec: "fumble_recoveries", idp_fum_rec: "fumble_recoveries",\n    def_td: "defensive_td", idp_def_td: "defensive_td",\n    safe: "safeties", idp_safe: "safeties",\n  });\n  const KNOWN_IDP_KEY = /(?:^idp_|^tkl|sack|qb_hit|pass_def|(^|_)ff$|fum_rec|def_td|safe|blk_kick|def_2pt|int_ret|fum_ret|def_st|st_td|kick_ret|punt_ret)/;'''
+          new='''  const SUPPORTED_SCORING = Object.freeze({\n    idp_tkl: "total_tackles",\n    idp_tkl_solo: "solo_tackles",\n    idp_tkl_ast: "assisted_tackles",\n    idp_tkl_loss: "tackles_for_loss",\n    idp_sack: "sacks",\n    idp_qb_hit: "qb_hits",\n    idp_int: "interceptions",\n    idp_pass_def: "passes_defended",\n    idp_ff: "forced_fumbles",\n    idp_fum_rec: "fumble_recoveries",\n    idp_def_td: "defensive_td",\n    idp_safe: "safeties",\n  });\n  const TEAM_DEFENSE_SCORING_KEYS = new Set([\n    "def_td", "sack", "sack_yd", "qb_hit", "int", "int_ret_yd",\n    "fum_rec", "fum_ret_yd", "tkl", "tkl_solo", "tkl_ast", "tkl_loss",\n    "safe", "ff", "blk_kick", "pass_def", "def_2pt",\n  ]);\n  const KNOWN_PLAYER_IDP_KEY = /(?:^idp_|^st_|^bonus_sack_|^fum_rec_td$)/;\n  function isNonPlayerScoringKey(key) {\n    return TEAM_DEFENSE_SCORING_KEYS.has(key) || /^def_st_/.test(key);\n  }'''
+          if old not in s: raise SystemExit('supported scoring block not found')
+          s=s.replace(old,new)
+          old2='''  function scoringCoverage(scoringSettings = {}, projectedStats = null) {\n    const mapped = {};\n    const supportedKeys = [];\n    const unsupportedKeys = [];\n    for (const [key, rawWeight] of Object.entries(scoringSettings || {})) {\n      if (!finite(rawWeight) || Number(rawWeight) === 0) continue;\n      const stat = SUPPORTED_SCORING[key];\n      if (stat) {\n        mapped[stat] = (mapped[stat] || 0) + Number(rawWeight);\n        supportedKeys.push(key);\n      } else if (KNOWN_IDP_KEY.test(key)) unsupportedKeys.push(key);\n    }\n    const activeSupportedStats = Object.keys(mapped);\n    const missingProjectedStats = projectedStats\n      ? activeSupportedStats.filter((stat) => !finite(projectedStats?.[stat]))\n      : [];\n    const hasSupportedScoring = activeSupportedStats.length > 0;\n    const complete = hasSupportedScoring && unsupportedKeys.length === 0 && missingProjectedStats.length === 0;\n    return {\n      status: complete ? "complete" : hasSupportedScoring ? "partial" : "unavailable",\n      supported_keys: supportedKeys.sort(),\n      unsupported_keys: unsupportedKeys.sort(),\n      active_supported_stats: activeSupportedStats.sort(),\n      missing_projected_stats: missingProjectedStats.sort(),\n      meaningful_incomplete: unsupportedKeys.length > 0 || missingProjectedStats.length > 0,\n      scoring: mapped,\n    };\n  }'''
+          new2='''  function scoringCoverage(scoringSettings = {}, projectedStats = null) {\n    const mapped = {};\n    const supportedKeys = [];\n    const unsupportedKeys = [];\n    const nonPlayerKeys = [];\n    for (const [key, rawWeight] of Object.entries(scoringSettings || {})) {\n      if (!finite(rawWeight) || Number(rawWeight) === 0) continue;\n      const stat = SUPPORTED_SCORING[key];\n      if (stat) {\n        mapped[stat] = (mapped[stat] || 0) + Number(rawWeight);\n        supportedKeys.push(key);\n      } else if (isNonPlayerScoringKey(key)) {\n        nonPlayerKeys.push(key);\n      } else if (KNOWN_PLAYER_IDP_KEY.test(key)) {\n        unsupportedKeys.push(key);\n      }\n    }\n    const activeSupportedStats = Object.keys(mapped);\n    const missingProjectedStats = projectedStats\n      ? activeSupportedStats.filter((stat) => !finite(projectedStats?.[stat]))\n      : [];\n    const hasSupportedScoring = activeSupportedStats.length > 0;\n    const complete = hasSupportedScoring && unsupportedKeys.length === 0 && missingProjectedStats.length === 0;\n    return {\n      status: complete ? "complete" : hasSupportedScoring ? "partial" : "unavailable",\n      supported_keys: supportedKeys.sort(),\n      unsupported_keys: unsupportedKeys.sort(),\n      non_player_keys: nonPlayerKeys.sort(),\n      active_supported_stats: activeSupportedStats.sort(),\n      missing_projected_stats: missingProjectedStats.sort(),\n      meaningful_incomplete: unsupportedKeys.length > 0 || missingProjectedStats.length > 0,\n      scoring: mapped,\n    };\n  }'''
+          if old2 not in s: raise SystemExit('coverage block not found')
+          s=s.replace(old2,new2)
+          old3='''          unsupported_keys: row.scoring_coverage.unsupported_keys,\n          missing_projected_stats: row.scoring_coverage.missing_projected_stats,'''
+          new3='''          unsupported_keys: row.scoring_coverage.unsupported_keys,\n          non_player_keys: row.scoring_coverage.non_player_keys,\n          missing_projected_stats: row.scoring_coverage.missing_projected_stats,'''
+          if old3 not in s: raise SystemExit('row coverage block not found')
+          s=s.replace(old3,new3)
+          p.write_text(s)
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add idp-current-season-rankings-v01.js
+          git commit -m 'fix: scope current-season scoring to individual IDP keys'
+          git push origin HEAD:codex/idp-scoring-founder-hotfix-v01
