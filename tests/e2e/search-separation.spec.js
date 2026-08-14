@@ -51,8 +51,11 @@ test('experimental and dynasty searches remain independent', async ({ page }) =>
 
   const projectionSearch = page.getByLabel('Search players');
   const dynastySearch = page.getByLabel('Search dynasty players');
-  await expect(projectionSearch).toBeVisible();
   await expect(dynastySearch).toBeVisible();
+  await expect(projectionSearch).toBeHidden();
+  await page.getByText('Show projections', { exact: true }).click();
+  await expect(page.locator('#experimentalProjectionPanel')).toHaveAttribute('open', '');
+  await expect(projectionSearch).toBeVisible();
 
   await projectionSearch.fill('Purdy');
   await expect(page.locator('#experimentalProjectionRows', { hasText: 'Brock Purdy' })).toBeVisible();
