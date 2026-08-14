@@ -115,6 +115,27 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  projection-v04-research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Run selection-safe offensive v0.4 overnight benchmark
+        run: node scripts/projection-v04-overnight.js data/reports/projection-v04-overnight
+      - name: Upload v0.4 research results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: league-vector-projection-v04-overnight
+          path: data/reports/projection-v04-overnight/
+          if-no-files-found: error
+          retention-days: 14
+
   publish-live-projection-asset:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [validate, historical-data-audit, projection-benchmark, projection-v03]
