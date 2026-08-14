@@ -38,14 +38,20 @@ jobs:
         run: node scripts/projection-v041-cycle2-deep.js data/reports/projection-v041-cycle2/deep-a .cache/lv-v041-cycle2 data/reports/projection-v041-cycle2/control/candidate-player-seasons.json data/reports/projection-v041-cycle2/control/baseline-player-seasons.json
       - name: Deep diagnostics run B
         run: node scripts/projection-v041-cycle2-deep.js data/reports/projection-v041-cycle2/deep-b .cache/lv-v041-cycle2 data/reports/projection-v041-cycle2/control/candidate-player-seasons.json data/reports/projection-v041-cycle2/control/baseline-player-seasons.json
+      - name: TE root-cause run A
+        run: node scripts/projection-v041-te-root-cause.js data/reports/projection-v041-cycle2/te-a .cache/lv-v041-cycle2 data/reports/projection-v041-cycle2/control/candidate-player-seasons.json
+      - name: TE root-cause run B
+        run: node scripts/projection-v041-te-root-cause.js data/reports/projection-v041-cycle2/te-b .cache/lv-v041-cycle2 data/reports/projection-v041-cycle2/control/candidate-player-seasons.json
       - name: Prove deterministic cycle2 research
         run: |
           cmp data/reports/projection-v041-cycle2/run-a/cycle2-summary.json data/reports/projection-v041-cycle2/run-b/cycle2-summary.json
           cmp data/reports/projection-v041-cycle2/run-a/cycle2-summary.sha256 data/reports/projection-v041-cycle2/run-b/cycle2-summary.sha256
           cmp data/reports/projection-v041-cycle2/deep-a/deep-summary.json data/reports/projection-v041-cycle2/deep-b/deep-summary.json
           cmp data/reports/projection-v041-cycle2/deep-a/deep-summary.sha256 data/reports/projection-v041-cycle2/deep-b/deep-summary.sha256
+          cmp data/reports/projection-v041-cycle2/te-a/te-root-cause.json data/reports/projection-v041-cycle2/te-b/te-root-cause.json
+          cmp data/reports/projection-v041-cycle2/te-a/te-root-cause.sha256 data/reports/projection-v041-cycle2/te-b/te-root-cause.sha256
           cp .cache/lv-v041-cycle2/snapshot-manifest.json data/reports/projection-v041-cycle2/snapshot-manifest.json
-          printf '{"deterministic":true,"comparison":"run-a byte-identical to run-b for primary and deep diagnostics","control_snapshot":"d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188"}\n' > data/reports/projection-v041-cycle2/determinism-proof.json
+          printf '{"deterministic":true,"comparison":"run-a byte-identical to run-b for primary, deep, and TE diagnostics","control_snapshot":"d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188"}\n' > data/reports/projection-v041-cycle2/determinism-proof.json
       - name: Upload cycle2 evidence
         uses: actions/upload-artifact@v4
         with:
