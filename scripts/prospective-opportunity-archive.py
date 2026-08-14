@@ -13,16 +13,24 @@ import gzip
 import hashlib
 import io
 import json
-import os
 import pathlib
-import sys
 import urllib.request
 from collections import Counter, defaultdict
 
-SCHEMA_VERSION = "lv-prospective-opportunity-archive-v1"
+SCHEMA_VERSION = "lv-prospective-opportunity-archive-v1.1"
 ROOT = pathlib.Path("data/opportunity-archive")
 EXPECTED_TEAMS = 32
 USER_AGENT = "LeagueVector-ProspectiveArchive/0.1 (+research provenance capture)"
+TEAM_ALIASES = {
+    "AZ": "ARI",
+    "ARZ": "ARI",
+    "JAC": "JAX",
+    "WSH": "WAS",
+    "LAR": "LA",
+    "STL": "LA",
+    "OAK": "LV",
+    "SD": "LAC",
+}
 
 SOURCES = {
     "depth_chart": {
@@ -89,6 +97,14 @@ def clean(value):
     return value or None
 
 
+def normalize_team(value):
+    team = clean(value)
+    if not team:
+        return None
+    team = team.upper()
+    return TEAM_ALIASES.get(team, team)
+
+
 def int_or_none(value):
     try:
         if value is None or str(value).strip() == "":
@@ -127,17 +143,20 @@ def normalize_depth(rows: list[dict], season: int) -> tuple[list[dict], str | No
     normalized = []
     for r in selected:
         identity = identity_from_row(r)
+        provider_team = clean(r.get("team"))
+        depth_order = int_or_none(r.get("pos_rank") or r.get("depth"))
         normalized.append({
             "schema_version": SCHEMA_VERSION,
             "evidence_type": "depth_chart",
             "season": season,
             "source_timestamp": latest,
-            "team": clean(r.get("team")),
+            "team": normalize_team(provider_team),
+            "provider_team": provider_team,
             "player_name": clean(r.get("player_name") or r.get("full_name")),
             "position": clean(r.get("pos_grp") or r.get("position")),
             "provider_depth_position": clean(r.get("pos_slot") or r.get("depth_chart_position")),
-            "depth_order": int_or_none(r.get("pos_rank") or r.get("depth")),
-            "starter": int_or_none(r.get("pos_rank") or r.get("depth")) == 1 if int_or_none(r.get("pos_rank") or r.get("depth")) else None,
+            "depth_order": depth_order,
+            "starter": depth_order == 1 if depth_order else None,
             "roster_status": clean(r.get("status")),
             "identity": identity,
             "provider_native": {k: clean(v) for k, v in r.items()},
@@ -155,17 +174,19 @@ def normalize_roster(rows: list[dict], season: int) -> tuple[list[dict], str | N
     selected = [r for r in season_rows if latest_week is None or int_or_none(r.get("week")) == latest_week]
     normalized = []
     for r in selected:
+        provider_team = clean(r.get("team"))
         normalized.append({
             "schema_version": SCHEMA_VERSION,
             "evidence_type": "roster",
             "season": season,
             "source_week": latest_week,
-            "team": clean(r.get("team")),
+            "team": normalize_team(provider_team),
+            "provider_team": provider_team,
             "player_name": clean(r.get("full_name") or r.get("player_name")),
             "position": clean(r.get("position")),
             "provider_depth_position": clean(r.get("depth_chart_position")),
             "roster_status": clean(r.get("status")),
-            "practice_squad": str(r.get("status") or "").upper().find("PRACTICE") >= 0,
+            "practice_squad": "PRACTICE" in str(r.get("status") or "").upper(),
             "identity": identity_from_row(r),
             "provider_native": {k: clean(v) for k, v in r.items()},
         })
@@ -185,7 +206,13 @@ def quality_report(feed: str, rows: list[dict], source_timestamp: str | None, re
     teams = sorted({r.get("team") for r in rows if r.get("team")})
     ids = [stable_identity(r) for r in rows]
     ids_nonnull = [x for x in ids if x]
-    duplicate_ids = sorted([key for key, n in Counter(ids_nonnull).items() if n > 1])
+    repeated_ids = sorted([key for key, n in Counter(ids_nonnull).items() if n > 1])
+    teams_by_identity = defaultdict(set)
+    for row in rows:
+        key = stable_identity(row)
+        if key and row.get("team"):
+            teams_by_identity[key].add(row["team"])
+    cross_team_conflicts = sorted(key for key, team_set in teams_by_identity.items() if len(team_set) > 1)
     exact_keys = [
         (r.get("team"), stable_identity(r), r.get("provider_depth_position"), r.get("depth_order"), r.get("roster_status"))
         for r in rows
@@ -217,8 +244,10 @@ def quality_report(feed: str, rows: list[dict], source_timestamp: str | None, re
         "resolved_gsis_count": resolved,
         "identity_resolved_pct": resolved / len(rows) if rows else 0,
         "unresolved_identity_count": len(rows) - resolved,
-        "duplicate_stable_identity_count": len(duplicate_ids),
-        "duplicate_stable_identity_sample": duplicate_ids[:25],
+        "repeated_stable_identity_count": len(repeated_ids),
+        "repeated_stable_identity_sample": repeated_ids[:25],
+        "cross_team_identity_conflict_count": len(cross_team_conflicts),
+        "cross_team_identity_conflict_sample": cross_team_conflicts[:25],
         "exact_duplicate_row_count": exact_duplicates,
         "missing_depth_order_count": missing_depth,
         "missing_depth_order_pct": missing_depth / len(rows) if rows else 1,
@@ -231,6 +260,8 @@ def quality_report(feed: str, rows: list[dict], source_timestamp: str | None, re
         failures.append(f"implausibly small {feed} capture: {len(rows)} rows")
     if exact_duplicates:
         failures.append(f"exact duplicate evidence rows: {exact_duplicates}")
+    if cross_team_conflicts:
+        failures.append(f"stable identities appear on multiple teams in one capture: {len(cross_team_conflicts)}")
     if feed == "depth_chart" and report["missing_depth_order_pct"] > 0.05:
         failures.append(f"missing depth order exceeds 5%: {report['missing_depth_order_pct']:.3%}")
     if any(not r.get("team") for r in rows):
@@ -404,9 +435,6 @@ def capture_feed(feed: str, season: int, retrieved_at: dt.datetime, milestone: s
         derived_hash = sha256(derived_bytes)
         derived_path = ROOT / "derived" / str(season) / stamp / f"depth-transitions-{derived_hash}.json.gz"
         write_gzip(derived_path, derived_bytes)
-        observation["derived_transition_sha256"] = derived_hash
-        observation["derived_transition_path"] = str(derived_path)
-        # Observation is immutable once written; keep derived linkage in a sidecar.
         write_json(obs_dir / "depth_chart.derived-link.json", {
             "schema_version": SCHEMA_VERSION,
             "snapshot_id": snapshot_id,
@@ -441,6 +469,8 @@ def should_run_auto(now: dt.datetime) -> bool:
 
 
 def self_test() -> None:
+    assert normalize_team("AZ") == "ARI"
+    assert normalize_team("ARI") == "ARI"
     sample = [
         {"identity": {"gsis_id": "A"}, "team": "X", "provider_depth_position": "QB", "depth_order": 2},
         {"identity": {"gsis_id": "B"}, "team": "Y", "provider_depth_position": "RB", "depth_order": 1},
