@@ -1,0 +1,32 @@
+name: Projection Opportunity Pipeline v0.1
+
+on:
+  push:
+    branches:
+      - codex/projection-opportunity-v01
+    paths:
+      - 'research/opportunity-point-in-time-v01.js'
+      - 'scripts/evaluate-opportunity-source-v01.js'
+      - 'tests/opportunity-point-in-time-v01.test.js'
+      - 'docs/projection-opportunity-pipeline-v01.md'
+      - '.github/workflows/projection-opportunity-pipeline-v01.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  point-in-time-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax check research-only pipeline
+        run: |
+          node --check research/opportunity-point-in-time-v01.js
+          node --check scripts/evaluate-opportunity-source-v01.js
+      - name: Run deterministic point-in-time contract tests
+        run: node --test tests/opportunity-point-in-time-v01.test.js
