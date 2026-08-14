@@ -32,6 +32,14 @@
     "db_ridge_spearman": 0.288
   },
   "founder_scoring_weight": 0.1,
+  "deterministic_evidence": {
+    "analysis_result_sha256": "13896f3d6bb0c6ed0d05b2fb5fc76f45760748251f6135ef0e4d291568f823c5",
+    "candidate_contract_parent_workflow": 31831920153,
+    "candidate_contract_parent_head": "b43fe701c3ca1f07e67b75efdfc91310bea1cfc8",
+    "final_report_head_workflow": 31832107192,
+    "final_report_head": "8797097a563fd1938983ce02cc5ad18e171b33d1",
+    "duplicate_runs_required_byte_identical": true
+  },
   "firewalls": {
     "experimental": true,
     "production_projection_eligible": false,
