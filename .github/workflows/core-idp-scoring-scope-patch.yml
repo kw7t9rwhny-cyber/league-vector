@@ -1,4 +1,4 @@
-name: Core IDP scoring fixture patch
+name: Core IDP browser scoring fixture patch
 on:
   push:
     branches: [codex/idp-scoring-founder-hotfix-v01]
@@ -12,27 +12,29 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: codex/idp-scoring-founder-hotfix-v01
-      - name: Update deterministic IDP scoring fixtures
+      - name: Update IDP lifecycle scoring fixtures
         run: |
           python3 - <<'PY'
           from pathlib import Path
-          p=Path('tests/idp-current-season-rankings-v01.test.js')
-          s=p.read_text()
-          replacements={
-            "scoring_settings: { tkl_solo:1.5, tkl_ast:0.75, sack:4, int:6, pass_def:1.5, ff:3, fum_rec:3, def_td:6, safe:4, qb_hit:1, tkl_loss:2 }":"scoring_settings: { idp_tkl_solo:1.5, idp_tkl_ast:0.75, idp_sack:4, idp_int:6, idp_pass_def:1.5, idp_ff:3, idp_fum_rec:3, idp_def_td:6, idp_safe:4, idp_qb_hit:1, idp_tkl_loss:2 }",
-            "const rules = { ...league().scoring_settings, blk_kick: 6 };":"const rules = { ...league().scoring_settings, idp_blk_kick: 6 };",
-            "assert.deepEqual(result.scoring_coverage.unsupported_keys, ['blk_kick']);":"assert.deepEqual(result.scoring_coverage.unsupported_keys, ['idp_blk_kick']);",
-            "{ tkl_solo:-1 }":"{ idp_tkl_solo:-1 }",
-            "scoring_settings:{tkl_solo:1}":"scoring_settings:{idp_tkl_solo:1}",
-            "scoring_settings:{...league().scoring_settings, blk_kick:6}":"scoring_settings:{...league().scoring_settings, idp_blk_kick:6}",
+          replacements = {
+            'tests/e2e/idp-current-season-integration.spec.js': [
+              ('scoring_settings: { pass_yd: 0.04, pass_td: 4, tkl_solo: 1, tkl_ast: 0.5, sack: 4 }',
+               'scoring_settings: { pass_yd: 0.04, pass_td: 4, idp_tkl_solo: 1, idp_tkl_ast: 0.5, idp_sack: 4 }'),
+            ],
+            'tests/e2e/idp-live-activation-scale.spec.js': [
+              ('scoring_settings: { pass_yd: 0.04, pass_td: 4, tkl_solo: 1.5, tkl_ast: 0.75, sack: 4, qb_hit: 1, int: 5, pass_def: 2, ff: 3, fum_rec: 2 }',
+               'scoring_settings: { pass_yd: 0.04, pass_td: 4, idp_tkl_solo: 1.5, idp_tkl_ast: 0.75, idp_sack: 4, idp_qb_hit: 1, idp_int: 5, idp_pass_def: 2, idp_ff: 3, idp_fum_rec: 2 }'),
+            ],
           }
-          for old,new in replacements.items():
-            if old not in s: raise SystemExit(f'missing fixture pattern: {old}')
-            s=s.replace(old,new)
-          p.write_text(s)
+          for name, pairs in replacements.items():
+            p=Path(name); s=p.read_text()
+            for old,new in pairs:
+              if old not in s: raise SystemExit(f'missing pattern in {name}: {old}')
+              s=s.replace(old,new)
+            p.write_text(s)
           PY
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add tests/idp-current-season-rankings-v01.test.js
-          git commit -m 'test: align IDP fixtures with Sleeper player scoring keys'
+          git add tests/e2e/idp-current-season-integration.spec.js tests/e2e/idp-live-activation-scale.spec.js
+          git commit -m 'test: align IDP browser fixtures with player scoring keys'
           git push origin HEAD:codex/idp-scoring-founder-hotfix-v01
