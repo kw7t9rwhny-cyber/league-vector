@@ -18,6 +18,13 @@ function sample(){
   }
   return rows;
 }
+function statCell(value){return {state:'value',value};}
+function completeObservation(id,season,position,week,solo=5){
+  const stats={};
+  for(const key of Object.keys(Horizon.SCORING_PROFILES.balanced_reference))stats[key]=statCell(0);
+  stats.solo_tackles=statCell(solo);stats.sacks=statCell(position==='DL'?1:0);stats.interceptions=statCell(position==='DB'?1:0);
+  return {gsis_id:id,season,position_group:position,week,stats};
+}
 
 test('persistence is position-specific and chronological',()=>{
   const p=R.persistenceByPosition(sample(),2);
@@ -117,7 +124,7 @@ test('position horizon readiness remains unfrozen and never inherits offense hor
 });
 
 test('finer role splits require both sample and provenance and never authorize production inference',()=>{
-  const coverage={stable_role_player_seasons:{EDGE:300,DT:260,ILB:280,CB:500,S:450}};
+  const coverage={stable_role_player_seasons:{EDGE:300,INTERIOR:260,OFF_BALL:280,CB:500,S:450}};
   const ready=Horizon.roleSplitReadiness(coverage,250);
   assert.equal(ready.groups.EDGE.status,'SAMPLE_GATE_ONLY');
   assert.equal(ready.groups.INTERIOR_DL.status,'SAMPLE_GATE_ONLY');
@@ -135,9 +142,22 @@ test('candidate surplus architecture is research-only and explicitly compares cl
   assert.ok(a.blocked_assumptions.includes('offensive dynasty horizon'));
 });
 
-test('scoring FLEX and hybrid sensitivity contracts fail closed where historical point-in-time evidence is missing',()=>{
+test('historical scoring profiles only score complete required stat rows',()=>{
+  const observations=[completeObservation('a',2024,'DL',1),completeObservation('a',2024,'DL',2)];
+  const scored=Horizon.buildScoredPlayerSeasons(observations,Horizon.SCORING_PROFILES.pressure_heavy);
+  assert.equal(scored.coverage.status,'COMPLETE');
+  assert.equal(scored.rows.length,1);
+  assert.ok(scored.rows[0].reference_points>0);
+  const incomplete=completeObservation('b',2024,'LB',1);
+  incomplete.stats.solo_tackles={state:'unavailable',value:null};
+  const blocked=Horizon.buildScoredPlayerSeasons([incomplete],Horizon.SCORING_PROFILES.tackle_heavy);
+  assert.equal(blocked.coverage.status,'INCOMPLETE_FAIL_CLOSED');
+  assert.equal(blocked.rows.length,0);
+});
+
+test('scoring FLEX and hybrid sensitivity contracts remain research-only where point-in-time evidence is missing',()=>{
   const s=Horizon.sensitivityReadiness();
-  assert.match(s.league_scoring.status,/REQUIRES_HISTORICAL_STAT_RESCORING/);
+  assert.match(s.league_scoring.status,/SYNTHETIC_PROFILE_RESCORING_SUPPORTED/);
   assert.match(s.idp_flex.status,/HISTORICAL_EFFECT_BLOCKED/);
   assert.match(s.hybrid_positions.status,/HISTORICAL_POINT_IN_TIME_ELIGIBILITY_REQUIRED/);
 });
