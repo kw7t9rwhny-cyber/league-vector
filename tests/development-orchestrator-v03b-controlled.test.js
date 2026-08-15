@@ -86,11 +86,16 @@ for(const operation of ["addLabel","removeLabel"]){
 test("adapter constructor cannot be rebound to attacker repository",()=>assert.throws(()=>new C.GitHubControlledLabelAdapter("mock","attacker/repo"),/untrusted_expected_repository/));
 test("real adapter surface contains label add/remove only beyond inherited reads",()=>assert.deepEqual(Object.getOwnPropertyNames(C.GitHubControlledLabelAdapter.prototype).sort(),["addLabel","constructor","removeLabel"]));
 
-test("workflow is manual-only, one-target, least-privilege, and live-Founder-source fail-closed",()=>{
+test("workflow is manual-only, one-target, least-privilege, and protected-environment gated",()=>{
   const yml=fs.readFileSync(path.join(__dirname,"../.github/workflows/development-orchestrator-stage3b-controlled.yml"),"utf8");
-  assert.match(yml,/workflow_dispatch:/);assert.equal((yml.match(/workflow_dispatch:/g)||[]).length,1);assert.match(yml,/target_pr_number:/);
-  for(const forbidden of ["pull_request_target:","schedule:","push:","pull_request:","contents: write","actions: write","deployments: write","packages: write","environment: stage3b-controlled-activation","vars.LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED","secrets.LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED"])assert.equal(yml.includes(forbidden),false,forbidden);
+  assert.match(yml,/workflow_dispatch:/);assert.equal((yml.match(/workflow_dispatch:/g)||[]).length,1);assert.match(yml,/target_pr_number:/);assert.match(yml,/default: dry-run/);
+  for(const forbidden of ["pull_request_target:","schedule:","push:","pull_request:","workflow_run:","contents: write","actions: write","deployments: write","packages: write","vars.LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED"])assert.equal(yml.includes(forbidden),false,forbidden);
   assert.match(yml,/contents: read/);assert.match(yml,/pull-requests: read/);assert.match(yml,/issues: write/);
-  assert.match(yml,/founder_environment_source_provenance_unverifiable/);assert.match(yml,/LIVE ACTIVATION BLOCKED/);
-  assert.equal(yml.includes("development-orchestrator-v03b-controlled.js execute"),false,"workflow must not invoke real executor while Founder environment source is unverifiable");
+  const preview=yml.split("  preview:")[1].split("  dry-run-proof:")[0];
+  assert.match(preview,/issues: read/);assert.equal(preview.includes("issues: write"),false);assert.equal(preview.includes("LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATION_SECRET"),false);
+  const execute=yml.split("  execute-one-pr:")[1];
+  assert.match(execute,/environment:\s*\n\s*name: stage3b-controlled-activation/);
+  assert.match(execute,/issues: write/);
+  assert.match(execute,/LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATION_SECRET: \$\{\{ secrets\.LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED \}\}/);
+  assert.match(execute,/development-orchestrator-v03b-protected\.js execute/);
 });
