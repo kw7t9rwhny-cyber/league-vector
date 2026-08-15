@@ -10,6 +10,9 @@ const FOUNDER_ENVIRONMENT = "stage3b-controlled-activation";
 const FOUNDER_AUTH_SOURCE = "github-protected-environment-job-admission";
 const REPOSITORY_RE = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})\/[A-Za-z0-9](?:[A-Za-z0-9._-]{0,98}[A-Za-z0-9])?$/;
 const PR_RE = /^[1-9][0-9]*$/;
+const SAFE_REQUEST_ID_RE = /^[A-Za-z0-9:_-]{1,128}$/;
+const SAFE_DOCS_URL_RE = /^https:\/\/docs\.github\.com\//i;
+const TOKEN_PATTERN_RE = /(?:Bearer\s+[^\s]+|github_pat_[A-Za-z0-9_]+|gh[pousr]_[A-Za-z0-9_]+)/gi;
 
 function canonicalRepository(value) {
   if (typeof value !== "string" || !REPOSITORY_RE.test(value)) throw new Error("invalid_repository");
@@ -87,9 +90,38 @@ function previewFrom(data, targetPr) {
   };
 }
 
+function sanitizeDiagnosticText(value, token = null) {
+  if (typeof value !== "string") return null;
+  let safe = value.replace(TOKEN_PATTERN_RE,"[REDACTED]");
+  if (typeof token === "string" && token.length >= 6) safe = safe.split(token).join("[REDACTED]");
+  return safe.slice(0,512);
+}
+
+function safeGitHubDiagnostic({response,operation,bodyText,token}) {
+  let parsed = null;
+  try { parsed = bodyText ? JSON.parse(bodyText) : null; } catch (_) { parsed = null; }
+  const rawMessage = parsed && typeof parsed.message === "string" ? parsed.message : (bodyText || response.statusText || "GitHub request failed");
+  const rawDocs = parsed && typeof parsed.documentation_url === "string" ? parsed.documentation_url : null;
+  const requestIdRaw = response && response.headers && typeof response.headers.get === "function" ? response.headers.get("x-github-request-id") : null;
+  return {
+    status: Number(response.status),
+    operation: String(operation || "request"),
+    message: sanitizeDiagnosticText(rawMessage,token),
+    documentation_url: rawDocs && SAFE_DOCS_URL_RE.test(rawDocs) ? rawDocs.slice(0,512) : null,
+    request_id: requestIdRaw && SAFE_REQUEST_ID_RE.test(requestIdRaw) ? requestIdRaw : null
+  };
+}
+
 async function githubJson(url, token, options = {}) {
   const response = await fetch(url,{...options,headers:{Accept:"application/vnd.github+json",Authorization:`Bearer ${token}`,"X-GitHub-Api-Version":"2022-11-28",...(options.headers||{})}});
-  if (!response.ok) throw new Error(`github_http_${response.status}:${options.operation||"request"}`);
+  if (!response.ok) {
+    let bodyText = "";
+    try { bodyText = await response.text(); } catch (_) { bodyText = ""; }
+    const diagnostic = safeGitHubDiagnostic({response,operation:options.operation||"request",bodyText,token});
+    const error = new Error(`github_api_error:${JSON.stringify(diagnostic)}`);
+    error.githubDiagnostic = diagnostic;
+    throw error;
+  }
   if (response.status === 204) return null;
   return response.json();
 }
@@ -100,11 +132,20 @@ class GitHubControlledLabelAdapter extends Stage3B.GitHubReadOnlyAdapter {
     this.expectedRepository = canonicalRepository(expectedRepository);
     if (this.expectedRepository !== TRUSTED_REPOSITORY) throw new Error("untrusted_expected_repository");
   }
+  async assertRepositoryLabelExists(repository,label) {
+    try {
+      await githubJson(`https://api.github.com/repos/${repository}/labels/${encodeURIComponent(label)}`,this.token,{operation:"get_repository_label"});
+    } catch (error) {
+      if (error && error.githubDiagnostic && error.githubDiagnostic.status === 404) throw new Error(`canonical_repository_label_missing:${label}`);
+      throw error;
+    }
+  }
   async addLabel(repository, pr, label) {
     const repo = canonicalRepository(repository);
     if (repo !== this.expectedRepository) throw new Error("repository_identity_mismatch");
     const number = canonicalPrNumber(pr);
     if (!Stage3B.CANONICAL_LABEL_ALLOWLIST.has(label)) throw new Error(`noncanonical_label:${label}`);
+    await this.assertRepositoryLabelExists(repo,label);
     await githubJson(`https://api.github.com/repos/${repo}/issues/${number}/labels`,this.token,{method:"POST",operation:"add_label",headers:{"Content-Type":"application/json"},body:JSON.stringify({labels:[label]})});
   }
   async removeLabel(repository, pr, label) {
@@ -152,7 +193,7 @@ async function executeControlled({repository,token,targetPr,expectedFingerprint,
   return result;
 }
 
-module.exports={CONTROLLED_VERSION,TRUSTED_REPOSITORY,FOUNDER_ENVIRONMENT,FOUNDER_AUTH_SOURCE,canonicalRepository,canonicalPrNumber,parseTargetPr,founderActivationGate,canonicalMutationsOnly,planForTarget,previewFrom,buildLivePreview,executeControlled,GitHubControlledLabelAdapter};
+module.exports={CONTROLLED_VERSION,TRUSTED_REPOSITORY,FOUNDER_ENVIRONMENT,FOUNDER_AUTH_SOURCE,canonicalRepository,canonicalPrNumber,parseTargetPr,founderActivationGate,canonicalMutationsOnly,planForTarget,previewFrom,sanitizeDiagnosticText,safeGitHubDiagnostic,githubJson,buildLivePreview,executeControlled,GitHubControlledLabelAdapter};
 
 if (require.main===module) {
   (async()=>{
