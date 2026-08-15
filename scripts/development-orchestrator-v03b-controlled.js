@@ -7,6 +7,7 @@ const Stage3B = require("./development-orchestrator-v03b.js");
 const CONTROLLED_VERSION = "lv-development-orchestrator-stage3b-controlled-v0.1";
 const TRUSTED_REPOSITORY = "kw7t9rwhny-cyber/league-vector";
 const FOUNDER_ENVIRONMENT = "stage3b-controlled-activation";
+const FOUNDER_AUTH_SOURCE = "github-protected-environment-job-admission";
 const REPOSITORY_RE = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})\/[A-Za-z0-9](?:[A-Za-z0-9._-]{0,98}[A-Za-z0-9])?$/;
 const PR_RE = /^[1-9][0-9]*$/;
 
@@ -38,12 +39,12 @@ function founderActivationGate(attestation) {
   const environment = attestation.environment;
   const verified = attestation.verified === true;
   const protectionVerified = attestation.protection_verified === true;
-  const activated = attestation.activation === "1";
-  if (source !== "environment-secret") return {allowed:false,reason:"founder_environment_source_unverified",source:source||null,environment:environment||null,verified:false};
+  const activated = attestation.activation === "job-admitted";
+  if (source !== FOUNDER_AUTH_SOURCE) return {allowed:false,reason:"founder_environment_source_unverified",source:source||null,environment:environment||null,verified:false};
   if (environment !== FOUNDER_ENVIRONMENT) return {allowed:false,reason:"founder_environment_identity_mismatch",source,environment:environment||null,verified:false};
   if (!verified || !protectionVerified) return {allowed:false,reason:"founder_environment_protection_unverified",source,environment,verified:false};
-  if (!activated) return {allowed:false,reason:"founder_environment_activation_missing_or_malformed",source,environment,verified:true};
-  return {allowed:true,reason:"founder_environment_activation_verified",source,environment,verified:true};
+  if (!activated) return {allowed:false,reason:"founder_environment_job_admission_missing_or_malformed",source,environment,verified:true};
+  return {allowed:true,reason:"founder_environment_job_admission_verified",source,environment,verified:true};
 }
 
 function canonicalMutationsOnly(plan) {
@@ -151,7 +152,7 @@ async function executeControlled({repository,token,targetPr,expectedFingerprint,
   return result;
 }
 
-module.exports={CONTROLLED_VERSION,TRUSTED_REPOSITORY,FOUNDER_ENVIRONMENT,canonicalRepository,canonicalPrNumber,parseTargetPr,founderActivationGate,canonicalMutationsOnly,planForTarget,previewFrom,buildLivePreview,executeControlled,GitHubControlledLabelAdapter};
+module.exports={CONTROLLED_VERSION,TRUSTED_REPOSITORY,FOUNDER_ENVIRONMENT,FOUNDER_AUTH_SOURCE,canonicalRepository,canonicalPrNumber,parseTargetPr,founderActivationGate,canonicalMutationsOnly,planForTarget,previewFrom,buildLivePreview,executeControlled,GitHubControlledLabelAdapter};
 
 if (require.main===module) {
   (async()=>{
@@ -163,8 +164,8 @@ if (require.main===module) {
     if(command==="preview"){const {preview}=await buildLivePreview({repository,token,targetPr});process.stdout.write(`${JSON.stringify(preview,null,2)}\n`);return;}
     if(command!=="execute") throw new Error(`unknown_command:${command}`);
     const fingerprintIndex=args.indexOf("--expected-fingerprint"),expectedFingerprint=fingerprintIndex>=0?args[fingerprintIndex+1]:null;
-    // Real GitHub Actions runtime does not expose an authenticated assertion proving a secret came from this exact
-    // protected Environment rather than repository/org scope. Do not manufacture provenance: live CLI stays denied.
+    // The raw Controlled Activation CLI is never a live Founder-authorization source. Only the protected
+    // Environment wrapper may construct the job-admission attestation after GitHub admits that exact job.
     const result=await executeControlled({repository,token,targetPr,expectedFingerprint,env:process.env,founderAttestation:null});
     process.stdout.write(`${JSON.stringify(result,null,2)}\n`);
     const ok=result.stage3b_audit&&["verified","no-op-success"].includes(result.stage3b_audit.post_write_verification)&&!result.abort_reason;

@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       mode:
-        description: "Dry-run is default. Execute remains blocked until Founder environment protection/source provenance is separately verified."
+        description: "Dry-run is default. Execute requires the protected Founder environment and all technical gates."
         required: true
         default: dry-run
         type: choice
@@ -80,50 +80,51 @@ jobs:
     if: ${{ inputs.mode == 'execute' }}
     needs: preview
     runs-on: ubuntu-latest
+    environment:
+      name: stage3b-controlled-activation
     permissions:
       contents: read
       pull-requests: read
       issues: write
     steps:
-      - name: Fail closed before any write-capable command
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Execute one Founder-approved, fully revalidated label transaction
         env:
+          GITHUB_TOKEN: ${{ github.token }}
           TARGET_PR: ${{ inputs.target_pr_number }}
           EXPECTED_FINGERPRINT: ${{ needs.preview.outputs.replay_fingerprint }}
+          LEAGUE_VECTOR_ORCHESTRATOR_EXECUTE: "1"
+          LEAGUE_VECTOR_STAGE3B_ACTIVATED: "1"
+          LEAGUE_VECTOR_STAGE3B_ENVIRONMENT_NAME: stage3b-controlled-activation
         run: |
-          cat > /tmp/stage3b-controlled-audit.json <<EOF
-          {
-            "schema": "lv-stage3b-controlled-live-block-v0.1",
-            "target_pr_input": "${TARGET_PR}",
-            "expected_preview_fingerprint": "${EXPECTED_FINGERPRINT}",
-            "abort_reason": "founder_environment_source_provenance_unverifiable",
-            "live_activation_blocked": true,
-            "manual_review_required": false
-          }
-          EOF
-          cat /tmp/stage3b-controlled-audit.json
-          echo "LIVE ACTIVATION BLOCKED — FOUNDER ENVIRONMENT PROTECTION NOT VERIFIED" >&2
-          exit 2
-      - name: Upload blocked execution audit
+          node scripts/development-orchestrator-v03b-protected.js execute \
+            --target-pr "$TARGET_PR" \
+            --expected-fingerprint "$EXPECTED_FINGERPRINT" \
+            > /tmp/stage3b-protected-audit.json
+      - name: Upload protected execution audit
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: stage3b-controlled-blocked-pr-${{ inputs.target_pr_number }}
-          path: /tmp/stage3b-controlled-audit.json
+          name: stage3b-protected-audit-pr-${{ inputs.target_pr_number }}
+          path: /tmp/stage3b-protected-audit.json
           if-no-files-found: warn
           retention-days: 30
 
 # SECURITY CONTRACT
-# - manual workflow_dispatch only; no schedule, push, pull_request, pull_request_target, comment, or merge trigger
+# - manual workflow_dispatch only; no schedule, push, pull_request, pull_request_target, comment, workflow_run, or merge trigger
 # - exactly one canonical positive-integer target_pr_number; no trimming/normalization, all/*/queue/list/range/fan-out
-# - preview is read-only and explicitly non-authorizing
-# - live execute is deliberately fail-closed because GitHub Actions exposes no unambiguous runtime provenance proving
-#   that a same-name secret came from this exact protected Environment rather than repository/organization secret scope
-# - stage3b-controlled-activation is intentionally NOT referenced by a runnable environment: job while it does not exist,
-#   because GitHub can auto-create a referenced missing environment without protection rules or secrets
-# - no vars.* or secrets.* value is accepted as Founder source authentication in this candidate
-# - execute permission ceiling remains contents:read, pull-requests:read, issues:write; no broader scope
-# - real adapter remains implemented/tested but this workflow never invokes it in execute mode until a separately
-#   authorized mechanism can authenticate Founder Environment provenance
+# - preview is read-only and explicitly non-authorizing; dry-run is the default
+# - execute is bound to the exact stage3b-controlled-activation GitHub Environment
+# - GitHub Environment protection, including the Founder required-reviewer gate, must pass before the execute job is sent to a runner
+# - the admitted environment-bound job itself is the Founder authorization for this one workflow run; no secret value is authoritative
+# - repository/org/environment secrets and vars are not read as Founder authority and cannot satisfy the Founder gate
+# - live environment metadata is re-read before the controlled executor and must prove required Founder reviewer,
+#   prevent_self_review=false, admin bypass disabled, and exactly one allowed deployment branch: main
+# - exact workflow/ref/repository/default-branch/fork, preview fingerprint and full Stage-2/3A/3B revalidation remain mandatory
+# - execute permission ceiling is contents:read, pull-requests:read, issues:write; preview remains issues:read
 # - only canonical Stage-1 status:* and owner:* label ADD/REMOVE operations exist in the adapter
 # - no comments, assignments, body/title edits, issue/PR/branch creation, pushes, merges, reviews, deployments,
-#   Founder decisions, QA verdicts, model promotion, external calls, Stage 3C, or cascades
+#   Founder work-item decisions, QA verdicts, model promotion, external calls, Stage 3C, queue-wide execution, or cascades
