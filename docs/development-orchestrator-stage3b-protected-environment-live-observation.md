@@ -1,6 +1,6 @@
 # Stage 3B Protected Environment — Live Observation Record
 
-Observed before candidate QA preparation through the GitHub repository API.
+Observed before remediation QA preparation through the GitHub repository API.
 
 - repository: `kw7t9rwhny-cyber/league-vector`
 - repository default branch: `main`
@@ -13,6 +13,8 @@ Observed before candidate QA preparation through the GitHub repository API.
 - custom deployment branch policy: enabled
 - deployment branch policies: exactly one, `main`, type `branch`
 
-Environment secret names could not be independently enumerated with the available GitHub integration; the environment-secrets endpoint returned HTTP 403. No secret value was requested or exposed.
+Environment secret names cannot be independently enumerated with the available GitHub integration; the environment-secrets endpoint returned HTTP 403. No secret value was requested or exposed.
 
-This observation record is evidence for independent QA orientation only. Runtime execution still re-reads live Environment metadata and fails closed on mismatch. Before any first live test, QA must independently verify the Environment secret name `LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED` exists in Environment settings.
+That inventory gap is **not** an authorization dependency in the remediated design. Founder authorization is admission of the exact execute job through the protected Environment after its Founder required-reviewer gate, not a value resolved from `secrets.*`. Repository, organization, and Environment secrets of the former activation name are not read as Founder authority.
+
+This observation record is evidence for independent QA orientation only. Runtime execution still re-reads live Environment metadata and fails closed if the required reviewer, self-review setting, administrator-bypass setting, or exact `main` deployment policy no longer matches the contract.
