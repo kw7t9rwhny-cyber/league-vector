@@ -113,32 +113,24 @@ Controlled tests cover:
 - partial/ambiguous writes, rollback conflict, stale replay/second execution;
 - workflow trigger/permission inspection and proof that live workflow does not invoke the real executor.
 
-## Exact-head validation evidence
+## Validation evidence contract
 
-Candidate head: `34ec9170638f9117e826f5e769da8c4364c6ad86`.
+Exact candidate SHA and exact GitHub Actions run IDs are intentionally recorded in the PR handoff rather than this committed document. Embedding a candidate SHA here would make the evidence self-stale every time this file changes. The PR handoff must identify one exact immutable candidate head and the exact-head Orchestrator and League Vector CI runs for independent QA.
 
-Development Orchestrator run `31853059353`: PASS.
+The required exact-head validation set is:
 
-- Stage 1: 26/26 PASS
-- Stage 2: 54/54 PASS
-- Stage 3A: 48/48 PASS
-- inherited Stage 3B: 68/68 PASS
-- Controlled Activation: 164/164 PASS
-- PR metadata audit: PASS
-- Stage-2 live dogfood: PASS, read only
-- Stage-3A live dogfood: PASS, zero mutations
-- inactive Stage-3B dogfood: PASS, dry-run `no-op-success`, execute flags disabled
+- Stage 1 deterministic tests;
+- Stage 2 deterministic/adversarial tests;
+- Stage 3A deterministic/adversarial tests;
+- inherited Stage 3B guarded-executor tests;
+- Controlled Activation adversarial tests;
+- PR metadata audit;
+- read-only live Stage-2 dogfood;
+- zero-mutation live Stage-3A dogfood;
+- inactive Stage-3B dry-run/no-write dogfood;
+- full League Vector validation/E2E/projection/historical CI.
 
-Full League Vector CI run `31853059398`: PASS on the same head.
-
-- `npm run validate`: PASS
-- Playwright E2E: PASS
-- projection benchmark: PASS
-- projection-v03 generation/static preview: PASS
-- historical data audit: PASS
-- live projection publisher: skipped on PR
-
-No controlled execute workflow was dispatched. No real label adapter network request was made by CI. No live mutation, environment creation, merge, or production activation occurred. Production `main` remained `f876543a1f6126ea1321c7c8b0eeede62293b139` during validation.
+No controlled execute workflow may be dispatched during candidate development or QA preparation. No real label adapter network request may be made by CI.
 
 ## First live test plan — NOT EXECUTED
 
