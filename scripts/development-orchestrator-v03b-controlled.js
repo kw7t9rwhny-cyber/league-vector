@@ -5,199 +5,169 @@ const Stage3A = require("./development-orchestrator-v03a.js");
 const Stage3B = require("./development-orchestrator-v03b.js");
 
 const CONTROLLED_VERSION = "lv-development-orchestrator-stage3b-controlled-v0.1";
-const FOUNDER_ENV = "LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED";
+const TRUSTED_REPOSITORY = "kw7t9rwhny-cyber/league-vector";
+const FOUNDER_ENVIRONMENT = "stage3b-controlled-activation";
+const REPOSITORY_RE = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})\/[A-Za-z0-9](?:[A-Za-z0-9._-]{0,98}[A-Za-z0-9])?$/;
+const PR_RE = /^[1-9][0-9]*$/;
 
-function parseTargetPr(value) {
-  const raw = String(value === undefined || value === null ? "" : value).trim();
-  if (!/^[1-9][0-9]*$/.test(raw)) throw new Error("invalid_target_pr_number");
-  const number = Number(raw);
-  if (!Number.isSafeInteger(number) || number < 1) throw new Error("invalid_target_pr_number");
+function canonicalRepository(value) {
+  if (typeof value !== "string" || !REPOSITORY_RE.test(value)) throw new Error("invalid_repository");
+  return value;
+}
+
+function canonicalPrNumber(value) {
+  if (typeof value === "number") {
+    if (!Number.isSafeInteger(value) || value < 1) throw new Error("invalid_target_pr_number");
+    return value;
+  }
+  if (typeof value !== "string" || !PR_RE.test(value)) throw new Error("invalid_target_pr_number");
+  const number = Number(value);
+  if (!Number.isSafeInteger(number) || number < 1 || String(number) !== value) throw new Error("invalid_target_pr_number");
   return number;
 }
 
-function founderActivationGate(env = process.env) {
-  const raw = env[FOUNDER_ENV];
-  if (raw !== "1") return { allowed:false, reason:raw === undefined || raw === "" ? "founder_activation_missing" : "founder_activation_not_approved" };
-  return { allowed:true, reason:"founder_activation_approved" };
+function parseTargetPr(value) {
+  return canonicalPrNumber(value);
+}
+
+function founderActivationGate(attestation) {
+  if (!attestation || typeof attestation !== "object" || Array.isArray(attestation)) {
+    return {allowed:false,reason:"founder_environment_attestation_missing",source:null,environment:null,verified:false};
+  }
+  const source = attestation.source;
+  const environment = attestation.environment;
+  const verified = attestation.verified === true;
+  const protectionVerified = attestation.protection_verified === true;
+  const activated = attestation.activation === "1";
+  if (source !== "environment-secret") return {allowed:false,reason:"founder_environment_source_unverified",source:source||null,environment:environment||null,verified:false};
+  if (environment !== FOUNDER_ENVIRONMENT) return {allowed:false,reason:"founder_environment_identity_mismatch",source,environment:environment||null,verified:false};
+  if (!verified || !protectionVerified) return {allowed:false,reason:"founder_environment_protection_unverified",source,environment,verified:false};
+  if (!activated) return {allowed:false,reason:"founder_environment_activation_missing_or_malformed",source,environment,verified:true};
+  return {allowed:true,reason:"founder_environment_activation_verified",source,environment,verified:true};
 }
 
 function canonicalMutationsOnly(plan) {
   const errors = Stage3B.validateMutationAllowlist(plan);
-  if (errors.length) return { valid:false, errors };
+  if (errors.length) return {valid:false,errors};
   for (const mutation of plan.mutations || []) {
     if (!(mutation.label.startsWith("status:") || mutation.label.startsWith("owner:"))) {
-      return { valid:false, errors:[`non_orchestrator_label:${mutation.label}`] };
+      return {valid:false,errors:[`non_orchestrator_label:${mutation.label}`]};
     }
   }
-  return { valid:true, errors:[] };
+  return {valid:true,errors:[]};
 }
 
 function planForTarget(data, targetPr) {
+  const number = canonicalPrNumber(targetPr);
   const queues = Stage2.deriveQueues(data.prs || []);
-  const item = queues.items.find((x) => Number(x.id) === Number(targetPr));
-  const rawPr = (data.prs || []).find((x) => Number(x.number) === Number(targetPr));
+  const item = queues.items.find((x) => x.id === number);
+  const rawPr = (data.prs || []).find((x) => x.number === number);
   if (!item || !rawPr) throw new Error("target_pr_not_found");
-  const byId = Object.fromEntries(queues.items.map((x) => [x.id, x]));
-  return { queues, item, rawPr, plan:Stage3A.planItem(item, rawPr, byId, data.main_sha || null) };
+  const byId = Object.fromEntries(queues.items.map((x) => [x.id,x]));
+  return {queues,item,rawPr,plan:Stage3A.planItem(item,rawPr,byId,data.main_sha||null)};
 }
 
 function previewFrom(data, targetPr) {
-  const { item, rawPr, plan } = planForTarget(data, targetPr);
+  const number = canonicalPrNumber(targetPr);
+  const {item,rawPr,plan} = planForTarget(data,number);
   const labels = (rawPr.labels || []).map((x) => typeof x === "string" ? x : x.name).filter(Boolean).sort();
   const proposedAdd = (plan.mutations || []).filter((x) => x.operation === "ADD_LABEL").map((x) => x.label);
   const proposedRemove = (plan.mutations || []).filter((x) => x.operation === "REMOVE_LABEL").map((x) => x.label);
   const p = plan.provenance || {};
   return {
-    schema:"lv-stage3b-controlled-preview-v0.1",
-    version:CONTROLLED_VERSION,
-    authorization:false,
-    target_pr:Number(targetPr),
-    current_head:rawPr.head_sha || null,
-    stage2_state:{
-      status:item.status || null,
-      owner:item.owner || null,
-      type:item.type || null,
-      risk:item.risk || null,
-      priority:item.priority || null,
-      recommended_action:item.recommended_action || null,
-      structured:Boolean(item.structured)
-    },
-    stage3a_disposition:plan.disposition,
-    stage3a_reason:plan.reason,
-    current_labels:labels,
-    proposed_labels:{ add:proposedAdd, remove:proposedRemove },
-    exact_mutations:plan.mutations || [],
-    qa:{ state:plan.qa_state || "none", tested_sha:plan.qa_tested_sha || null },
-    founder:{
-      required:item.founder_decision_required,
-      gate:item.founder_gate || null,
-      decision:item.founder_decision || null
-    },
-    dependencies:p.dependencies || [],
-    current_main:p.main_sha || data.main_sha || null,
-    replay_fingerprint:p.fingerprint || null
+    schema:"lv-stage3b-controlled-preview-v0.1",version:CONTROLLED_VERSION,authorization:false,target_pr:number,
+    current_head:rawPr.head_sha||null,
+    stage2_state:{status:item.status||null,owner:item.owner||null,type:item.type||null,risk:item.risk||null,priority:item.priority||null,recommended_action:item.recommended_action||null,structured:Boolean(item.structured)},
+    stage3a_disposition:plan.disposition,stage3a_reason:plan.reason,current_labels:labels,
+    proposed_labels:{add:proposedAdd,remove:proposedRemove},exact_mutations:plan.mutations||[],
+    qa:{state:plan.qa_state||"none",tested_sha:plan.qa_tested_sha||null},
+    founder:{required:item.founder_decision_required,gate:item.founder_gate||null,decision:item.founder_decision||null},
+    dependencies:p.dependencies||[],current_main:p.main_sha||data.main_sha||null,replay_fingerprint:p.fingerprint||null
   };
 }
 
 async function githubJson(url, token, options = {}) {
-  const response = await fetch(url, {
-    ...options,
-    headers:{
-      Accept:"application/vnd.github+json",
-      Authorization:`Bearer ${token}`,
-      "X-GitHub-Api-Version":"2022-11-28",
-      ...(options.headers || {})
-    }
-  });
-  if (!response.ok) throw new Error(`github_http_${response.status}:${options.operation || "request"}`);
+  const response = await fetch(url,{...options,headers:{Accept:"application/vnd.github+json",Authorization:`Bearer ${token}`,"X-GitHub-Api-Version":"2022-11-28",...(options.headers||{})}});
+  if (!response.ok) throw new Error(`github_http_${response.status}:${options.operation||"request"}`);
   if (response.status === 204) return null;
   return response.json();
 }
 
 class GitHubControlledLabelAdapter extends Stage3B.GitHubReadOnlyAdapter {
-  constructor(token) { super(token); }
+  constructor(token, expectedRepository = TRUSTED_REPOSITORY) {
+    super(token);
+    this.expectedRepository = canonicalRepository(expectedRepository);
+    if (this.expectedRepository !== TRUSTED_REPOSITORY) throw new Error("untrusted_expected_repository");
+  }
   async addLabel(repository, pr, label) {
+    const repo = canonicalRepository(repository);
+    if (repo !== this.expectedRepository) throw new Error("repository_identity_mismatch");
+    const number = canonicalPrNumber(pr);
     if (!Stage3B.CANONICAL_LABEL_ALLOWLIST.has(label)) throw new Error(`noncanonical_label:${label}`);
-    await githubJson(`https://api.github.com/repos/${repository}/issues/${Number(pr)}/labels`, this.token, {
-      method:"POST",
-      operation:"add_label",
-      headers:{"Content-Type":"application/json"},
-      body:JSON.stringify({labels:[label]})
-    });
+    await githubJson(`https://api.github.com/repos/${repo}/issues/${number}/labels`,this.token,{method:"POST",operation:"add_label",headers:{"Content-Type":"application/json"},body:JSON.stringify({labels:[label]})});
   }
   async removeLabel(repository, pr, label) {
+    const repo = canonicalRepository(repository);
+    if (repo !== this.expectedRepository) throw new Error("repository_identity_mismatch");
+    const number = canonicalPrNumber(pr);
     if (!Stage3B.CANONICAL_LABEL_ALLOWLIST.has(label)) throw new Error(`noncanonical_label:${label}`);
-    await githubJson(`https://api.github.com/repos/${repository}/issues/${Number(pr)}/labels/${encodeURIComponent(label)}`, this.token, {
-      method:"DELETE",
-      operation:"remove_label"
-    });
+    await githubJson(`https://api.github.com/repos/${repo}/issues/${number}/labels/${encodeURIComponent(label)}`,this.token,{method:"DELETE",operation:"remove_label"});
   }
 }
 
-async function buildLivePreview({ repository, token, targetPr }) {
+async function buildLivePreview({repository,token,targetPr}) {
+  const repo = canonicalRepository(repository);
+  if (repo !== TRUSTED_REPOSITORY) throw new Error("untrusted_repository");
   const number = parseTargetPr(targetPr);
-  const data = await Stage2.loadLiveRepository(repository, token);
-  return { data, preview:previewFrom(data, number), plan:planForTarget(data, number).plan };
+  const data = await Stage2.loadLiveRepository(repo,token);
+  return {data,preview:previewFrom(data,number),plan:planForTarget(data,number).plan};
 }
 
-async function executeControlled({ repository, token, targetPr, expectedFingerprint, env = process.env, adapter = null }) {
+async function executeControlled({repository,token,targetPr,expectedFingerprint,env=process.env,adapter=null,founderAttestation=null}) {
+  const repo = canonicalRepository(repository);
   const number = parseTargetPr(targetPr);
-  const founder = founderActivationGate(env);
-  const result = {
-    schema:"lv-stage3b-controlled-audit-v0.1",
-    workflow_run_id:env.GITHUB_RUN_ID || null,
-    target_pr:number,
-    founder_activation:founder,
-    expected_preview_fingerprint:expectedFingerprint || null,
-    trusted_repository_identity:null,
-    trusted_default_branch:null,
-    trusted_fork:null,
-    stage3b_audit:null,
-    abort_reason:null,
-    manual_review_required:false
-  };
-  if (!founder.allowed) { result.abort_reason=`founder_gate:${founder.reason}`; return result; }
-  if (!expectedFingerprint || !/^[0-9a-f]{64}$/.test(expectedFingerprint)) { result.abort_reason="missing_or_invalid_preview_fingerprint"; return result; }
+  const founder = founderActivationGate(founderAttestation);
+  const result = {schema:"lv-stage3b-controlled-audit-v0.1",workflow_run_id:env.GITHUB_RUN_ID||null,target_pr:number,founder_activation:founder,expected_preview_fingerprint:expectedFingerprint||null,trusted_repository_identity:null,trusted_default_branch:null,trusted_fork:null,stage3b_audit:null,abort_reason:null,manual_review_required:false};
+  if (repo !== TRUSTED_REPOSITORY) {result.abort_reason="trusted_repository_mismatch";return result;}
+  if (!founder.allowed) {result.abort_reason=`founder_gate:${founder.reason}`;return result;}
+  if (!expectedFingerprint || !/^[0-9a-f]{64}$/.test(expectedFingerprint)) {result.abort_reason="missing_or_invalid_preview_fingerprint";return result;}
 
-  const writeAdapter = adapter || new GitHubControlledLabelAdapter(token);
-  const trusted = await writeAdapter.readActivationProvenance(repository);
-  result.trusted_repository_identity = trusted.repository_full_name || null;
-  result.trusted_default_branch = trusted.default_branch || null;
+  const writeAdapter = adapter || new GitHubControlledLabelAdapter(token,TRUSTED_REPOSITORY);
+  const trusted = await writeAdapter.readActivationProvenance(repo);
+  result.trusted_repository_identity = trusted.repository_full_name||null;
+  result.trusted_default_branch = trusted.default_branch||null;
   result.trusted_fork = trusted.fork;
+  if (trusted.repository_full_name !== TRUSTED_REPOSITORY) {result.abort_reason="trusted_repository_provenance_mismatch";return result;}
 
-  const live = await writeAdapter.readRepository(repository);
-  const { plan } = planForTarget(live, number);
-  if ((plan.provenance && plan.provenance.fingerprint) !== expectedFingerprint) {
-    result.abort_reason="preview_state_changed";
-    return result;
-  }
+  const live = await writeAdapter.readRepository(repo);
+  const {plan} = planForTarget(live,number);
+  if ((plan.provenance&&plan.provenance.fingerprint)!==expectedFingerprint) {result.abort_reason="preview_state_changed";return result;}
   const mutationCheck = canonicalMutationsOnly(plan);
-  if (!mutationCheck.valid) { result.abort_reason=`mutation_allowlist:${mutationCheck.errors.join("|")}`; return result; }
-  if (!plan.mutations || plan.mutations.length === 0) { result.abort_reason="no_live_mutation_authorized"; return result; }
+  if (!mutationCheck.valid) {result.abort_reason=`mutation_allowlist:${mutationCheck.errors.join("|")}`;return result;}
+  if (!plan.mutations||plan.mutations.length===0) {result.abort_reason="no_live_mutation_authorized";return result;}
 
-  const audit = await Stage3B.executePlan({ plan, repository, adapter:writeAdapter, mode:"execute", env });
-  result.stage3b_audit = audit;
-  result.abort_reason = audit.aborted_reason || null;
-  result.manual_review_required = Boolean(audit.manual_review_required);
+  const audit = await Stage3B.executePlan({plan,repository:repo,adapter:writeAdapter,mode:"execute",env});
+  result.stage3b_audit=audit;result.abort_reason=audit.aborted_reason||null;result.manual_review_required=Boolean(audit.manual_review_required);
   return result;
 }
 
-module.exports = {
-  CONTROLLED_VERSION,
-  FOUNDER_ENV,
-  parseTargetPr,
-  founderActivationGate,
-  canonicalMutationsOnly,
-  planForTarget,
-  previewFrom,
-  buildLivePreview,
-  executeControlled,
-  GitHubControlledLabelAdapter
-};
+module.exports={CONTROLLED_VERSION,TRUSTED_REPOSITORY,FOUNDER_ENVIRONMENT,canonicalRepository,canonicalPrNumber,parseTargetPr,founderActivationGate,canonicalMutationsOnly,planForTarget,previewFrom,buildLivePreview,executeControlled,GitHubControlledLabelAdapter};
 
-if (require.main === module) {
-  (async () => {
-    const fs = require("fs");
-    const args = process.argv.slice(2);
-    const command = args[0] || "preview";
-    const targetIndex = args.indexOf("--target-pr");
-    if (targetIndex < 0 || !args[targetIndex + 1]) throw new Error("--target-pr <positive-integer> required");
-    const targetPr = parseTargetPr(args[targetIndex + 1]);
-    const repository = process.env.GITHUB_REPOSITORY || process.env.LEAGUE_VECTOR_REPOSITORY;
-    const token = process.env.GITHUB_TOKEN;
-    if (!repository || !token) throw new Error("GITHUB_REPOSITORY_and_GITHUB_TOKEN_required");
-
-    if (command === "preview") {
-      const { preview } = await buildLivePreview({ repository, token, targetPr });
-      process.stdout.write(`${JSON.stringify(preview, null, 2)}\n`);
-      return;
-    }
-    if (command !== "execute") throw new Error(`unknown_command:${command}`);
-    const fingerprintIndex = args.indexOf("--expected-fingerprint");
-    const expectedFingerprint = fingerprintIndex >= 0 ? args[fingerprintIndex + 1] : null;
-    const result = await executeControlled({ repository, token, targetPr, expectedFingerprint, env:process.env });
-    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
-    const ok = result.stage3b_audit && ["verified", "no-op-success"].includes(result.stage3b_audit.post_write_verification) && !result.abort_reason;
-    if (!ok) process.exitCode = 2;
-  })().catch((error) => { process.stderr.write(`${error.message}\n`); process.exit(2); });
+if (require.main===module) {
+  (async()=>{
+    const args=process.argv.slice(2),command=args[0]||"preview",targetIndex=args.indexOf("--target-pr");
+    if(targetIndex<0||args[targetIndex+1]===undefined) throw new Error("--target-pr <canonical-positive-integer> required");
+    const targetPr=parseTargetPr(args[targetIndex+1]);
+    const repository=process.env.GITHUB_REPOSITORY||process.env.LEAGUE_VECTOR_REPOSITORY,token=process.env.GITHUB_TOKEN;
+    if(!repository||!token) throw new Error("GITHUB_REPOSITORY_and_GITHUB_TOKEN_required");
+    if(command==="preview"){const {preview}=await buildLivePreview({repository,token,targetPr});process.stdout.write(`${JSON.stringify(preview,null,2)}\n`);return;}
+    if(command!=="execute") throw new Error(`unknown_command:${command}`);
+    const fingerprintIndex=args.indexOf("--expected-fingerprint"),expectedFingerprint=fingerprintIndex>=0?args[fingerprintIndex+1]:null;
+    // Real GitHub Actions runtime does not expose an authenticated assertion proving a secret came from this exact
+    // protected Environment rather than repository/org scope. Do not manufacture provenance: live CLI stays denied.
+    const result=await executeControlled({repository,token,targetPr,expectedFingerprint,env:process.env,founderAttestation:null});
+    process.stdout.write(`${JSON.stringify(result,null,2)}\n`);
+    const ok=result.stage3b_audit&&["verified","no-op-success"].includes(result.stage3b_audit.post_write_verification)&&!result.abort_reason;
+    if(!ok) process.exitCode=2;
+  })().catch((error)=>{process.stderr.write(`${error.message}\n`);process.exit(2);});
 }
