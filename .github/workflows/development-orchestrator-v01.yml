@@ -38,9 +38,13 @@ jobs:
         run: node --check scripts/development-orchestrator-v03b-controlled.js
       - name: Stage 3B controlled activation adversarial tests
         run: node --test tests/development-orchestrator-v03b-controlled.test.js
+      - name: Stage 3B protected environment activation syntax check
+        run: node --check scripts/development-orchestrator-v03b-protected.js
+      - name: Stage 3B protected environment activation adversarial tests
+        run: node --test tests/development-orchestrator-v03b-protected.test.js
       - name: Validate Stage 1 schema is readable
         run: node scripts/development-orchestrator-v01.js
-      - name: Prove Stage 3B Actions execution remains disabled
+      - name: Prove Stage 3B Actions execution remains disabled in validation workflow
         env:
           LEAGUE_VECTOR_ORCHESTRATOR_EXECUTE: "0"
           LEAGUE_VECTOR_STAGE3B_ACTIVATED: "0"
@@ -140,8 +144,8 @@ jobs:
           print("orchestrator metadata is non-contradictory")
           PY
 
-# Security contract: this existing Stage 1/2/3A/3B validation workflow remains read-only.
-# The controlled activation candidate is tested here only with mocked adapters and has no write token scope in PR CI.
+# Security contract: this validation workflow remains read-only.
+# Controlled/protected activation is tested only with deterministic/mock inputs here and receives no write token scope.
 # No pull_request_target. No live label mutation, assignments, comments, branches, PRs, merges, deployments,
 # Founder decisions, paid-service calls, business/legal actions, production-model promotion, Prospective Archive writes,
 # or football/product changes are performed here.
