@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       target_pr_number:
-        description: "Exactly one PR number (positive integer only)"
+        description: "Exactly one canonical positive-integer PR number"
         required: true
         type: string
       mode:
-        description: "Dry-run is the default. Execute requires Founder environment approval and activation control."
+        description: "Dry-run is default. Execute remains blocked until Founder environment protection/source provenance is separately verified."
         required: true
         default: dry-run
         type: choice
@@ -32,7 +32,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Validate one explicit target PR
+      - name: Validate one exact target PR
         env:
           TARGET_PR: ${{ inputs.target_pr_number }}
         run: |
@@ -46,9 +46,11 @@ jobs:
           node scripts/development-orchestrator-v03b-controlled.js preview --target-pr "$TARGET_PR" > /tmp/stage3b-controlled-preview.json
           node - <<'NODE'
           const fs=require('fs');
+          const C=require('./scripts/development-orchestrator-v03b-controlled.js');
           const p=JSON.parse(fs.readFileSync('/tmp/stage3b-controlled-preview.json','utf8'));
+          const requested=C.parseTargetPr(process.env.TARGET_PR);
           if(p.authorization!==false) process.exit(1);
-          if(Number(p.target_pr)!==Number(process.env.TARGET_PR)) process.exit(1);
+          if(p.target_pr!==requested) process.exit(1);
           if(!/^[0-9a-f]{64}$/.test(p.replay_fingerprint||'')) process.exit(1);
           fs.appendFileSync(process.env.GITHUB_OUTPUT,`replay_fingerprint=${p.replay_fingerprint}\n`);
           console.log(JSON.stringify(p,null,2));
@@ -69,8 +71,7 @@ jobs:
       pull-requests: read
       issues: read
     steps:
-      - uses: actions/checkout@v4
-      - name: Confirm dry-run cannot enter write job
+      - name: Confirm dry-run has no write scope
         run: |
           echo "Preview completed. No issues:write permission exists in this job."
           echo "No mutation attempted."
@@ -78,51 +79,51 @@ jobs:
   execute-one-pr:
     if: ${{ inputs.mode == 'execute' }}
     needs: preview
-    environment: stage3b-controlled-activation
     runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: read
       issues: write
-    env:
-      GITHUB_TOKEN: ${{ github.token }}
-      TARGET_PR: ${{ inputs.target_pr_number }}
-      EXPECTED_FINGERPRINT: ${{ needs.preview.outputs.replay_fingerprint }}
-      LEAGUE_VECTOR_ORCHESTRATOR_EXECUTE: "1"
-      LEAGUE_VECTOR_STAGE3B_ACTIVATED: "1"
-      LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED: ${{ vars.LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED }}
-      GITHUB_DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-      GITHUB_HEAD_REPO_FORK: ${{ github.event.repository.fork }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - name: Fail closed unless protected Founder activation variable is approved
+      - name: Fail closed before any write-capable command
+        env:
+          TARGET_PR: ${{ inputs.target_pr_number }}
+          EXPECTED_FINGERPRINT: ${{ needs.preview.outputs.replay_fingerprint }}
         run: |
-          test "$LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED" = "1"
-      - name: Revalidate preview state and execute one bounded transaction
-        run: |
-          node scripts/development-orchestrator-v03b-controlled.js execute \
-            --target-pr "$TARGET_PR" \
-            --expected-fingerprint "$EXPECTED_FINGERPRINT" \
-            > /tmp/stage3b-controlled-audit.json
+          cat > /tmp/stage3b-controlled-audit.json <<EOF
+          {
+            "schema": "lv-stage3b-controlled-live-block-v0.1",
+            "target_pr_input": "${TARGET_PR}",
+            "expected_preview_fingerprint": "${EXPECTED_FINGERPRINT}",
+            "abort_reason": "founder_environment_source_provenance_unverifiable",
+            "live_activation_blocked": true,
+            "manual_review_required": false
+          }
+          EOF
           cat /tmp/stage3b-controlled-audit.json
-      - name: Upload controlled execution audit
+          echo "LIVE ACTIVATION BLOCKED — FOUNDER ENVIRONMENT PROTECTION NOT VERIFIED" >&2
+          exit 2
+      - name: Upload blocked execution audit
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: stage3b-controlled-audit-pr-${{ inputs.target_pr_number }}
+          name: stage3b-controlled-blocked-pr-${{ inputs.target_pr_number }}
           path: /tmp/stage3b-controlled-audit.json
           if-no-files-found: warn
           retention-days: 30
 
 # SECURITY CONTRACT
 # - manual workflow_dispatch only; no schedule, push, pull_request, pull_request_target, comment, or merge trigger
-# - exactly one positive-integer target_pr_number; no all/*/queue/list/range/fan-out semantics
+# - exactly one canonical positive-integer target_pr_number; no trimming/normalization, all/*/queue/list/range/fan-out
 # - preview is read-only and explicitly non-authorizing
-# - execute job is separately protected by the stage3b-controlled-activation environment
-# - execute additionally requires the Founder-controlled environment variable LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED=1
-# - issues:write is sufficient because GitHub PR labels are issue labels; no pull-requests:write is granted
-# - only canonical Stage-1 status:* and owner:* label ADD/REMOVE operations are implemented
-# - no comments, assignments, body/title edits, issue/PR/branch creation, pushes, merges, reviews, deployments, Founder decisions, QA verdicts, model promotion, external calls, or cascades
+# - live execute is deliberately fail-closed because GitHub Actions exposes no unambiguous runtime provenance proving
+#   that a same-name secret came from this exact protected Environment rather than repository/organization secret scope
+# - stage3b-controlled-activation is intentionally NOT referenced by a runnable environment: job while it does not exist,
+#   because GitHub can auto-create a referenced missing environment without protection rules or secrets
+# - no vars.* or secrets.* value is accepted as Founder source authentication in this candidate
+# - execute permission ceiling remains contents:read, pull-requests:read, issues:write; no broader scope
+# - real adapter remains implemented/tested but this workflow never invokes it in execute mode until a separately
+#   authorized mechanism can authenticate Founder Environment provenance
+# - only canonical Stage-1 status:* and owner:* label ADD/REMOVE operations exist in the adapter
+# - no comments, assignments, body/title edits, issue/PR/branch creation, pushes, merges, reviews, deployments,
+#   Founder decisions, QA verdicts, model promotion, external calls, Stage 3C, or cascades
