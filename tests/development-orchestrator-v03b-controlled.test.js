@@ -13,7 +13,7 @@ const QA_AUTHOR="kw7t9rwhny-cyber";
 const FIXED="2026-08-14T22:00:00Z";
 const REPO=C.TRUSTED_REPOSITORY;
 const TRUSTED={source:"mock",repository_full_name:REPO,default_branch:"main",fork:false};
-const VERIFIED_FOUNDER={source:"environment-secret",environment:C.FOUNDER_ENVIRONMENT,verified:true,protection_verified:true,activation:"1"};
+const VERIFIED_FOUNDER={source:C.FOUNDER_AUTH_SOURCE,environment:C.FOUNDER_ENVIRONMENT,verified:true,protection_verified:true,activation:"job-admitted"};
 const EXEC_ENV={LEAGUE_VECTOR_ORCHESTRATOR_EXECUTE:"1",LEAGUE_VECTOR_STAGE3B_ACTIVATED:"1",GITHUB_EVENT_NAME:"workflow_dispatch",GITHUB_REPOSITORY:REPO,GITHUB_DEFAULT_BRANCH:"main",GITHUB_REF:"refs/heads/main",GITHUB_REF_TYPE:"branch",GITHUB_REF_NAME:"main",GITHUB_HEAD_REPO_FORK:"false",GITHUB_RUN_ID:"12345"};
 
 function body(o={}){const x={owner:"projection",risk:"high",status:"qa-passed",type:"feature",priority:"normal",integration_required:"yes",promotion_type:"none",promotion_authorized:"not-applicable",founder_decision_required:"no",founder_gate:"none",founder_decision:"not-required",dependencies:"None",...o};return [`Owner: owner:${x.owner}`,`Risk: risk:${x.risk}`,`Status: status:${x.status}`,`Type: type:${x.type}`,`Priority: priority:${x.priority}`,`Integration required: ${x.integration_required}`,`Promotion type: ${x.promotion_type}`,`Promotion authorized: ${x.promotion_authorized}`,`Founder decision required: ${x.founder_decision_required}`,`Founder gate: ${x.founder_gate}`,`Founder decision: ${x.founder_decision}`,`Dependencies: ${x.dependencies}`].join("\n");}
@@ -46,10 +46,11 @@ test("repository-level variable spoof cannot satisfy Founder gate",async()=>{con
 test("organization-level variable spoof cannot satisfy Founder gate",async()=>{const env={...EXEC_ENV,LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED:"1",ORGANIZATION_LEVEL_LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED:"1"};const r=await exec(data(),101,{env,founderAttestation:null});assert.match(r.result.abort_reason,/founder_gate:founder_environment_attestation_missing/);assert.deepEqual(r.adapter.writes,[]);});
 test("protected-environment activation absent denies",()=>assert.equal(C.founderActivationGate(null).allowed,false));
 test("ambiguous Founder source denies",()=>assert.equal(C.founderActivationGate({...VERIFIED_FOUNDER,source:"vars-context"}).allowed,false));
+test("legacy environment-secret source denies",()=>assert.equal(C.founderActivationGate({...VERIFIED_FOUNDER,source:"environment-secret",activation:"1"}).allowed,false));
 test("wrong Founder environment denies",()=>assert.equal(C.founderActivationGate({...VERIFIED_FOUNDER,environment:"other"}).allowed,false));
 test("unverified protection denies",()=>assert.equal(C.founderActivationGate({...VERIFIED_FOUNDER,protection_verified:false}).allowed,false));
-test("malformed environment activation denies",()=>assert.equal(C.founderActivationGate({...VERIFIED_FOUNDER,activation:"true"}).allowed,false));
-test("verified environment-secret attestation is eligible only in mocked execution",()=>assert.equal(C.founderActivationGate(VERIFIED_FOUNDER).allowed,true));
+test("malformed environment job admission denies",()=>assert.equal(C.founderActivationGate({...VERIFIED_FOUNDER,activation:"1"}).allowed,false));
+test("verified protected-environment job-admission attestation is eligible only in mocked execution",()=>assert.equal(C.founderActivationGate(VERIFIED_FOUNDER).allowed,true));
 
 test("preview is explicitly non-authorizing",()=>assert.equal(preview(data()).authorization,false));
 test("preview includes required evidence fields",()=>{const p=preview(data());assert.equal(p.target_pr,101);assert.equal(p.current_head,SHA_A);assert.equal(p.qa.state,"pass-fresh");assert.equal(p.qa.tested_sha,SHA_A);assert.ok(p.replay_fingerprint);assert.ok(Array.isArray(p.dependencies));assert.ok(Array.isArray(p.exact_mutations));});
@@ -89,13 +90,13 @@ test("real adapter surface contains label add/remove only beyond inherited reads
 test("workflow is manual-only, one-target, least-privilege, and protected-environment gated",()=>{
   const yml=fs.readFileSync(path.join(__dirname,"../.github/workflows/development-orchestrator-stage3b-controlled.yml"),"utf8");
   assert.match(yml,/workflow_dispatch:/);assert.equal((yml.match(/workflow_dispatch:/g)||[]).length,1);assert.match(yml,/target_pr_number:/);assert.match(yml,/default: dry-run/);
-  for(const forbidden of ["pull_request_target:","schedule:","push:","pull_request:","workflow_run:","contents: write","actions: write","deployments: write","packages: write","vars.LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED"])assert.equal(yml.includes(forbidden),false,forbidden);
+  for(const forbidden of ["pull_request_target:","schedule:","push:","pull_request:","workflow_run:","contents: write","actions: write","deployments: write","packages: write","vars.LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED","secrets.LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED"])assert.equal(yml.includes(forbidden),false,forbidden);
   assert.match(yml,/contents: read/);assert.match(yml,/pull-requests: read/);assert.match(yml,/issues: write/);
   const preview=yml.split("  preview:")[1].split("  dry-run-proof:")[0];
   assert.match(preview,/issues: read/);assert.equal(preview.includes("issues: write"),false);assert.equal(preview.includes("LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATION_SECRET"),false);
   const execute=yml.split("  execute-one-pr:")[1];
   assert.match(execute,/environment:\s*\n\s*name: stage3b-controlled-activation/);
   assert.match(execute,/issues: write/);
-  assert.match(execute,/LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATION_SECRET: \$\{\{ secrets\.LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED \}\}/);
+  assert.doesNotMatch(execute,/secrets\./);assert.doesNotMatch(execute,/vars\./);assert.doesNotMatch(execute,/LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATION_SECRET/);
   assert.match(execute,/development-orchestrator-v03b-protected\.js execute/);
 });
