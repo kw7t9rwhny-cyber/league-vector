@@ -38,6 +38,8 @@ jobs:
         run: node --check scripts/development-orchestrator-v03b-controlled.js
       - name: Stage 3B controlled activation adversarial tests
         run: node --test tests/development-orchestrator-v03b-controlled.test.js
+      - name: Stage 3B first-live-test closure diagnostics
+        run: node --test tests/development-orchestrator-v03b-closure-403.test.js
       - name: Stage 3B protected environment activation syntax check
         run: node --check scripts/development-orchestrator-v03b-protected.js
       - name: Stage 3B protected environment activation adversarial tests
