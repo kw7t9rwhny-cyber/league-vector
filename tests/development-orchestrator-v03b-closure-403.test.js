@@ -48,33 +48,39 @@ class FailingWriteAdapter {
   async removeLabel(repo,pr,label){this.writes.push(`REMOVE:${label}`);throw new Error("unexpected_remove");}
 }
 
-test("403 diagnostic preserves safe GitHub fields and request ID", async()=>{
-  const token="ghs_SUPERSECRETVALUE";
-  await withFetch(async()=>response({status:403,body:{message:"Resource not accessible by integration",documentation_url:"https://docs.github.com/rest/issues/labels"},headers:{"x-github-request-id":"ABC1:DEF2:403"}}),async()=>{
-    await assert.rejects(()=>C.githubJson("https://api.github.com/repos/x/y/issues/1/labels",token,{method:"POST",operation:"add_label"}),error=>{
-      assert.equal(error.githubDiagnostic.status,403);
-      assert.equal(error.githubDiagnostic.operation,"add_label");
-      assert.equal(error.githubDiagnostic.message,"Resource not accessible by integration");
-      assert.equal(error.githubDiagnostic.documentation_url,"https://docs.github.com/rest/issues/labels");
-      assert.equal(error.githubDiagnostic.request_id,"ABC1:DEF2:403");
-      assert.ok(!error.message.includes(token));
-      return true;
-    });
-  });
+test("public exports do not expose generic authenticated GitHub request helpers",()=>{
+  assert.equal(Object.prototype.hasOwnProperty.call(C,"githubJson"),false);
+  for(const [name,value] of Object.entries(C)) {
+    if(typeof value !== "function") continue;
+    assert.doesNotMatch(name,/github.*(?:request|json|fetch)|(?:request|fetch).*github/i);
+  }
 });
 
-test("diagnostic redacts credentials and rejects untrusted documentation URL", async()=>{
-  const token="github_pat_REAL_SECRET_123456";
-  await withFetch(async()=>response({status:403,body:{message:`Bearer abc123 ${token} ghp_ANOTHERSECRET123456`,documentation_url:"https://attacker.invalid/secret"},headers:{"x-github-request-id":"REQ-1"}}),async()=>{
-    await assert.rejects(()=>C.githubJson("https://api.github.com/x",token,{operation:"add_label",headers:{Authorization:`Bearer ${token}`}}),error=>{
-      const text=JSON.stringify(error.githubDiagnostic)+error.message;
-      assert.ok(!text.includes(token));
-      assert.ok(!text.includes("abc123"));
-      assert.ok(!text.includes("ghp_ANOTHERSECRET123456"));
-      assert.equal(error.githubDiagnostic.documentation_url,null);
-      return true;
-    });
+test("pure diagnostic sanitizer preserves safe GitHub fields and request ID",()=>{
+  const token="ghs_SUPERSECRETVALUE";
+  const diagnostic=C.safeGitHubDiagnostic({
+    response:response({status:403,statusText:"Forbidden",headers:{"x-github-request-id":"ABC1:DEF2:403"}}),
+    operation:"add_label",
+    bodyText:JSON.stringify({message:"Resource not accessible by integration",documentation_url:"https://docs.github.com/rest/issues/labels"}),
+    token
   });
+  assert.deepEqual(diagnostic,{status:403,operation:"add_label",message:"Resource not accessible by integration",documentation_url:"https://docs.github.com/rest/issues/labels",request_id:"ABC1:DEF2:403"});
+  assert.ok(!JSON.stringify(diagnostic).includes(token));
+});
+
+test("pure diagnostic sanitizer redacts credentials and rejects untrusted documentation URL",()=>{
+  const token="github_pat_REAL_SECRET_123456";
+  const diagnostic=C.safeGitHubDiagnostic({
+    response:response({status:403,headers:{"x-github-request-id":"REQ-1"}}),
+    operation:"add_label",
+    bodyText:JSON.stringify({message:`Bearer abc123 ${token} ghp_ANOTHERSECRET123456`,documentation_url:"https://attacker.invalid/secret"}),
+    token
+  });
+  const text=JSON.stringify(diagnostic);
+  assert.ok(!text.includes(token));
+  assert.ok(!text.includes("abc123"));
+  assert.ok(!text.includes("ghp_ANOTHERSECRET123456"));
+  assert.equal(diagnostic.documentation_url,null);
 });
 
 test("missing canonical repository label fails before mutation POST", async()=>{
@@ -87,6 +93,49 @@ test("missing canonical repository label fails before mutation POST", async()=>{
     await assert.rejects(()=>adapter.addLabel(REPO,50,"status:ready-for-qa"),/canonical_repository_label_missing:status:ready-for-qa/);
   });
   assert.deepEqual(calls.map(x=>x.method),["GET"]);
+});
+
+const malformedSuccesses = [
+  ["empty object",{}],
+  ["null",null],
+  ["array",[]],
+  ["string","status:ready-for-qa"],
+  ["null name",{name:null}],
+  ["numeric name",{name:123}],
+  ["empty name",{name:""}],
+  ["wrong name",{name:"status:wrong"}],
+  ["case variant",{name:"STATUS:READY-FOR-QA"}],
+  ["whitespace variant",{name:" status:ready-for-qa "}]
+];
+
+for(const [caseName,preflightBody] of malformedSuccesses) {
+  test(`HTTP 200 ${caseName} repository-label response fails closed before POST`, async()=>{
+    const calls=[];
+    await withFetch(async(url,options={})=>{
+      const method=options.method||"GET";
+      calls.push({url,method});
+      if(method!=="GET") throw new Error("mutation_post_must_not_occur");
+      return response({status:200,body:preflightBody});
+    },async()=>{
+      const adapter=new C.GitHubControlledLabelAdapter("mock-token",REPO);
+      await assert.rejects(()=>adapter.addLabel(REPO,50,"status:ready-for-qa"),/canonical_repository_label_response_invalid:status:ready-for-qa/);
+    });
+    assert.deepEqual(calls.map(x=>x.method),["GET"]);
+  });
+}
+
+test("exact HTTP 200 repository-label identity may proceed to controlled POST", async()=>{
+  const calls=[];
+  await withFetch(async(url,options={})=>{
+    const method=options.method||"GET";
+    calls.push({url,method});
+    if(method==="GET") return response({status:200,body:{name:"status:ready-for-qa"}});
+    return response({status:200,body:[{name:"status:ready-for-qa"}]});
+  },async()=>{
+    const adapter=new C.GitHubControlledLabelAdapter("mock-token",REPO);
+    await adapter.addLabel(REPO,50,"status:ready-for-qa");
+  });
+  assert.deepEqual(calls.map(x=>x.method),["GET","POST"]);
 });
 
 test("403 add-label denial is preserved with zero automatic retry", async()=>{
