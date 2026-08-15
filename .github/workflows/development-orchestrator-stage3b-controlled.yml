@@ -99,7 +99,6 @@ jobs:
           LEAGUE_VECTOR_ORCHESTRATOR_EXECUTE: "1"
           LEAGUE_VECTOR_STAGE3B_ACTIVATED: "1"
           LEAGUE_VECTOR_STAGE3B_ENVIRONMENT_NAME: stage3b-controlled-activation
-          LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATION_SECRET: ${{ secrets.LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED }}
         run: |
           node scripts/development-orchestrator-v03b-protected.js execute \
             --target-pr "$TARGET_PR" \
@@ -119,10 +118,11 @@ jobs:
 # - exactly one canonical positive-integer target_pr_number; no trimming/normalization, all/*/queue/list/range/fan-out
 # - preview is read-only and explicitly non-authorizing; dry-run is the default
 # - execute is bound to the exact stage3b-controlled-activation GitHub Environment
-# - GitHub Environment protection must pass before the execute job is sent to a runner; environment secrets are then available
+# - GitHub Environment protection, including the Founder required-reviewer gate, must pass before the execute job is sent to a runner
+# - the admitted environment-bound job itself is the Founder authorization for this one workflow run; no secret value is authoritative
+# - repository/org/environment secrets and vars are not read as Founder authority and cannot satisfy the Founder gate
 # - live environment metadata is re-read before the controlled executor and must prove required Founder reviewer,
-#   admin bypass disabled, and exactly one allowed deployment branch: main
-# - the Founder activation secret is consumed only inside the environment-bound execute job and its value is never audited/logged
+#   prevent_self_review=false, admin bypass disabled, and exactly one allowed deployment branch: main
 # - exact workflow/ref/repository/default-branch/fork, preview fingerprint and full Stage-2/3A/3B revalidation remain mandatory
 # - execute permission ceiling is contents:read, pull-requests:read, issues:write; preview remains issues:read
 # - only canonical Stage-1 status:* and owner:* label ADD/REMOVE operations exist in the adapter
