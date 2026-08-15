@@ -8,7 +8,30 @@ This layer bridges the already-merged Stage 3B Controlled Activation executor to
 
 It does not add bulk execution, schedules, PR/comment/workflow-run triggers, automatic routing, merge, deployment, assignments, comments, body/title edits, Founder work-item decisions, QA verdict generation, model promotion, Stage 3C, or football/product behavior.
 
-## Independently observed live environment configuration
+## Founder authorization model
+
+Founder authorization is the admission of the **execute job itself** through the exact protected GitHub Environment `stage3b-controlled-activation`.
+
+The execute job is statically bound to:
+
+```yaml
+environment:
+  name: stage3b-controlled-activation
+```
+
+The Environment has the Founder GitHub account as the required reviewer. GitHub holds that Environment-bound execute job until applicable Environment protection succeeds. Approval authorizes only that pending job for that one manual workflow run; it does not authorize future runs or any Founder-gated football/model/business decision.
+
+No secret, repository variable, organization variable, or generic `secrets.*`/`vars.*` value is Founder authority. The workflow does not read `LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED` or any replacement secret to create authorization.
+
+## Why the secret-source defect is removed
+
+GitHub resolves a `secrets.NAME` expression by scope precedence but does not expose which scope supplied the resolved value. Therefore a generic same-name secret cannot prove Environment provenance.
+
+Stage 3B no longer tries to make that claim. Secret-source provenance is not part of the authorization model. A repository, organization, or Environment secret with the old activation name—present, absent, `1`, or any other value—has no effect on Founder authority because it is not read by the protected workflow or wrapper.
+
+The Environment secret-name inventory remains unobservable to the available GitHub integration (HTTP 403), but that gap is no longer an authorization prerequisite.
+
+## Independently observed live Environment configuration
 
 Core independently observed through the GitHub repository API:
 
@@ -20,30 +43,17 @@ Core independently observed through the GitHub repository API:
 - custom deployment branch policy enabled
 - exactly one deployment branch rule: `main`, type `branch`
 
-Core could **not** list environment secret names with the available GitHub integration; the environment-secrets endpoint returned HTTP 403. Therefore this candidate does not claim independent API proof that `LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED` exists. Independent QA must verify the secret **name only** in repository Environment settings before any first live test. The secret value must never be read or exposed.
+No secret value was requested or exposed.
 
 ## GitHub guarantees relied upon
 
-GitHub documents the following Environment semantics:
+League Vector relies on GitHub's protected-Environment execution semantics: a job that references a protected Environment must satisfy the Environment's deployment protection rules before the job proceeds to runner execution. In this configuration, that protection includes the required Founder reviewer and the deployment-branch restriction.
 
-1. A job referencing an Environment does not proceed to a runner until the Environment's protection rules pass.
-2. Environment secrets are only available to jobs that reference that Environment and only after required approval/protection rules pass.
-3. When the same secret name exists at organization, repository, and Environment levels, the Environment secret has highest precedence.
-
-League Vector does not treat a generic `vars.*` value as Founder authority.
-
-The execute job is statically bound to:
-
-```yaml
-environment:
-  name: stage3b-controlled-activation
-```
-
-and the activation secret is consumed only inside that job.
+League Vector does **not** rely on GitHub secret precedence as proof of authorization and does not claim secret-source provenance.
 
 ## League Vector checks layered on top
 
-Before the protected wrapper delegates to the previously QA-approved Controlled Activation executor it requires:
+After GitHub admits the Environment-bound job, before delegating to the previously QA-approved Controlled Activation executor, the protected wrapper requires:
 
 - `workflow_dispatch`
 - exact repository `kw7t9rwhny-cyber/league-vector`
@@ -53,22 +63,18 @@ Before the protected wrapper delegates to the previously QA-approved Controlled 
 - exact workflow ref on `refs/heads/main`
 - `LEAGUE_VECTOR_ORCHESTRATOR_EXECUTE=1`
 - `LEAGUE_VECTOR_STAGE3B_ACTIVATED=1`
-- static Environment binding name `stage3b-controlled-activation`
+- exact Environment binding name `stage3b-controlled-activation`
 - live GitHub Environment metadata successfully re-read
 - required Founder reviewer still present
+- `prevent_self_review=false`
 - administrator bypass still disabled
-- exact `main`-only branch policy still present
-- post-approval activation secret resolves exactly to `1`
+- exactly one deployment branch policy, `main`, type `branch`
 - exact preview replay fingerprint
-- then the complete inherited Stage 2 + Stage 3A + Stage 3B revalidation before every write
+- complete inherited Stage 2 + Stage 3A + Stage 3B revalidation before every write
 
 Any missing or changed gate denies execution.
 
-## Secret-source limitation and pre-live-test requirement
-
-The GitHub API available to Core cannot independently enumerate Environment secret names. Because a lower-scope same-name secret could exist if the Environment secret were absent, the first live test remains blocked until independent QA verifies in the GitHub Environment UI/settings that the Environment secret name `LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED` exists.
-
-Once that name is independently verified, GitHub's documented secret precedence means the Environment secret is the value resolved for the environment-bound job if same-name lower-scope secrets also exist. Lower-scope configuration cannot bypass the Environment approval because the execute job itself cannot start before the Environment protection rules pass.
+The protected wrapper creates an internal attestation with source `github-protected-environment-job-admission`. That attestation describes the protected job-admission model; it does not claim that GitHub exposes a cryptographic approval token or secret-source identity.
 
 ## Permissions
 
@@ -105,13 +111,13 @@ for exact canonical Stage-1 `status:*` and `owner:*` labels.
 
 Intended future live sequence, not executed during candidate development:
 
-1. Founder manually dispatches dry-run for one harmless test PR.
-2. Preview artifact records target/head/Stage-2 state/Stage-3A disposition/current labels/proposed mutations/QA state/Founder state/dependencies/replay fingerprint.
-3. Preview must show exactly one intended canonical mutation.
-4. Founder manually dispatches execute mode for the same one PR.
-5. The execute job waits at `stage3b-controlled-activation` for that workflow run's Environment approval.
-6. After approval, GitHub starts the environment-bound job and exposes its Environment secrets.
-7. League Vector re-reads live Environment metadata and then revalidates preview/Stage 2/Stage 3A/Stage 3B state before each write.
+1. Create a dedicated harmless Orchestrator-only test PR after this remediation receives independent HIGH-risk QA PASS.
+2. Manually dispatch dry-run for exactly that PR.
+3. Preview artifact records target/head/Stage-2 state/Stage-3A disposition/current labels/proposed mutations/QA state/Founder work-item state/dependencies/replay fingerprint.
+4. Preview must show exactly one intended canonical mutation: `ADD_LABEL status:ready-for-qa`.
+5. Separately dispatch execute mode for the same one PR only when a first-live-test transaction is explicitly authorized.
+6. The execute job waits at `stage3b-controlled-activation` for that workflow run's Founder Environment approval.
+7. After GitHub admits the protected job, League Vector re-reads live Environment metadata and revalidates preview/Stage 2/Stage 3A/Stage 3B state before each write.
 
 Environment approval authorizes only that one pending job. It does not approve future workflow runs or any Founder-gated product/model/business decision.
 
@@ -121,9 +127,9 @@ The previously QA-approved concurrency-safe rollback contract remains unchanged.
 
 ## First live test procedure — design only
 
-Do not create or execute this test during candidate development.
+Do not create or execute this test during remediation candidate development.
 
-After HIGH-risk QA passes this candidate and the Environment secret name is independently verified:
+After HIGH-risk QA passes this candidate:
 
 - create a dedicated Orchestrator-only harmless PR
 - no football/product/configuration behavior
@@ -134,9 +140,11 @@ After HIGH-risk QA passes this candidate and the Environment secret name is inde
 - inspect preview exact head and fingerprint
 - separately obtain Founder approval to perform the first live controlled transaction
 
+No secret-name verification is required for authorization because secrets are not part of the Founder gate.
+
 ## Audit
 
-The protected audit records workflow run ID, target PR input, trusted repository, Founder Environment name, secret **name only**, live Environment verification result, controlled Stage-3B audit, abort reason, and manual-review requirement. It explicitly records `secret_value_recorded=false` and never emits secret values or tokens.
+The protected audit records workflow run ID, target PR input, trusted repository, Founder Environment name, authorization model, live Environment verification result, controlled Stage-3B audit, abort reason, and manual-review requirement. It records `secret_authority=none` and does not emit or consume a Founder activation secret.
 
 ## Activation status
 
