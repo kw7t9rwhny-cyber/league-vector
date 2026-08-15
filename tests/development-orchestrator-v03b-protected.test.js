@@ -41,8 +41,7 @@ function attestation(o = {}) {
   return P.buildFounderAttestation({
     env: o.env || GOOD_RUNTIME,
     environment: o.environment === undefined ? GOOD_ENV : o.environment,
-    policies: o.policies === undefined ? GOOD_POLICIES : o.policies,
-    activationSecret: o.activationSecret === undefined ? "1" : o.activationSecret
+    policies: o.policies === undefined ? GOOD_POLICIES : o.policies
   });
 }
 
@@ -65,7 +64,7 @@ for (const [name, patch, reason] of [
   });
 }
 
-test("authorized same-repository main workflow_dispatch runtime is eligible only after environment checks", () => {
+test("authorized same-repository main workflow_dispatch runtime is eligible only after protected-environment checks", () => {
   assert.equal(P.validateRuntimeContext(GOOD_RUNTIME).allowed, true);
 });
 
@@ -85,11 +84,12 @@ test("administrator bypass enabled denies", () => {
   assert.equal(result.gate.allowed, false);
 });
 
-test("required reviewer missing denies", () => {
+test("required Founder reviewer missing denies", () => {
   const environment = structuredClone(GOOD_ENV);
   environment.protection_rules[0].reviewers = [{ type: "User", reviewer: { login: "attacker" } }];
   const result = attestation({ environment });
   assert.equal(result.gate.allowed, false);
+  assert.equal(result.gate.reason, "founder_required_reviewer_missing");
 });
 
 test("required reviewer rule missing denies", () => {
@@ -120,46 +120,70 @@ test("tag policy named main denies", () => {
   assert.equal(result.gate.allowed, false);
 });
 
-test("environment secret missing denies", () => {
-  const result = attestation({ activationSecret: "" });
-  assert.equal(result.gate.allowed, false);
-  assert.equal(result.gate.reason, "environment_activation_secret_missing_or_invalid");
-});
-
-test("environment secret wrong denies", () => {
-  const result = attestation({ activationSecret: "0" });
-  assert.equal(result.gate.allowed, false);
-});
-
-test("repository/org same-name assertion without protected environment cannot authorize", () => {
-  const env = { ...GOOD_RUNTIME, LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED: "1", REPOSITORY_LEVEL_LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED: "1" };
-  const result = P.buildFounderAttestation({ env, environment: null, policies: null, activationSecret: "1" });
-  assert.equal(result.gate.allowed, false);
-});
-
-test("verified protected environment + exact secret produces controlled attestation", () => {
+test("protected Environment job admission + exact live metadata produces Founder attestation", () => {
   const result = attestation();
   assert.equal(result.gate.allowed, true);
   assert.deepEqual(result.attestation, {
-    source: "environment-secret",
+    source: P.FOUNDER_AUTH_SOURCE,
     environment: ENVIRONMENT,
     verified: true,
     protection_verified: true,
-    activation: "1",
-    derived_from: "github_environment_job_plus_live_environment_metadata"
+    activation: "job-admitted",
+    derived_from: "environment_bound_execute_job_plus_live_environment_metadata"
   });
 });
 
-test("workflow is manual-only, one-PR, environment-bound, and dry-run default", () => {
+test("generic secrets-context value is not an input to Founder authority", () => {
+  const env = { ...GOOD_RUNTIME, LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATION_SECRET: "1", LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED: "1" };
+  const result = P.buildFounderAttestation({ env, environment: GOOD_ENV, policies: GOOD_POLICIES });
+  assert.equal(result.gate.allowed, true);
+  assert.equal(result.attestation.source, P.FOUNDER_AUTH_SOURCE);
+  assert.doesNotMatch(JSON.stringify(result), /environment-secret/);
+});
+
+test("Environment secret absent plus repository same-name secret=1 cannot create secret-based Founder authority", () => {
+  const env = { ...GOOD_RUNTIME, REPOSITORY_LEVEL_LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED: "1", LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATION_SECRET: "1" };
+  const result = P.buildFounderAttestation({ env, environment: GOOD_ENV, policies: GOOD_POLICIES });
+  assert.equal(result.gate.allowed, true);
+  assert.equal(result.attestation.source, P.FOUNDER_AUTH_SOURCE);
+  assert.notEqual(result.attestation.activation, "1");
+});
+
+test("Environment secret absent plus organization same-name secret=1 cannot create secret-based Founder authority", () => {
+  const env = { ...GOOD_RUNTIME, ORGANIZATION_LEVEL_LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED: "1", LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATION_SECRET: "1" };
+  const result = P.buildFounderAttestation({ env, environment: GOOD_ENV, policies: GOOD_POLICIES });
+  assert.equal(result.gate.allowed, true);
+  assert.equal(result.attestation.source, P.FOUNDER_AUTH_SOURCE);
+  assert.notEqual(result.attestation.activation, "1");
+});
+
+test("without protected Environment metadata lower-scope same-name values still deny", () => {
+  const env = { ...GOOD_RUNTIME, LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATION_SECRET: "1", REPOSITORY_LEVEL_LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED: "1", ORGANIZATION_LEVEL_LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED: "1" };
+  const result = P.buildFounderAttestation({ env, environment: null, policies: null });
+  assert.equal(result.gate.allowed, false);
+});
+
+test("workflow is manual-only, one-PR, environment-bound, dry-run default, and contains no Founder secret authority", () => {
   const workflow = fs.readFileSync(path.join(__dirname, "..", ".github", "workflows", "development-orchestrator-stage3b-controlled.yml"), "utf8");
   assert.match(workflow, /workflow_dispatch:/);
   assert.doesNotMatch(workflow, /\n\s+(schedule|pull_request|pull_request_target|push|workflow_run|issue_comment):/);
   assert.match(workflow, /target_pr_number:/);
   assert.match(workflow, /default: dry-run/);
   assert.match(workflow, /environment:\s*\n\s*name: stage3b-controlled-activation/);
-  assert.match(workflow, /LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATION_SECRET: \$\{\{ secrets\.LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED \}\}/);
+  assert.doesNotMatch(workflow, /secrets\./);
+  assert.doesNotMatch(workflow, /vars\./);
+  assert.doesNotMatch(workflow, /LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATION_SECRET/);
   assert.match(workflow, /LEAGUE_VECTOR_ORCHESTRATOR_EXECUTE: "1"/);
   assert.match(workflow, /LEAGUE_VECTOR_STAGE3B_ACTIVATED: "1"/);
+});
+
+test("protected Environment approval missing has no alternate execute path", () => {
+  const workflow = fs.readFileSync(path.join(__dirname, "..", ".github", "workflows", "development-orchestrator-stage3b-controlled.yml"), "utf8");
+  const protectedInvocations = workflow.match(/development-orchestrator-v03b-protected\.js execute/g) || [];
+  assert.equal(protectedInvocations.length, 1);
+  const execute = workflow.split("  execute-one-pr:")[1];
+  assert.match(execute, /environment:\s*\n\s*name: stage3b-controlled-activation/);
+  assert.match(execute, /development-orchestrator-v03b-protected\.js execute/);
 });
 
 test("preview job remains read-only and execute permission ceiling is issues:write", () => {
@@ -176,8 +200,11 @@ test("preview job remains read-only and execute permission ceiling is issues:wri
   assert.doesNotMatch(execute, /pull-requests: write|contents: write|actions: write|deployments: write/);
 });
 
-test("secret value is never emitted into protected audit schema", async () => {
+test("protected audit records authorization model without secret provenance claims", () => {
   const source = fs.readFileSync(path.join(__dirname, "..", "scripts", "development-orchestrator-v03b-protected.js"), "utf8");
-  assert.match(source, /secret_value_recorded: false/);
-  assert.doesNotMatch(source, /secret_value:/);
+  assert.match(source, /founder_authorization_model: "protected-environment-job-admission"/);
+  assert.match(source, /secret_authority: "none"/);
+  assert.doesNotMatch(source, /secret_name:/);
+  assert.doesNotMatch(source, /secret_value_recorded/);
+  assert.doesNotMatch(source, /activationSecret/);
 });
