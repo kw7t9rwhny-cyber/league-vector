@@ -2,128 +2,127 @@
 
 Status: candidate only; HIGH RISK; not activated on production `main`.
 
+**LIVE ACTIVATION BLOCKED — FOUNDER ENVIRONMENT PROTECTION NOT VERIFIED.**
+
 ## Scope
 
-This candidate adds the smallest real GitHub mutation surface for Development Orchestrator Stage 3B. One manual `workflow_dispatch` may target exactly one explicitly supplied positive-integer PR number. The only possible writes are Stage-3A-produced `ADD_LABEL` / `REMOVE_LABEL` operations for canonical Stage-1 `status:*` and `owner:*` labels.
+This candidate retains the smallest real GitHub mutation surface for Development Orchestrator Stage 3B. One manual `workflow_dispatch` targets exactly one explicitly supplied PR number. The real adapter can perform only Stage-3A-produced `ADD_LABEL` / `REMOVE_LABEL` operations for canonical Stage-1 `status:*` and `owner:*` labels.
 
-There is no queue-wide execution, no fan-out, no schedule, no pull-request event execution, no comment trigger, no merge trigger, no retry loop, and no cascade into another PR.
+There is no queue-wide execution, fan-out, schedule, pull-request event execution, comment trigger, merge trigger, retry loop, cascade, or Stage 3C.
 
 ## Permissions
 
-Preview job:
+Preview/dry-run:
 
 - `contents: read`
 - `pull-requests: read`
 - `issues: read`
 
-Execute job only:
+Execute permission ceiling:
 
 - `contents: read`
 - `pull-requests: read`
 - `issues: write`
 
-GitHub represents pull-request labels through the Issues labels API, so `issues:write` is sufficient for adding/removing PR labels. The candidate does not grant `pull-requests:write`, `contents:write`, `actions:write`, deployments, packages, administration, secrets, or workflow-write permission.
+GitHub manages PR labels through the Issues Labels API, so `issues:write` is sufficient. No `pull-requests:write`, `contents:write`, `actions:write`, deployment/package/admin/secrets/workflow write, or `pull_request_target` is granted.
 
-The real adapter exposes only `addLabel` and `removeLabel` beyond inherited read methods. Both reject any label outside the exact Stage-1 status/owner allowlist before issuing a request. It is not a generic GitHub mutation client.
+## Founder activation source — fail closed
 
-## Activation gates
+The prior candidate consumed `LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED` through `${{ vars.* }}`. That does not authenticate environment scope because `vars` may resolve organization, repository, or environment configuration.
 
-Live execution requires every existing Stage-3B gate plus a separate Founder control:
+GitHub documents two relevant facts:
 
-1. event is exactly `workflow_dispatch`;
-2. repository identity is fetched from the GitHub repository API and exactly matches runtime repository context;
-3. repository provenance says `fork === false`;
-4. trusted default branch is fetched from repository metadata;
-5. `GITHUB_REF`, `GITHUB_REF_TYPE`, and `GITHUB_REF_NAME` exactly identify that trusted default branch;
-6. exactly one positive-integer `target_pr_number` is supplied;
-7. `LEAGUE_VECTOR_ORCHESTRATOR_EXECUTE=1`;
-8. `LEAGUE_VECTOR_STAGE3B_ACTIVATED=1`;
-9. separate `LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED=1`;
-10. the execute job is assigned to the GitHub Environment `stage3b-controlled-activation`.
+1. a job referencing an environment cannot access that environment's secrets until configured environment protection rules pass; and
+2. secrets can exist at organization, repository, and environment scopes, with environment scope taking precedence when present.
 
-Any missing, malformed, conflicting, ambiguous, fork, wrong-event, wrong-ref, wrong-repository, or wrong-branch state denies execution.
+The second fact means `${{ secrets.NAME }}` still cannot prove source scope if the environment secret is missing: a same-name repository/organization secret may remain resolvable. Therefore this candidate does **not** treat either `${{ vars.* }}` or `${{ secrets.* }}` as Founder source authentication.
 
-### Founder environment requirement
+The controlled code accepts Founder authorization only through an explicit attestation object with all of:
 
-The repository connector used during candidate development cannot configure or verify GitHub Environment protection rules. Therefore this PR deliberately does **not** claim that the protected environment is already configured. Before any future first live test, the Founder must separately configure `stage3b-controlled-activation` with required approval/reviewer protection supported by the repository plan/settings and define the environment-level variable `LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED=1` only inside that protected environment.
+- `source=environment-secret`
+- `environment=stage3b-controlled-activation`
+- `verified=true`
+- `protection_verified=true`
+- `activation="1"`
 
-If that protection cannot be configured and independently verified, Stage 3B controlled activation must remain disabled. The candidate does not silently substitute a weaker gate.
+That attestation exists only in deterministic/mock tests. The real CLI intentionally supplies no attestation because GitHub Actions does not expose a runtime primitive in the permitted permission model that proves a value came from this exact environment rather than repository/org secret scope. Real execution therefore denies before any adapter read/write.
 
-## Preview-first flow
+Repository- or organization-level variables of the old activation name are ignored and cannot satisfy the gate. Ambiguous, missing, malformed, wrong-environment, or unverified activation provenance denies.
 
-Every manual invocation first runs a read-only preview. Preview includes:
+### Current environment state and auto-create hazard
 
-- target PR;
-- current head SHA;
-- Stage-2 status/owner/type/risk/priority/recommended action;
-- Stage-3A disposition and reason;
-- current labels;
-- exact proposed add/remove labels;
-- QA state and tested SHA;
-- Founder work-item state;
-- dependency snapshot;
-- current main SHA;
-- replay fingerprint.
+Independent QA verified that `stage3b-controlled-activation` does not currently exist. GitHub documents that running a workflow referencing a nonexistent environment can automatically create that environment without protection rules or secrets.
 
-Preview has `authorization:false`. It is evidence only and cannot authorize a mutation.
+Therefore this remediation deliberately removes any runnable `environment: stage3b-controlled-activation` reference. `mode=execute` produces a blocked audit and exits before any write-capable command. This avoids silently creating an unprotected environment during remediation.
 
-For `mode=dry-run` (default), the workflow ends after preview/dry-run proof with no job possessing `issues:write`.
+A future separately authorized change may wire live execution only after the Founder environment has been explicitly created and its protection/source mechanism independently verified. This PR does not create or activate it.
 
-For `mode=execute`, the write job is separately blocked behind the protected Founder environment. After approval, it recomputes trusted repository provenance and the complete live Stage-2/Stage-3A plan and requires the new replay fingerprint to equal the preview fingerprint before entering Stage 3B execution.
+## Exact target PR grammar
 
-## One-PR execution contract
+External `target_pr_number` input must match exactly:
 
-`target_pr_number` must match `^[1-9][0-9]*$`. Values such as `all`, `*`, `queue`, lists, ranges, arrays, zero, negatives, decimals, or multiple numbers are rejected. No code path iterates over the Stage-2 queue for mutation. A single invocation constructs and executes only the plan for the one selected PR.
+`^[1-9][0-9]*$`
 
-## Full revalidation contract
+No trimming or normalization occurs. `"123"` is valid. Leading/trailing whitespace, tabs/newlines, plus signs, leading zeros, exponent notation, decimals, lists, ranges, arrays/objects, zero, negatives, NaN/Infinity, and unsafe integers are rejected.
 
-The existing QA-passed inactive Stage-3B executor remains authoritative. Immediately before each individual label write it re-reads live repository state, rebuilds Stage 2, replans Stage 3A, and verifies the expected remaining mutation suffix. Revalidation covers open state, exact head, replay fingerprint, disposition, mutation set, QA state/tested SHA, dependencies, Founder state, structured metadata, owner/type/promotion state, current main provenance, and expected labels.
+Internal code may pass an already-validated positive safe-integer number.
 
-If anything changes, execution stops before the next write and attempts rollback only when transaction-owned state remains exactly provable.
+## Real adapter repository/PR contract
 
-## Rollback
+`GitHubControlledLabelAdapter` remains the only real mutation adapter and exposes only `addLabel` and `removeLabel` beyond inherited reads.
 
-Rollback remains reverse-order and concurrency-safe. Before each rollback mutation, the executor re-reads live state and compares a protected snapshot. If it cannot prove that the state is still transaction-owned, rollback stops and reports `failed-or-partial` with `manual_review_required=true`. Human changes are never overwritten merely to restore the transaction.
+At each write entry it now validates, before any network request:
 
-Ambiguous transport/write outcomes never claim success.
+- repository is an exact ASCII `owner/repo` canonical form;
+- repository exactly equals trusted `kw7t9rwhny-cyber/league-vector`;
+- PR is either a positive safe integer or an exact canonical decimal string with no normalization/coercion;
+- label is in the immutable Stage-1 canonical allowlist.
 
-## Audit
+Rejected repository examples include URLs, query/fragment/path payloads, encoded separators, whitespace, extra slashes, traversal, backslashes, empty owner/repo, and Unicode lookalikes. Rejected PR examples include `1e2`, `100.0`, ` 100 `, `+100`, `00100`, newline/path/encoded payloads, zero/negative/decimal values, NaN/Infinity, unsafe integers, arrays, and objects.
 
-Controlled execution output records:
+No `Number(pr)` coercion occurs before canonical validation, and tests prove invalid adapter inputs make zero network calls.
 
-- workflow run ID;
-- target PR;
-- expected preview fingerprint;
-- trusted repository identity;
-- trusted default branch;
-- fork provenance;
-- Founder activation gate state;
-- nested Stage-3B audit containing exact head, replay fingerprint, expected-before state/labels, desired-after labels, mutation attempts/completions, every pre-write revalidation, rollback attempts/completions/revalidations, post-write verification, abort reason, and `manual_review_required`.
+## Preview-first and one-PR contract
 
-Tokens and secrets are never written into the audit.
+Every dispatch first builds a read-only deterministic preview containing target PR, current head, Stage-2 state, Stage-3A disposition, current labels, exact add/remove proposal, QA/tested SHA, Founder work-item state, dependency snapshot, current main, exact mutation list, and replay fingerprint. Preview is always `authorization:false`.
 
-## First live test plan — NOT EXECUTED BY THIS PR
+`mode=dry-run` ends without write permission in that job. `mode=execute` is currently fail-closed as described above. The underlying mocked controlled executor retains preview→execute replay fingerprint equality and targets one PR only.
 
-Create a dedicated harmless Orchestrator validation PR containing only documentation/test-fixture material and canonical structured metadata. No football/product code, projection math, Dynasty Value, Rookie, IDP, scoring, Sleeper, identity, replacement, UI, archive, or production asset change may be included.
+## Full revalidation and rollback
 
-Safest initial transition: a single canonical **status-label synchronization to `status:ready-for-qa`** for a harmless PR whose structured body is already `status:ready-for-qa` and whose Stage-2 action is `SEND_TO_QA`, while the actual GitHub status label is intentionally absent. Stage 3A should therefore propose exactly one mutation: `ADD_LABEL status:ready-for-qa`. This avoids QA-result creation, Core routing, Founder decision changes, owner routing, promotion, or any production-facing transition.
+The previously QA-passed inactive Stage-3B executor remains authoritative. In mocked execution, immediately before every individual write it re-reads live state, rebuilds Stage 2, replans Stage 3A, and validates exact remaining mutation suffix, open/exact-head state, QA/tested SHA, Founder work-item state, dependencies, structured metadata, owner/type/promotion state, current-main provenance, labels, disposition, and replay fingerprint.
 
-Required first-test procedure:
+Rollback remains reverse-order and concurrency-safe. If transaction ownership cannot still be proven, rollback stops with `failed-or-partial` and `manual_review_required=true`; human state is never overwritten. Ambiguous transport/write outcomes never claim success.
 
-1. create the dedicated harmless test PR;
-2. independently QA its exact structured state and confirm the one-mutation Stage-3A preview;
-3. configure and verify the protected `stage3b-controlled-activation` environment and required Founder approval;
-4. run controlled workflow in `dry-run` mode and inspect preview artifact;
-5. Founder separately approves the protected environment execution;
-6. invoke `mode=execute` for that one PR only;
-7. verify exactly one `status:ready-for-qa` label addition and no other repository mutation;
-8. rerun dry-run to prove the transaction is now a no-op;
-9. retain audit artifact for independent QA.
+## Adversarial coverage
 
-This PR does not create that test PR and does not perform the mutation.
+Controlled tests cover:
+
+- repository-level variable spoof with environment activation missing;
+- organization-level variable spoof with environment activation missing;
+- missing/ambiguous/wrong-environment/unverified/malformed Founder attestation;
+- verified environment attestation eligibility in mocked execution only;
+- exact target whitespace/leading-zero/exponent/decimal attacks;
+- malformed repository URLs, paths, queries, fragments, encodings, whitespace and Unicode lookalikes;
+- direct `addLabel` and `removeLabel` PR coercion attacks;
+- trusted-repository mismatch;
+- zero-network proof for every invalid adapter repository/PR case;
+- wrong/closed PR, moved head, stale/conflicting QA, fork/ref/event attacks;
+- Stage-3A/metadata/label/dependency/current-main races after preview;
+- arbitrary/noncanonical mutations;
+- partial/ambiguous writes, rollback conflict, stale replay/second execution;
+- workflow trigger/permission inspection and proof that live workflow does not invoke the real executor.
+
+## First live test plan — NOT EXECUTED
+
+After a separately authorized Founder environment setup and independent verification, use a dedicated harmless Orchestrator-only PR whose structured body is already `status:ready-for-qa` but lacks that GitHub label. The intended first mutation remains exactly:
+
+`ADD_LABEL status:ready-for-qa`
+
+Before any future execute run, independently verify a dry-run artifact showing exactly one mutation, the exact target/head/fingerprint, and no owner/Core/Founder/QA/promotion transition.
+
+This PR does not create the test PR, does not create the environment, does not run execute mode, and performs no live mutation.
 
 ## Explicit non-capabilities
 
-Controlled Activation v0.1 cannot comment, assign, edit bodies/titles, create issues/PRs/branches, push code, merge, close PRs, approve/request review, deploy, create QA verdicts, change Founder decisions, create promotion work, invoke external services, scan-and-mutate queues, schedule itself, or cascade to another PR.
-
-Stage 3C is out of scope.
+Controlled Activation v0.1 cannot comment, assign, edit bodies/titles, create issues/PRs/branches, push, merge, close, approve/request review, deploy, create QA verdicts, change Founder decisions, create promotion work, invoke external services, scan-and-mutate queues, schedule itself, cascade, or implement Stage 3C.
