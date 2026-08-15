@@ -126,26 +126,27 @@ async function githubJson(url, token, options = {}) {
   return response.json();
 }
 
+async function assertRepositoryLabelExists(token,repository,label) {
+  try {
+    await githubJson(`https://api.github.com/repos/${repository}/labels/${encodeURIComponent(label)}`,token,{operation:"get_repository_label"});
+  } catch (error) {
+    if (error && error.githubDiagnostic && error.githubDiagnostic.status === 404) throw new Error(`canonical_repository_label_missing:${label}`);
+    throw error;
+  }
+}
+
 class GitHubControlledLabelAdapter extends Stage3B.GitHubReadOnlyAdapter {
   constructor(token, expectedRepository = TRUSTED_REPOSITORY) {
     super(token);
     this.expectedRepository = canonicalRepository(expectedRepository);
     if (this.expectedRepository !== TRUSTED_REPOSITORY) throw new Error("untrusted_expected_repository");
   }
-  async assertRepositoryLabelExists(repository,label) {
-    try {
-      await githubJson(`https://api.github.com/repos/${repository}/labels/${encodeURIComponent(label)}`,this.token,{operation:"get_repository_label"});
-    } catch (error) {
-      if (error && error.githubDiagnostic && error.githubDiagnostic.status === 404) throw new Error(`canonical_repository_label_missing:${label}`);
-      throw error;
-    }
-  }
   async addLabel(repository, pr, label) {
     const repo = canonicalRepository(repository);
     if (repo !== this.expectedRepository) throw new Error("repository_identity_mismatch");
     const number = canonicalPrNumber(pr);
     if (!Stage3B.CANONICAL_LABEL_ALLOWLIST.has(label)) throw new Error(`noncanonical_label:${label}`);
-    await this.assertRepositoryLabelExists(repo,label);
+    await assertRepositoryLabelExists(this.token,repo,label);
     await githubJson(`https://api.github.com/repos/${repo}/issues/${number}/labels`,this.token,{method:"POST",operation:"add_label",headers:{"Content-Type":"application/json"},body:JSON.stringify({labels:[label]})});
   }
   async removeLabel(repository, pr, label) {
