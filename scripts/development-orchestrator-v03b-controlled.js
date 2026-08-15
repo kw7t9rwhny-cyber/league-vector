@@ -128,7 +128,10 @@ async function githubJson(url, token, options = {}) {
 
 async function assertRepositoryLabelExists(token,repository,label) {
   try {
-    await githubJson(`https://api.github.com/repos/${repository}/labels/${encodeURIComponent(label)}`,token,{operation:"get_repository_label"});
+    const result = await githubJson(`https://api.github.com/repos/${repository}/labels/${encodeURIComponent(label)}`,token,{operation:"get_repository_label"});
+    if (!result || typeof result !== "object" || Array.isArray(result) || typeof result.name !== "string" || result.name !== label) {
+      throw new Error(`canonical_repository_label_response_invalid:${label}`);
+    }
   } catch (error) {
     if (error && error.githubDiagnostic && error.githubDiagnostic.status === 404) throw new Error(`canonical_repository_label_missing:${label}`);
     throw error;
@@ -194,7 +197,7 @@ async function executeControlled({repository,token,targetPr,expectedFingerprint,
   return result;
 }
 
-module.exports={CONTROLLED_VERSION,TRUSTED_REPOSITORY,FOUNDER_ENVIRONMENT,FOUNDER_AUTH_SOURCE,canonicalRepository,canonicalPrNumber,parseTargetPr,founderActivationGate,canonicalMutationsOnly,planForTarget,previewFrom,sanitizeDiagnosticText,safeGitHubDiagnostic,githubJson,buildLivePreview,executeControlled,GitHubControlledLabelAdapter};
+module.exports={CONTROLLED_VERSION,TRUSTED_REPOSITORY,FOUNDER_ENVIRONMENT,FOUNDER_AUTH_SOURCE,canonicalRepository,canonicalPrNumber,parseTargetPr,founderActivationGate,canonicalMutationsOnly,planForTarget,previewFrom,sanitizeDiagnosticText,safeGitHubDiagnostic,buildLivePreview,executeControlled,GitHubControlledLabelAdapter};
 
 if (require.main===module) {
   (async()=>{
