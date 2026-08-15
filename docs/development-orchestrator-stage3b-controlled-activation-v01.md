@@ -51,7 +51,7 @@ Repository- or organization-level variables of the old activation name are ignor
 
 ### Current environment state and auto-create hazard
 
-Independent QA verified that `stage3b-controlled-activation` does not currently exist. GitHub documents that running a workflow referencing a nonexistent environment can automatically create that environment without protection rules or secrets.
+Independent QA verified that `stage3b-controlled-activation` does not currently exist. Remediation rechecked the GitHub environment endpoint and it still returns 404. GitHub documents that running a workflow referencing a nonexistent environment can automatically create that environment without protection rules or secrets.
 
 Therefore this remediation deliberately removes any runnable `environment: stage3b-controlled-activation` reference. `mode=execute` produces a blocked audit and exits before any write-capable command. This avoids silently creating an unprotected environment during remediation.
 
@@ -112,6 +112,33 @@ Controlled tests cover:
 - arbitrary/noncanonical mutations;
 - partial/ambiguous writes, rollback conflict, stale replay/second execution;
 - workflow trigger/permission inspection and proof that live workflow does not invoke the real executor.
+
+## Exact-head validation evidence
+
+Candidate head: `34ec9170638f9117e826f5e769da8c4364c6ad86`.
+
+Development Orchestrator run `31853059353`: PASS.
+
+- Stage 1: 26/26 PASS
+- Stage 2: 54/54 PASS
+- Stage 3A: 48/48 PASS
+- inherited Stage 3B: 68/68 PASS
+- Controlled Activation: 164/164 PASS
+- PR metadata audit: PASS
+- Stage-2 live dogfood: PASS, read only
+- Stage-3A live dogfood: PASS, zero mutations
+- inactive Stage-3B dogfood: PASS, dry-run `no-op-success`, execute flags disabled
+
+Full League Vector CI run `31853059398`: PASS on the same head.
+
+- `npm run validate`: PASS
+- Playwright E2E: PASS
+- projection benchmark: PASS
+- projection-v03 generation/static preview: PASS
+- historical data audit: PASS
+- live projection publisher: skipped on PR
+
+No controlled execute workflow was dispatched. No real label adapter network request was made by CI. No live mutation, environment creation, merge, or production activation occurred. Production `main` remained `f876543a1f6126ea1321c7c8b0eeede62293b139` during validation.
 
 ## First live test plan — NOT EXECUTED
 
