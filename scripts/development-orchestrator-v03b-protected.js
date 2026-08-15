@@ -8,6 +8,7 @@ const FOUNDER_ENVIRONMENT = Controlled.FOUNDER_ENVIRONMENT;
 const FOUNDER_REVIEWER = "kw7t9rwhny-cyber";
 const WORKFLOW_PATH = ".github/workflows/development-orchestrator-stage3b-controlled.yml";
 const EXPECTED_WORKFLOW_REF = `${TRUSTED_REPOSITORY}/${WORKFLOW_PATH}@refs/heads/main`;
+const FOUNDER_AUTH_SOURCE = "github-protected-environment-job-admission";
 
 function deny(reason, extra = {}) {
   return { allowed: false, reason, ...extra };
@@ -57,26 +58,25 @@ function validateEnvironmentMetadata(environment, policies) {
   };
 }
 
-function buildFounderAttestation({ env = process.env, environment, policies, activationSecret }) {
+function buildFounderAttestation({ env = process.env, environment, policies }) {
   const runtime = validateRuntimeContext(env);
   if (!runtime.allowed) return { gate: runtime, attestation: null };
   const protectedEnvironment = validateEnvironmentMetadata(environment, policies);
   if (!protectedEnvironment.allowed) return { gate: protectedEnvironment, attestation: null };
-  if (activationSecret !== "1") return { gate: deny("environment_activation_secret_missing_or_invalid"), attestation: null };
   return {
     gate: {
       allowed: true,
-      reason: "github_protected_environment_authorization_valid",
+      reason: "github_protected_environment_job_admission_valid",
       environment: protectedEnvironment,
       workflow_ref: env.GITHUB_WORKFLOW_REF
     },
     attestation: {
-      source: "environment-secret",
+      source: FOUNDER_AUTH_SOURCE,
       environment: FOUNDER_ENVIRONMENT,
       verified: true,
       protection_verified: true,
-      activation: "1",
-      derived_from: "github_environment_job_plus_live_environment_metadata"
+      activation: "job-admitted",
+      derived_from: "environment_bound_execute_job_plus_live_environment_metadata"
     }
   };
 }
@@ -101,7 +101,7 @@ async function readLiveEnvironment(repository, token) {
   return { environment, policies };
 }
 
-async function executeProtected({ repository, token, targetPr, expectedFingerprint, env = process.env, adapter = null, activationSecret }) {
+async function executeProtected({ repository, token, targetPr, expectedFingerprint, env = process.env, adapter = null }) {
   const audit = {
     schema: "lv-stage3b-protected-environment-audit-v0.1",
     version: VERSION,
@@ -109,8 +109,8 @@ async function executeProtected({ repository, token, targetPr, expectedFingerpri
     target_pr_input: targetPr,
     trusted_repository: TRUSTED_REPOSITORY,
     founder_environment: FOUNDER_ENVIRONMENT,
-    secret_name: "LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATED",
-    secret_value_recorded: false,
+    founder_authorization_model: "protected-environment-job-admission",
+    secret_authority: "none",
     environment_verification: null,
     controlled_result: null,
     abort_reason: null,
@@ -131,7 +131,7 @@ async function executeProtected({ repository, token, targetPr, expectedFingerpri
     return audit;
   }
 
-  const founder = buildFounderAttestation({ env, ...liveEnvironment, activationSecret });
+  const founder = buildFounderAttestation({ env, ...liveEnvironment });
   audit.environment_verification = founder.gate;
   if (!founder.gate.allowed || !founder.attestation) {
     audit.abort_reason = founder.gate.reason;
@@ -160,6 +160,7 @@ module.exports = {
   FOUNDER_REVIEWER,
   WORKFLOW_PATH,
   EXPECTED_WORKFLOW_REF,
+  FOUNDER_AUTH_SOURCE,
   validateRuntimeContext,
   validateEnvironmentMetadata,
   buildFounderAttestation,
@@ -183,8 +184,7 @@ if (require.main === module) {
       token,
       targetPr: args[targetIndex + 1],
       expectedFingerprint: args[fingerprintIndex + 1],
-      env: process.env,
-      activationSecret: process.env.LEAGUE_VECTOR_STAGE3B_FOUNDER_ACTIVATION_SECRET
+      env: process.env
     });
     process.stdout.write(`${JSON.stringify(audit, null, 2)}\n`);
     const controlled = audit.controlled_result;
