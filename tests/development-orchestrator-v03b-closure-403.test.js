@@ -99,7 +99,7 @@ const malformedSuccesses = [
   ["empty object",{}],
   ["null",null],
   ["array",[]],
-  ["string","status:ready-for-qa"],
+  ["string",JSON.stringify("status:ready-for-qa")],
   ["null name",{name:null}],
   ["numeric name",{name:123}],
   ["empty name",{name:""}],
