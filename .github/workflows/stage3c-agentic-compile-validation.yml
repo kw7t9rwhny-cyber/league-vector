@@ -21,6 +21,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Install verified gh-aw v0.86.2 compiler
         shell: bash
@@ -62,5 +64,5 @@ jobs:
           cmp --silent "$RUNNER_TEMP/research.lock.yml" .github/workflows/stage3c-research-worker.lock.yml
           cmp --silent "$RUNNER_TEMP/qa.lock.yml" .github/workflows/stage3c-qa-worker.lock.yml
 
-# Final candidate validation: static compilation only, read-only GITHUB_TOKEN, no Codex execution.
-# No OpenAI secret is referenced and no OpenAI inference occurs.
+# Final candidate validation checks the exact PR head, not GitHub's synthetic merge ref.
+# Static compilation only, read-only GITHUB_TOKEN, no Codex execution or OpenAI secret access.
