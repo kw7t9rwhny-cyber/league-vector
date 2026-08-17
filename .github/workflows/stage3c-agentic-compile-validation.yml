@@ -24,17 +24,13 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
-
       - name: Install verified gh-aw v0.86.2 compiler
         shell: bash
         run: |
-          curl --fail --silent --show-error --location \
-            https://github.com/github/gh-aw/releases/download/v0.86.2/linux-amd64 \
-            --output "$RUNNER_TEMP/gh-aw"
+          curl --fail --silent --show-error --location https://github.com/github/gh-aw/releases/download/v0.86.2/linux-amd64 --output "$RUNNER_TEMP/gh-aw"
           echo "b8fd100d1d56a77b842ad28375ff361215a5aa1277db6b9a05d70054cde7260e  $RUNNER_TEMP/gh-aw" | sha256sum --check --strict
           chmod 0700 "$RUNNER_TEMP/gh-aw"
           "$RUNNER_TEMP/gh-aw" version
-
       - name: Compile and strict validate both Agentic Workflows
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -43,7 +39,6 @@ jobs:
           "$RUNNER_TEMP/gh-aw" compile stage3c-qa-worker --strict
           "$RUNNER_TEMP/gh-aw" validate stage3c-research-worker --strict
           "$RUNNER_TEMP/gh-aw" validate stage3c-qa-worker --strict
-
       - name: Stage exact generated lock blobs outside .github/workflows
         shell: bash
         run: |
@@ -54,19 +49,13 @@ jobs:
           cp .github/workflows/stage3c-qa-worker.lock.yml stage3c-lock-bootstrap/stage3c-qa-worker.lock.yml
           git restore -- .github/workflows/stage3c-research-worker.lock.yml .github/workflows/stage3c-qa-worker.lock.yml
           rm -f .gitattributes
-          unexpected="$(git status --porcelain | grep -vE '^\?\? stage3c-lock-bootstrap/$' || true)"
-          if [ -n "$unexpected" ]; then
-            printf '%s\n' "$unexpected" >&2
-            echo 'Unexpected bootstrap change' >&2
-            exit 1
-          fi
+          rm -rf .github/aw
+          unexpected="$(git status --porcelain | grep -vE '^ M stage3c-lock-bootstrap/stage3c-(research|qa)-worker\.lock\.yml$' || true)"
+          if [ -n "$unexpected" ]; then printf '%s\n' "$unexpected" >&2; exit 1; fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -- stage3c-lock-bootstrap/stage3c-research-worker.lock.yml stage3c-lock-bootstrap/stage3c-qa-worker.lock.yml
-          git commit -m 'stage exact generated Stage 3C lock blobs'
+          git commit -m 'refresh exact generated Stage 3C lock blobs'
           git push origin "HEAD:${GITHUB_HEAD_REF}"
 
-# TEMPORARY REMEDIATION BOOTSTRAP ONLY.
-# The staged blobs are promoted to the executable workflow paths by the GitHub connector,
-# then this helper and the staging directory are removed before the final candidate.
-# No Codex execution or OpenAI secret access occurs here.
+# TEMPORARY REMEDIATION BOOTSTRAP ONLY. Remove before final candidate.
