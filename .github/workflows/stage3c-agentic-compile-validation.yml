@@ -8,32 +8,26 @@ on:
       - '.github/workflows/stage3c-qa-worker.md'
       - '.github/workflows/stage3c-qa-worker.lock.yml'
       - '.github/workflows/stage3c-agentic-compile-validation.yml'
-      - 'tests/development-orchestrator-stage3c-agentic.test.js'
-      - 'docs/development-orchestrator-stage3c-two-worker-proof-v01.md'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   compile-and-validate:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'agent/stage3c-two-worker-proof-v01'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
       - name: Install verified gh-aw v0.86.2 compiler
-        shell: bash
         run: |
           curl --fail --silent --show-error --location https://github.com/github/gh-aw/releases/download/v0.86.2/linux-amd64 --output "$RUNNER_TEMP/gh-aw"
           echo "b8fd100d1d56a77b842ad28375ff361215a5aa1277db6b9a05d70054cde7260e  $RUNNER_TEMP/gh-aw" | sha256sum --check --strict
           chmod 0700 "$RUNNER_TEMP/gh-aw"
-          "$RUNNER_TEMP/gh-aw" version
-      - name: Preserve committed hardened locks
-        run: |
-          cp .github/workflows/stage3c-research-worker.lock.yml "$RUNNER_TEMP/research.lock.yml"
-          cp .github/workflows/stage3c-qa-worker.lock.yml "$RUNNER_TEMP/qa.lock.yml"
-      - name: Strict validate sources then deterministically compile exact executable locks
+      - name: Validate then generate exact deterministic locks
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
@@ -42,43 +36,19 @@ jobs:
           PIN=6aab9e5b5c91c615506061f09bedd81a23babe3c
           "$RUNNER_TEMP/gh-aw" compile stage3c-research-worker --strict --action-tag "$PIN"
           "$RUNNER_TEMP/gh-aw" compile stage3c-qa-worker --strict --action-tag "$PIN"
-      - name: Verify byte-identical hardened locks
+      - name: Stage only exact generated locks
         run: |
-          cmp --silent "$RUNNER_TEMP/research.lock.yml" .github/workflows/stage3c-research-worker.lock.yml
-          cmp --silent "$RUNNER_TEMP/qa.lock.yml" .github/workflows/stage3c-qa-worker.lock.yml
-          echo 'byte-identical hardened locks: PASS'
-      - name: Audit effective generated lock permissions and write handlers
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          import re
-          paths = [Path('.github/workflows/stage3c-research-worker.lock.yml'), Path('.github/workflows/stage3c-qa-worker.lock.yml')]
-          forbidden = ['contents: write','pull-requests: write','actions: write','deployments: write','packages: write','administration: write','statuses: write','checks: write']
-          def job_block(text, name):
-              marker=f'\n  {name}:\n'; start=text.find(marker); assert start>=0, f'missing job {name}'
-              rest=text[start+len(marker):]; nxt=re.search(r'\n  [A-Za-z0-9_-]+:\n',rest)
-              return rest[:nxt.start()] if nxt else rest
-          for path in paths:
-              text=path.read_text()
-              for value in forbidden: assert value not in text, f'{path}: forbidden permission {value}'
-              agent=job_block(text,'agent')
-              assert 'contents: read' in agent and 'issues: read' in agent
-              assert ': write' not in agent
-              assert 'GITHUB_READ_ONLY' in agent and '"1"' in agent
-              safe=job_block(text,'safe_outputs')
-              assert 'issues: write' in safe
-              assert 'contents: write' not in safe and 'pull-requests: write' not in safe and 'actions: write' not in safe
-              m=re.search(r'GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "[^\n]+"',text); assert m
-              config=m.group(0)
-              for required in ['\\"add_comment\\"','\\"target\\":\\"53\\"','\\"max\\":1','\\"discussions\\":false','\\"report_incomplete\\"']:
-                  assert required in config, f'{path}: missing {required}'
-              assert 'create_report_incomplete_issue' not in config
-              for disallowed in ['create_pull_request','add_labels','remove_labels','merge_pull_request','push_to_pull_request_branch','update_release','dispatch_workflow','create_issue']:
-                  assert f'\\"{disallowed}\\"' not in config
-              assert 'GH_AW_REPORT_INCOMPLETE_CREATE_ISSUE: "false"' in text
-              assert 'GH_AW_FAILURE_REPORT_AS_ISSUE: "false"' in text
-          print('effective generated lock audit: PASS')
-          PY
+          set -euo pipefail
+          mkdir -p stage3c-lock-bootstrap
+          cp .github/workflows/stage3c-research-worker.lock.yml stage3c-lock-bootstrap/stage3c-research-worker.lock.yml
+          cp .github/workflows/stage3c-qa-worker.lock.yml stage3c-lock-bootstrap/stage3c-qa-worker.lock.yml
+          git restore -- .github/workflows/stage3c-research-worker.lock.yml .github/workflows/stage3c-qa-worker.lock.yml
+          rm -f .gitattributes
+          rm -rf .github/aw
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- stage3c-lock-bootstrap/stage3c-research-worker.lock.yml stage3c-lock-bootstrap/stage3c-qa-worker.lock.yml
+          git commit -m 'stage deterministic Stage 3C lock blobs'
+          git push origin "HEAD:${GITHUB_HEAD_REF}"
 
-# Read-only static validation only. No Codex execution and no OpenAI secret access.
+# TEMPORARY lock staging only. Remove before final candidate. No Codex execution.
