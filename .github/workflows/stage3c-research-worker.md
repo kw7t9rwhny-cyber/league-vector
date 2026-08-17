@@ -20,7 +20,7 @@ tools:
     toolsets: [repos, issues]
 safe-outputs:
   add-comment:
-    target: 53
+    target: "53"
     max: 1
 ---
 
