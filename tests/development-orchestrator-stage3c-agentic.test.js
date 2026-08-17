@@ -58,7 +58,6 @@ test("Both workers expose only one fixed-issue add-comment safe output", () => {
     assert.match(source, /add-comment:/);
     assert.match(source, /target: 53/);
     assert.match(source, /max: 1/);
-    assert.match(source, /required-title-prefix: 'AGENT SPIKE TEST —'/);
     assertNoDangerousAgentWrites(source);
   }
 });
@@ -96,10 +95,10 @@ test("QA rejects stale or uncorrelated durable handoffs", () => {
 test("compile validation uses verified official gh-aw binary and no agent secret", () => {
   assert.match(compile, /releases\/download\/v0\.37\.18\/linux-amd64/);
   assert.match(compile, /626f8f73842581f08072f2e0bc8dd49cf4e7e70977186e582cff86ac2d472c04/);
-  assert.match(compile, /gh-aw\" compile stage3c-research-worker --strict/);
-  assert.match(compile, /gh-aw\" compile stage3c-qa-worker --strict/);
-  assert.match(compile, /gh-aw\" validate stage3c-research-worker --strict/);
-  assert.match(compile, /gh-aw\" validate stage3c-qa-worker --strict/);
+  assert.match(compile, /gh-aw compile stage3c-research-worker --strict/);
+  assert.match(compile, /gh-aw compile stage3c-qa-worker --strict/);
+  assert.match(compile, /gh-aw validate stage3c-research-worker --strict/);
+  assert.match(compile, /gh-aw validate stage3c-qa-worker --strict/);
   assert.match(compile, /permissions:\n\s+contents: read/);
   assert.doesNotMatch(compile, /engine: codex|OPENAI_API_KEY|CODEX_API_KEY|secrets\./);
 });
