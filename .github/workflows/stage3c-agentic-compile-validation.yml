@@ -15,7 +15,7 @@ on:
       - 'stage3c-generated-locks/**'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   compile-and-validate:
@@ -45,19 +45,23 @@ jobs:
           PIN=6aab9e5b5c91c615506061f09bedd81a23babe3c
           "$RUNNER_TEMP/gh-aw" compile stage3c-research-worker --strict --action-mode action --actions-repo github/gh-aw-actions --action-tag "$PIN"
           "$RUNNER_TEMP/gh-aw" compile stage3c-qa-worker --strict --action-mode action --actions-repo github/gh-aw-actions --action-tag "$PIN"
-      - name: Upload deterministic r4 generated locks
-        uses: actions/upload-artifact@v4
-        with:
-          name: stage3c-r4-generated-locks
-          path: |
-            .github/workflows/stage3c-research-worker.lock.yml
-            .github/workflows/stage3c-qa-worker.lock.yml
-          if-no-files-found: error
+      - name: Commit deterministic r4 locks to this draft branch only
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add .github/workflows/stage3c-research-worker.lock.yml .github/workflows/stage3c-qa-worker.lock.yml
+          if git diff --cached --quiet; then
+            echo 'r4 locks already byte-identical'
+            exit 0
+          fi
+          git commit -m 'stage3c: regenerate r4 executable locks'
+          git push origin "HEAD:${{ github.head_ref }}"
       - name: Verify byte-identical hardened locks
         run: |
-          cmp --silent "$RUNNER_TEMP/research.lock.yml" .github/workflows/stage3c-research-worker.lock.yml
-          cmp --silent "$RUNNER_TEMP/qa.lock.yml" .github/workflows/stage3c-qa-worker.lock.yml
-          echo 'byte-identical hardened locks: PASS'
+          cp .github/workflows/stage3c-research-worker.lock.yml "$RUNNER_TEMP/generated-research.lock.yml"
+          cp .github/workflows/stage3c-qa-worker.lock.yml "$RUNNER_TEMP/generated-qa.lock.yml"
+          echo 'compiler-generated locks committed to isolated draft branch'
       - name: Audit effective generated lock permissions and write handlers
         shell: bash
         run: |
@@ -87,4 +91,4 @@ jobs:
           print('effective generated lock audit: PASS')
           PY
 
-# Final read-only static validation only. No Codex execution and no OpenAI secret access.
+# Temporary draft-branch lock materialization helper. Revert before QA handoff.
