@@ -12,7 +12,7 @@ on:
       - 'docs/development-orchestrator-stage3c-two-worker-proof-v01.md'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   compile-and-validate:
@@ -38,17 +38,12 @@ jobs:
           PIN=6aab9e5b5c91c615506061f09bedd81a23babe3c
           "$RUNNER_TEMP/gh-aw" compile stage3c-research-worker --strict --action-mode action --actions-repo github/gh-aw-actions --action-tag "$PIN"
           "$RUNNER_TEMP/gh-aw" compile stage3c-qa-worker --strict --action-mode action --actions-repo github/gh-aw-actions --action-tag "$PIN"
-      - name: Commit exact compiler-generated hardened locks
-        shell: bash
-        run: |
-          if git diff --quiet -- .github/workflows/stage3c-research-worker.lock.yml .github/workflows/stage3c-qa-worker.lock.yml; then
-            echo 'generated locks already current'
-            exit 0
-          fi
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git add .github/workflows/stage3c-research-worker.lock.yml .github/workflows/stage3c-qa-worker.lock.yml
-          git commit -m 'regenerate Stage 3C hardened locks'
-          git push origin HEAD:agent/stage3c-two-worker-proof-v01
+      - name: Upload exact compiler-generated hardened locks
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage3c-replay-remediation-locks
+          path: |
+            .github/workflows/stage3c-research-worker.lock.yml
+            .github/workflows/stage3c-qa-worker.lock.yml
 
-# TEMPORARY remediation helper. Must be removed before candidate declaration.
+# TEMPORARY read-only remediation capture. Must be replaced by deterministic compare before candidate declaration.
