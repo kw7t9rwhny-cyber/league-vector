@@ -43,6 +43,14 @@ jobs:
           "$RUNNER_TEMP/gh-aw" validate stage3c-qa-worker --strict
       - name: Verify byte-identical hardened locks
         run: |
+          echo 'Research committed:'
+          sha256sum "$RUNNER_TEMP/research.lock.yml"
+          echo 'Research regenerated:'
+          sha256sum .github/workflows/stage3c-research-worker.lock.yml
+          echo 'QA committed:'
+          sha256sum "$RUNNER_TEMP/qa.lock.yml"
+          echo 'QA regenerated:'
+          sha256sum .github/workflows/stage3c-qa-worker.lock.yml
           cmp --silent "$RUNNER_TEMP/research.lock.yml" .github/workflows/stage3c-research-worker.lock.yml
           cmp --silent "$RUNNER_TEMP/qa.lock.yml" .github/workflows/stage3c-qa-worker.lock.yml
       - name: Audit effective generated lock permissions and write handlers
@@ -91,7 +99,7 @@ jobs:
               assert '\\"target\\":\\"53\\"' in config
               assert '\\"max\\":1' in config
               assert '\\"discussions\\":false' in config
-              assert '\\"report_incomplete\\"' in config  # mandatory framework failure signal
+              assert '\\"report_incomplete\\"' in config
               assert 'create_report_incomplete_issue' not in config
               for disallowed in [
                   'create_pull_request', 'add_labels', 'remove_labels',
