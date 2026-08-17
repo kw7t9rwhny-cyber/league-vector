@@ -52,6 +52,8 @@ tools:
     toolsets: [repos, issues]
 safe-outputs:
   report-failure-as-issue: false
+  report-incomplete:
+    create-issue: false
   missing-tool: false
   missing-data: false
   noop: false
