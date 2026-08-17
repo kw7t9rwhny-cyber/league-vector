@@ -9,7 +9,9 @@ on:
       - '.github/workflows/stage3c-qa-worker.lock.yml'
       - '.github/workflows/stage3c-agentic-compile-validation.yml'
       - 'tests/development-orchestrator-stage3c-agentic.test.js'
+      - 'tests/development-orchestrator-stage3c-r2.test.js'
       - 'docs/development-orchestrator-stage3c-two-worker-proof-v01.md'
+      - 'docs/development-orchestrator-stage3c-r2-executable-v01.md'
       - 'stage3c-generated-locks/**'
 
 permissions:
