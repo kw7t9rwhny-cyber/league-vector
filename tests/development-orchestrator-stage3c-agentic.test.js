@@ -106,7 +106,7 @@ test("QA explicitly rejects stale or uncorrelated durable handoffs", () => {
 
 test("compile validation is non-agent and pins gh-aw compiler version", () => {
   assert.match(compile, /Stage 3C Agentic Workflow Compile Validation/);
-  assert.match(compile, /github\/gh-aw\/actions\/setup-cli@v0\.37\.18/);
+  assert.match(compile, /github\/gh-aw\/actions\/setup-cli@8f1f2d2b8c9493bc38a26994efb4241fe3870339/);
   assert.match(compile, /version: v0\.37\.18/);
   assert.match(compile, /gh aw compile stage3c-research-worker --strict/);
   assert.match(compile, /gh aw compile stage3c-qa-worker --strict/);
