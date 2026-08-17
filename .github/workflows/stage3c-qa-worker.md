@@ -12,8 +12,6 @@ permissions:
   contents: read
   issues: read
 engine: codex
-max-ai-credits: 250
-max-daily-ai-credits: 500
 timeout-minutes: 10
 concurrency:
   group: stage3c-qa-${{ github.event.workflow_run.id }}
