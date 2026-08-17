@@ -34,15 +34,23 @@ jobs:
           "$RUNNER_TEMP/gh-aw" version
 
       - name: Compile Stage 3C Research Worker A
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: "$RUNNER_TEMP/gh-aw compile stage3c-research-worker --strict"
 
       - name: Compile Stage 3C QA Worker B
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: "$RUNNER_TEMP/gh-aw compile stage3c-qa-worker --strict"
 
       - name: Strict validate Research Worker A
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: "$RUNNER_TEMP/gh-aw validate stage3c-research-worker --strict"
 
       - name: Strict validate QA Worker B
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: "$RUNNER_TEMP/gh-aw validate stage3c-qa-worker --strict"
 
       - name: Verify committed hardened locks are exact compiler output
@@ -67,4 +75,5 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-# Compilation/static validation only. No OpenAI secret is referenced and no Codex execution occurs.
+# Compilation/static validation only. The ephemeral read-only GITHUB_TOKEN is scoped solely to gh-aw action-pin resolution.
+# No OpenAI secret is referenced and no Codex execution occurs.
