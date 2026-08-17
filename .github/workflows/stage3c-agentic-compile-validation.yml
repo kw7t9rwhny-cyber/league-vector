@@ -33,15 +33,15 @@ jobs:
         run: |
           cp .github/workflows/stage3c-research-worker.lock.yml "$RUNNER_TEMP/research.lock.yml"
           cp .github/workflows/stage3c-qa-worker.lock.yml "$RUNNER_TEMP/qa.lock.yml"
-      - name: Strict compile and validate both Agentic Workflows with exact gh-aw runtime pin
+      - name: Strict compile with exact runtime pin and strict validate both Agentic Workflows
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
           PIN=6aab9e5b5c91c615506061f09bedd81a23babe3c
           "$RUNNER_TEMP/gh-aw" compile stage3c-research-worker --strict --action-tag "$PIN"
           "$RUNNER_TEMP/gh-aw" compile stage3c-qa-worker --strict --action-tag "$PIN"
-          "$RUNNER_TEMP/gh-aw" validate stage3c-research-worker --strict --action-tag "$PIN"
-          "$RUNNER_TEMP/gh-aw" validate stage3c-qa-worker --strict --action-tag "$PIN"
+          "$RUNNER_TEMP/gh-aw" validate stage3c-research-worker --strict
+          "$RUNNER_TEMP/gh-aw" validate stage3c-qa-worker --strict
       - name: Verify byte-identical hardened locks
         run: |
           cmp --silent "$RUNNER_TEMP/research.lock.yml" .github/workflows/stage3c-research-worker.lock.yml
