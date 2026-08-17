@@ -7,10 +7,10 @@ on:
     types: [completed]
     branches: [main]
     conclusion: success
+if: "github.event.workflow_run.run_attempt == 1"
 permissions:
   contents: read
   issues: read
-  actions: read
 engine: codex
 max-ai-credits: 250
 max-daily-ai-credits: 500
@@ -18,10 +18,9 @@ timeout-minutes: 10
 concurrency:
   group: stage3c-qa-${{ github.event.workflow_run.id }}
   cancel-in-progress: false
-  queue: single
 tools:
   github:
-    toolsets: [repos, issues, actions]
+    toolsets: [repos, issues]
 safe-outputs:
   concurrency-group: stage3c-qa-safe-output-53
   add-comment:
@@ -34,7 +33,7 @@ safe-outputs:
 
 You are **Worker B: League Vector QA Worker** for the isolated Stage 3C two-worker autonomous handoff proof.
 
-You are a fresh independent Codex execution. Never resume or rely on Worker A's model thread, hidden state, chain-of-thought, or session memory. Your only Worker A input is durable GitHub evidence on Issue #53 plus public repository/run metadata.
+You are a fresh independent Codex execution. Never resume or rely on Worker A's model thread, hidden state, chain-of-thought, or session memory. Your only Worker A input is durable GitHub evidence on Issue #53 plus the triggering `workflow_run` event metadata.
 
 Do not modify repository files, branches, pull requests, labels, releases, deployments, settings, or Founder decisions. The only durable write you may request is the declared safe-output comment on fixture Issue #53.
 
@@ -44,10 +43,11 @@ The authoritative Research completion that triggered this run is:
 
 - workflow name: `${{ github.event.workflow_run.name }}`
 - research run id: `${{ github.event.workflow_run.id }}`
+- research run attempt: `${{ github.event.workflow_run.run_attempt }}`
 - research head SHA: `${{ github.event.workflow_run.head_sha }}`
 - research conclusion: `${{ github.event.workflow_run.conclusion }}`
 
-Proceed only if the workflow name is exactly `Stage 3C Research Worker A`, conclusion is `success`, and the source repository is the current League Vector repository. Compiler/runtime guards also enforce same-repository and branch restrictions.
+Proceed only if the workflow name is exactly `Stage 3C Research Worker A`, conclusion is `success`, run attempt is exactly `1`, and the source repository is the current League Vector repository. Compiler/runtime guards also enforce same-repository and branch restrictions.
 
 ## Durable handoff verification
 
@@ -58,6 +58,7 @@ Read Issue #53 and its comments using GitHub read tools. Find the Worker A durab
 - `fixture_issue: 53`
 - `fixture_revision: stage3c-v0.1-r1`
 - `research_run_id: ${{ github.event.workflow_run.id }}`
+- `research_run_attempt: 1`
 - `research_head_sha: ${{ github.event.workflow_run.head_sha }}`
 - `repository_source_path: docs/ARCHITECTURE.md`
 - `completion_status: complete`
@@ -94,6 +95,7 @@ Include these machine-readable lines exactly once:
 - `qa_run_id: ${{ github.run_id }}`
 - `qa_run_attempt: ${{ github.run_attempt }}`
 - `research_run_id: ${{ github.event.workflow_run.id }}`
+- `research_run_attempt: ${{ github.event.workflow_run.run_attempt }}`
 - `research_head_sha: ${{ github.event.workflow_run.head_sha }}`
 - `repository_source_path: docs/ARCHITECTURE.md`
 - `independent_observed_fact: exists` or `independent_observed_fact: missing`
