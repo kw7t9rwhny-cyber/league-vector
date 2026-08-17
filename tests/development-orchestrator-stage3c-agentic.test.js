@@ -56,7 +56,7 @@ test("Both workers expose only one fixed-issue add-comment safe output", () => {
   for (const source of [research, qa]) {
     assert.match(source, /safe-outputs:/);
     assert.match(source, /add-comment:/);
-    assert.match(source, /target: 53/);
+    assert.match(source, /target: "53"/);
     assert.match(source, /max: 1/);
     assertNoDangerousAgentWrites(source);
   }
@@ -72,15 +72,14 @@ test("workers are read-only and never directly reference OpenAI/GitHub secrets",
   assert.doesNotMatch(qa, /actions: read/);
 });
 
-test("concurrency, transition gating, run-attempt gating and budgets bound fan-out", () => {
+test("concurrency, transition gating, run-attempt gating and timeout bound fan-out", () => {
   assert.match(research, /group: stage3c-research-fixture-53/);
   assert.match(research, /cancel-in-progress: true/);
   assert.match(qa, /group: stage3c-qa-\$\{\{ github\.event\.workflow_run\.id \}\}/);
   assert.match(qa, /cancel-in-progress: false/);
   for (const source of [research, qa]) {
     assert.doesNotMatch(source, /queue:/);
-    assert.match(source, /max-ai-credits: 250/);
-    assert.match(source, /max-daily-ai-credits: 500/);
+    assert.doesNotMatch(source, /max-ai-credits|max-daily-ai-credits/);
     assert.match(source, /timeout-minutes: 10/);
   }
 });
