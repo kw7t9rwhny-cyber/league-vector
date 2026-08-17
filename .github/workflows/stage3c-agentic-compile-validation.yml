@@ -1,0 +1,68 @@
+name: Stage 3C Agentic Workflow Compile Validation
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/stage3c-research-worker.md'
+      - '.github/workflows/stage3c-research-worker.lock.yml'
+      - '.github/workflows/stage3c-qa-worker.md'
+      - '.github/workflows/stage3c-qa-worker.lock.yml'
+      - '.github/workflows/stage3c-agentic-compile-validation.yml'
+      - 'tests/development-orchestrator-stage3c-agentic.test.js'
+      - 'docs/development-orchestrator-stage3c-two-worker-proof-v01.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  compile-and-validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pinned gh-aw compiler
+        uses: github/gh-aw/actions/setup-cli@v0.37.18
+        with:
+          version: v0.37.18
+
+      - name: Record compiler version
+        run: gh aw version
+
+      - name: Compile Stage 3C Research Worker A
+        run: gh aw compile stage3c-research-worker --strict
+
+      - name: Compile Stage 3C QA Worker B
+        run: gh aw compile stage3c-qa-worker --strict
+
+      - name: Strict validate Research Worker A
+        run: gh aw validate stage3c-research-worker --strict
+
+      - name: Strict validate QA Worker B
+        run: gh aw validate stage3c-qa-worker --strict
+
+      - name: Verify committed hardened locks are exact compiler output
+        run: |
+          test -f .github/workflows/stage3c-research-worker.lock.yml
+          test -f .github/workflows/stage3c-qa-worker.lock.yml
+          git diff --exit-code -- \
+            .github/workflows/stage3c-research-worker.lock.yml \
+            .github/workflows/stage3c-qa-worker.lock.yml
+          test -z "$(git status --porcelain -- \
+            .github/workflows/stage3c-research-worker.lock.yml \
+            .github/workflows/stage3c-qa-worker.lock.yml)"
+
+      - name: Upload deterministic compiled locks for inspection
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage3c-agentic-compiled-locks
+          path: |
+            .github/workflows/stage3c-research-worker.lock.yml
+            .github/workflows/stage3c-qa-worker.lock.yml
+          if-no-files-found: error
+          retention-days: 7
+
+# This workflow performs compilation/static validation only.
+# It does not reference OPENAI_API_KEY, does not invoke Codex, and cannot run either Stage 3C worker.
