@@ -6,7 +6,6 @@ on:
     workflows: ['Stage 3C Research Worker A']
     types: [completed]
     branches: [main]
-    conclusion: success
   permissions:
     issues: read
   steps:
