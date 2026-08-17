@@ -2,7 +2,7 @@
 
 ## Status
 
-Implementation candidate only. **Do not run the live agent chain before both independent HIGH-risk QA teams PASS the new exact candidate and Founder separately authorizes the proof.**
+Implementation candidate only. **Independent HIGH-risk QA PASS is required from both QA teams on the new exact candidate, followed by separate Founder authorization, before any live agent chain.**
 
 Authoritative architecture: Issue #52. Fixture: Issue #53, `AGENT SPIKE TEST — harmless two-worker handoff`. No production League Vector behavior is changed.
 
@@ -77,7 +77,7 @@ The executable `.lock.yml` files are audited directly, not inferred from Markdow
 - `administration: write`
 - status/check write permissions
 
-Safe outputs explicitly disable default failure-issue, missing-tool, missing-data and noop reporting channels. The only application safe output is `add-comment`, `max: 1`, fixed to Issue `53`, with issues enabled and pull requests/discussions disabled. No PR creation, label mutation, merge, branch mutation, release, deployment, workflow dispatch or production publishing output is declared.
+Safe outputs explicitly disable default failure-issue, missing-tool, missing-data and noop reporting channels. Mandatory framework `report_incomplete` remains non-authoritative and is configured with `create-issue: false`. The only application safe output is `add-comment`, `max: 1`, fixed to Issue `53`, with issues enabled and pull requests/discussions disabled. No PR creation, label mutation, merge, branch mutation, release, deployment, workflow dispatch or production publishing output is declared.
 
 The write-capable safe-output handler is separate from the read-only Codex agent job.
 
@@ -101,7 +101,7 @@ The locks are exact output from official `gh-aw` v0.86.2 strict compilation and 
 
 `b8fd100d1d56a77b842ad28375ff361215a5aa1277db6b9a05d70054cde7260e`
 
-It strict-compiles both sources, strict-validates both, byte-compares regenerated locks against the committed executable locks, and audits effective generated permissions/write-handler configuration. The final validation workflow itself is `contents: read` only and invokes no Codex/OpenAI inference.
+Strict source validation is followed by deterministic strict compilation with the gh-aw runtime repository fixed to `github/gh-aw-actions` and exact runtime commit `6aab9e5b5c91c615506061f09bedd81a23babe3c`. Validation byte-compares regenerated locks against the committed executable locks and audits effective generated permissions/write-handler configuration. The final validation workflow itself is `contents: read` only and invokes no Codex/OpenAI inference.
 
 ## Evidence correction
 
