@@ -8,14 +8,15 @@ on:
       - '.github/workflows/stage3c-qa-worker.md'
       - '.github/workflows/stage3c-qa-worker.lock.yml'
       - '.github/workflows/stage3c-agentic-compile-validation.yml'
-      - 'tests/development-orchestrator-stage3c-r2.test.js'
-      - 'docs/development-orchestrator-stage3c-r2-executable-v01.md'
+      - 'tests/development-orchestrator-stage3c-agentic.test.js'
+      - 'docs/development-orchestrator-stage3c-two-worker-proof-v01.md'
+      - 'stage3c-generated-locks/**'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  compile-and-materialize:
+  compile-and-validate:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -29,7 +30,11 @@ jobs:
           echo "b8fd100d1d56a77b842ad28375ff361215a5aa1277db6b9a05d70054cde7260e  $RUNNER_TEMP/gh-aw" | sha256sum --check --strict
           chmod 0700 "$RUNNER_TEMP/gh-aw"
           "$RUNNER_TEMP/gh-aw" version
-      - name: Strict validate and compile exact r2 locks
+      - name: Preserve committed hardened locks
+        run: |
+          cp .github/workflows/stage3c-research-worker.lock.yml "$RUNNER_TEMP/research.lock.yml"
+          cp .github/workflows/stage3c-qa-worker.lock.yml "$RUNNER_TEMP/qa.lock.yml"
+      - name: Strict validate sources then deterministically compile exact executable locks
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
@@ -38,20 +43,38 @@ jobs:
           PIN=6aab9e5b5c91c615506061f09bedd81a23babe3c
           "$RUNNER_TEMP/gh-aw" compile stage3c-research-worker --strict --action-mode action --actions-repo github/gh-aw-actions --action-tag "$PIN"
           "$RUNNER_TEMP/gh-aw" compile stage3c-qa-worker --strict --action-mode action --actions-repo github/gh-aw-actions --action-tag "$PIN"
-          sha256sum .github/workflows/stage3c-research-worker.lock.yml .github/workflows/stage3c-qa-worker.lock.yml
-      - name: Create unreferenced Git blobs from exact compiler output
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
+      - name: Verify byte-identical hardened locks
+        run: |
+          cmp --silent "$RUNNER_TEMP/research.lock.yml" .github/workflows/stage3c-research-worker.lock.yml
+          cmp --silent "$RUNNER_TEMP/qa.lock.yml" .github/workflows/stage3c-qa-worker.lock.yml
+          echo 'byte-identical hardened locks: PASS'
+      - name: Audit effective generated lock permissions and write handlers
         shell: bash
         run: |
           python - <<'PY'
-          import base64,json,os,urllib.request
-          repo=os.environ['GITHUB_REPOSITORY']; token=os.environ['GITHUB_TOKEN']
-          for label,path in [('RESEARCH','.github/workflows/stage3c-research-worker.lock.yml'),('QA','.github/workflows/stage3c-qa-worker.lock.yml')]:
-              data=open(path,'rb').read()
-              body=json.dumps({'content':base64.b64encode(data).decode(),'encoding':'base64'}).encode()
-              req=urllib.request.Request(f'https://api.github.com/repos/{repo}/git/blobs',data=body,method='POST',headers={'Authorization':f'Bearer {token}','Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'})
-              with urllib.request.urlopen(req) as response:
-                  obj=json.load(response)
-              print(f'{label}_LOCK_BLOB={obj["sha"]}')
+          from pathlib import Path
+          import re
+          assert not Path('stage3c-generated-locks').exists(), 'temporary generated-lock staging artifact remains'
+          research=Path('.github/workflows/stage3c-research-worker.lock.yml').read_text()
+          qa=Path('.github/workflows/stage3c-qa-worker.lock.yml').read_text()
+          def job(text,name):
+              marker=f'\n  {name}:\n'; i=text.find(marker); assert i>=0, f'missing {name}'
+              rest=text[i+len(marker):]; m=re.search(r'\n  [A-Za-z0-9_-]+:\n',rest)
+              return rest[:m.start()] if m else rest
+          forbidden=['contents: write','pull-requests: write','actions: write','deployments: write','packages: write','administration: write','statuses: write','checks: write']
+          for text in [research,qa]:
+              for x in forbidden: assert x not in text, x
+              agent=job(text,'agent'); assert 'contents: read' in agent and 'issues: read' in agent and 'GITHUB_READ_ONLY' in agent; assert ': write' not in agent
+              safe=job(text,'safe_outputs'); assert 'issues: write' in safe; assert 'contents: write' not in safe and 'pull-requests: write' not in safe and 'actions: write' not in safe
+              m=re.search(r'GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "[^\n]+"',text); assert m
+              for x in ['\\"add_comment\\"','\\"target\\":\\"53\\"','\\"max\\":1','\\"discussions\\":false','\\"report_incomplete\\"']: assert x in m.group(0), x
+              for x in ['create_pull_request','add_labels','remove_labels','merge_pull_request','push_to_pull_request_branch','update_release','dispatch_workflow','create_issue']: assert f'\\"{x}\\"' not in m.group(0), x
+              assert 'GH_AW_REPORT_INCOMPLETE_CREATE_ISSUE: "false"' in text and 'GH_AW_FAILURE_REPORT_AS_ISSUE: "false"' in text
+          pre=job(research,'pre_activation'); assert 'issues: write' in pre; assert 'contents: write' not in pre and 'pull-requests: write' not in pre and 'actions: write' not in pre
+          for x in ['STAGE3C_RESEARCH_ACTIVATION_CLAIM v0.1','stage3c-activation-claim/v1','authorityRelevantClaimRecord','activation_claim_ambiguity:unsupported_marker_version','activation_claim_ambiguity:unsupported_schema_version','41898282','parseCanonicalClaim','activation_claim_ambiguity:duplicate_marker','activation_claim_ambiguity:malformed_canonical_claim','activation_claim_ambiguity:conflicting_same_activation_metadata','activation_claim_ambiguity:multiple_same_activation_claims','activation_already_claimed','issue_number: 53','createComment']: assert x in pre, x
+          assert 'cancel-in-progress: false' in research
+          qpre=job(qa,'pre_activation'); assert 'issues: read' in qpre and ': write' not in qpre
+          print('effective generated lock audit: PASS')
           PY
+
+# Final read-only static validation only. No Codex execution and no OpenAI secret access.
