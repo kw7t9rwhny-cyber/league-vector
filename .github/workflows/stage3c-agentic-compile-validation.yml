@@ -42,6 +42,13 @@ jobs:
           PIN=6aab9e5b5c91c615506061f09bedd81a23babe3c
           "$RUNNER_TEMP/gh-aw" compile stage3c-research-worker --strict --action-mode action --actions-repo github/gh-aw-actions --action-tag "$PIN"
           "$RUNNER_TEMP/gh-aw" compile stage3c-qa-worker --strict --action-mode action --actions-repo github/gh-aw-actions --action-tag "$PIN"
+      - name: Export exact compiler-generated locks for remediation
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage3c-claim-ambiguity-generated-locks
+          path: |
+            .github/workflows/stage3c-research-worker.lock.yml
+            .github/workflows/stage3c-qa-worker.lock.yml
       - name: Verify byte-identical hardened locks
         run: |
           cmp --silent "$RUNNER_TEMP/research.lock.yml" .github/workflows/stage3c-research-worker.lock.yml
@@ -82,7 +89,7 @@ jobs:
           research_pre=job_block(research,'pre_activation')
           assert 'issues: write' in research_pre
           assert 'contents: write' not in research_pre and 'pull-requests: write' not in research_pre and 'actions: write' not in research_pre
-          for required in ['STAGE3C_RESEARCH_ACTIVATION_CLAIM v0.1','activation_already_claimed','issue_number: 53','createComment','claim_status: claimed']:
+          for required in ['STAGE3C_RESEARCH_ACTIVATION_CLAIM v0.1','41898282','parseCanonicalClaim','activation_claim_ambiguity:duplicate_marker','activation_claim_ambiguity:malformed_canonical_claim','activation_claim_ambiguity:conflicting_same_activation_metadata','activation_claim_ambiguity:multiple_same_activation_claims','activation_already_claimed','issue_number: 53','createComment']:
               assert required in research_pre, f'research pre-activation missing {required}'
           assert 'cancel-in-progress: false' in research
           qa_pre=job_block(qa,'pre_activation')
@@ -91,4 +98,4 @@ jobs:
           print('effective generated lock audit: PASS')
           PY
 
-# Final read-only static validation only. No Codex execution and no OpenAI secret access.
+# TEMPORARY read-only compiler-output export. Remove before candidate declaration.
