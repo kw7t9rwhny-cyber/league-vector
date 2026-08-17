@@ -12,18 +12,16 @@ on:
       - 'docs/development-orchestrator-stage3c-two-worker-proof-v01.md'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   compile-and-validate:
-    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'agent/stage3c-two-worker-proof-v01'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.pull_request.head.sha }}
-          fetch-depth: 0
       - name: Install verified gh-aw v0.86.2 compiler
         shell: bash
         run: |
@@ -31,7 +29,11 @@ jobs:
           echo "b8fd100d1d56a77b842ad28375ff361215a5aa1277db6b9a05d70054cde7260e  $RUNNER_TEMP/gh-aw" | sha256sum --check --strict
           chmod 0700 "$RUNNER_TEMP/gh-aw"
           "$RUNNER_TEMP/gh-aw" version
-      - name: Compile and strict validate both Agentic Workflows
+      - name: Preserve committed hardened locks
+        run: |
+          cp .github/workflows/stage3c-research-worker.lock.yml "$RUNNER_TEMP/research.lock.yml"
+          cp .github/workflows/stage3c-qa-worker.lock.yml "$RUNNER_TEMP/qa.lock.yml"
+      - name: Strict compile and validate both Agentic Workflows
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
@@ -39,23 +41,31 @@ jobs:
           "$RUNNER_TEMP/gh-aw" compile stage3c-qa-worker --strict
           "$RUNNER_TEMP/gh-aw" validate stage3c-research-worker --strict
           "$RUNNER_TEMP/gh-aw" validate stage3c-qa-worker --strict
-      - name: Stage exact generated lock blobs outside .github/workflows
+      - name: Verify byte-identical hardened locks
+        run: |
+          cmp --silent "$RUNNER_TEMP/research.lock.yml" .github/workflows/stage3c-research-worker.lock.yml
+          cmp --silent "$RUNNER_TEMP/qa.lock.yml" .github/workflows/stage3c-qa-worker.lock.yml
+      - name: Audit effective generated lock permissions and write handlers
         shell: bash
         run: |
-          set -euo pipefail
-          test "${GITHUB_HEAD_REF}" = "agent/stage3c-two-worker-proof-v01"
-          mkdir -p stage3c-lock-bootstrap
-          cp .github/workflows/stage3c-research-worker.lock.yml stage3c-lock-bootstrap/stage3c-research-worker.lock.yml
-          cp .github/workflows/stage3c-qa-worker.lock.yml stage3c-lock-bootstrap/stage3c-qa-worker.lock.yml
-          git restore -- .github/workflows/stage3c-research-worker.lock.yml .github/workflows/stage3c-qa-worker.lock.yml
-          rm -f .gitattributes
-          rm -rf .github/aw
-          unexpected="$(git status --porcelain | grep -vE '^ M stage3c-lock-bootstrap/stage3c-(research|qa)-worker\.lock\.yml$' || true)"
-          if [ -n "$unexpected" ]; then printf '%s\n' "$unexpected" >&2; exit 1; fi
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -- stage3c-lock-bootstrap/stage3c-research-worker.lock.yml stage3c-lock-bootstrap/stage3c-qa-worker.lock.yml
-          git commit -m 'refresh exact generated Stage 3C lock blobs'
-          git push origin "HEAD:${GITHUB_HEAD_REF}"
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          paths = [Path('.github/workflows/stage3c-research-worker.lock.yml'), Path('.github/workflows/stage3c-qa-worker.lock.yml')]
+          forbidden = ['contents: write','pull-requests: write','actions: write','deployments: write','packages: write','administration: write','statuses: write','checks: write']
+          for path in paths:
+              text = path.read_text()
+              for value in forbidden:
+                  assert value not in text, f'{path}: forbidden permission {value}'
+              agent = text.split('\n  agent:\n',1)[1].split('\n  ',1)[0]
+              assert 'contents: read' in agent and 'issues: read' in agent
+              assert ': write' not in agent
+              assert 'GITHUB_READ_ONLY' in agent and '"1"' in agent
+              assert 'GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\\"add_comment\\":{\\"discussions\\":false,\\"max\\":1,\\"target\\":\\"53\\"}' in text
+              assert 'pull_requests' not in re.search(r'GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: .*', text).group(0)
+              for disallowed in ['create_pull_request','add_labels','remove_labels','merge_pull_request','push_to_pull_request_branch','update_release','dispatch_workflow']:
+                  assert f'\\"{disallowed}\\"' not in re.search(r'GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: .*', text).group(0)
+          print('effective generated lock audit: PASS')
+          PY
 
-# TEMPORARY REMEDIATION BOOTSTRAP ONLY. Remove before final candidate.
+# Read-only static validation only. No Codex execution and no OpenAI secret access.
