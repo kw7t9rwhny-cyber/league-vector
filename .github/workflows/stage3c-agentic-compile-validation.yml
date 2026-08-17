@@ -35,46 +35,38 @@ jobs:
           chmod 0700 "$RUNNER_TEMP/gh-aw"
           "$RUNNER_TEMP/gh-aw" version
 
-      - name: Compile Stage 3C Research Worker A
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: "$RUNNER_TEMP/gh-aw compile stage3c-research-worker --strict"
-
-      - name: Compile Stage 3C QA Worker B
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        run: "$RUNNER_TEMP/gh-aw compile stage3c-qa-worker --strict"
-
-      - name: Strict validate both Agentic Workflows
+      - name: Compile and strict validate both Agentic Workflows
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
+          "$RUNNER_TEMP/gh-aw" compile stage3c-research-worker --strict
+          "$RUNNER_TEMP/gh-aw" compile stage3c-qa-worker --strict
           "$RUNNER_TEMP/gh-aw" validate stage3c-research-worker --strict
           "$RUNNER_TEMP/gh-aw" validate stage3c-qa-worker --strict
 
-      - name: Commit only exact compiler-generated hardened locks
+      - name: Stage exact generated lock blobs outside .github/workflows
         shell: bash
         run: |
           set -euo pipefail
           test "${GITHUB_HEAD_REF}" = "agent/stage3c-two-worker-proof-v01"
-          changed="$(git status --porcelain -- .github/workflows/stage3c-research-worker.lock.yml .github/workflows/stage3c-qa-worker.lock.yml)"
-          if [ -z "$changed" ]; then
-            echo "locks_already_exact=true"
-            exit 0
-          fi
-          unexpected="$(git status --porcelain | grep -vE '^( M \.github/workflows/stage3c-(research|qa)-worker\.lock\.yml|\?\? \.gitattributes)$' || true)"
+          mkdir -p stage3c-lock-bootstrap
+          cp .github/workflows/stage3c-research-worker.lock.yml stage3c-lock-bootstrap/stage3c-research-worker.lock.yml
+          cp .github/workflows/stage3c-qa-worker.lock.yml stage3c-lock-bootstrap/stage3c-qa-worker.lock.yml
+          git restore -- .github/workflows/stage3c-research-worker.lock.yml .github/workflows/stage3c-qa-worker.lock.yml
+          rm -f .gitattributes
+          unexpected="$(git status --porcelain | grep -vE '^\?\? stage3c-lock-bootstrap/$' || true)"
           if [ -n "$unexpected" ]; then
             printf '%s\n' "$unexpected" >&2
-            echo 'Unexpected generated change outside the two lock files' >&2
+            echo 'Unexpected bootstrap change' >&2
             exit 1
           fi
-          rm -f .gitattributes
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -- .github/workflows/stage3c-research-worker.lock.yml .github/workflows/stage3c-qa-worker.lock.yml
-          git commit -m 'regenerate Stage 3C hardened locks with gh-aw v0.86.2'
+          git add -- stage3c-lock-bootstrap/stage3c-research-worker.lock.yml stage3c-lock-bootstrap/stage3c-qa-worker.lock.yml
+          git commit -m 'stage exact generated Stage 3C lock blobs'
           git push origin "HEAD:${GITHUB_HEAD_REF}"
 
 # TEMPORARY REMEDIATION BOOTSTRAP ONLY.
-# Remove this write-capable compiler helper immediately after the exact generated locks are committed.
-# It invokes no Codex execution and has no OpenAI secret access.
+# The staged blobs are promoted to the executable workflow paths by the GitHub connector,
+# then this helper and the staging directory are removed before the final candidate.
+# No Codex execution or OpenAI secret access occurs here.
