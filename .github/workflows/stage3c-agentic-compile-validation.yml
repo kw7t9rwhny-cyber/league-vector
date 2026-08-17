@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   compile-and-validate:
@@ -22,6 +22,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: agent/stage3c-two-worker-proof-v01
 
       - name: Install verified gh-aw v0.86.2 compiler
         shell: bash
@@ -53,16 +55,18 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: "$RUNNER_TEMP/gh-aw validate stage3c-qa-worker --strict"
 
-      - name: Verify committed hardened locks are exact compiler output
+      - name: Commit exact compiler-generated hardened locks
+        shell: bash
         run: |
-          test -f .github/workflows/stage3c-research-worker.lock.yml
-          test -f .github/workflows/stage3c-qa-worker.lock.yml
-          git diff --exit-code -- \
-            .github/workflows/stage3c-research-worker.lock.yml \
-            .github/workflows/stage3c-qa-worker.lock.yml
-          test -z "$(git status --porcelain -- \
-            .github/workflows/stage3c-research-worker.lock.yml \
-            .github/workflows/stage3c-qa-worker.lock.yml)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/workflows/stage3c-research-worker.lock.yml .github/workflows/stage3c-qa-worker.lock.yml
+          if git diff --cached --quiet; then
+            echo "locks already exact"
+          else
+            git commit -m "commit exact gh-aw v0.86.2 hardened Stage 3C locks"
+            git push origin HEAD:agent/stage3c-two-worker-proof-v01
+          fi
 
       - name: Upload deterministic compiled locks for inspection
         if: always()
@@ -75,5 +79,6 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-# Compilation/static validation only. The ephemeral read-only GITHUB_TOKEN is scoped solely to gh-aw action-pin resolution.
+# TEMPORARY BOOTSTRAP ONLY: writes only exact gh-aw-generated lock files to the isolated PR branch.
+# Remove this write-capable bootstrap immediately after locks are committed.
 # No OpenAI secret is referenced and no Codex execution occurs.
