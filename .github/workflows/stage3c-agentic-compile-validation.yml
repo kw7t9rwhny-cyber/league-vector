@@ -55,18 +55,17 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: "$RUNNER_TEMP/gh-aw validate stage3c-qa-worker --strict"
 
-      - name: Commit exact compiler-generated hardened locks
+      - name: Stage exact generated locks for connector promotion
         shell: bash
         run: |
+          mkdir -p stage3c-lock-bootstrap
+          cp .github/workflows/stage3c-research-worker.lock.yml stage3c-lock-bootstrap/stage3c-research-worker.lock.yml
+          cp .github/workflows/stage3c-qa-worker.lock.yml stage3c-lock-bootstrap/stage3c-qa-worker.lock.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .github/workflows/stage3c-research-worker.lock.yml .github/workflows/stage3c-qa-worker.lock.yml
-          if git diff --cached --quiet; then
-            echo "locks already exact"
-          else
-            git commit -m "commit exact gh-aw v0.86.2 hardened Stage 3C locks"
-            git push origin HEAD:agent/stage3c-two-worker-proof-v01
-          fi
+          git add stage3c-lock-bootstrap/
+          git commit -m "stage exact gh-aw v0.86.2 locks for promotion"
+          git push origin HEAD:agent/stage3c-two-worker-proof-v01
 
       - name: Upload deterministic compiled locks for inspection
         if: always()
@@ -79,6 +78,5 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-# TEMPORARY BOOTSTRAP ONLY: writes only exact gh-aw-generated lock files to the isolated PR branch.
-# Remove this write-capable bootstrap immediately after locks are committed.
+# TEMPORARY BOOTSTRAP ONLY. Generated workflow bytes are staged outside .github/workflows because GITHUB_TOKEN cannot update workflow files.
 # No OpenAI secret is referenced and no Codex execution occurs.
