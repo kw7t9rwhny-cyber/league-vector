@@ -19,7 +19,6 @@ tools:
   github:
     toolsets: [repos, issues]
 safe-outputs:
-  concurrency-group: stage3c-research-safe-output-53
   add-comment:
     target: 53
     max: 1
