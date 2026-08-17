@@ -40,9 +40,8 @@ jobs:
           "$RUNNER_TEMP/gh-aw" validate stage3c-research-worker --strict
           "$RUNNER_TEMP/gh-aw" validate stage3c-qa-worker --strict
           PIN=6aab9e5b5c91c615506061f09bedd81a23babe3c
-          COMMON="--strict --action-mode action --actions-repo github/gh-aw-actions --action-tag $PIN"
-          "$RUNNER_TEMP/gh-aw" compile stage3c-research-worker $COMMON
-          "$RUNNER_TEMP/gh-aw" compile stage3c-qa-worker $COMMON
+          "$RUNNER_TEMP/gh-aw" compile stage3c-research-worker --strict --action-mode action --actions-repo github/gh-aw-actions --action-tag "$PIN"
+          "$RUNNER_TEMP/gh-aw" compile stage3c-qa-worker --strict --action-mode action --actions-repo github/gh-aw-actions --action-tag "$PIN"
       - name: Verify byte-identical hardened locks
         run: |
           cmp --silent "$RUNNER_TEMP/research.lock.yml" .github/workflows/stage3c-research-worker.lock.yml
