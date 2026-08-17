@@ -26,6 +26,10 @@ jobs:
         run: node --check scripts/development-orchestrator-v02.js
       - name: Stage 2 deterministic queue/adversarial tests
         run: node --test tests/development-orchestrator-v02.test.js
+      - name: Stage 2 GitHub read adapter syntax check
+        run: node --check scripts/development-orchestrator-github-read-v01.js
+      - name: Stage 2 GitHub read adapter deterministic failure tests
+        run: node --test tests/development-orchestrator-github-read-v01.test.js
       - name: Stage 3A syntax check
         run: node --check scripts/development-orchestrator-v03a.js
       - name: Stage 3A deterministic dry-run/adversarial tests
@@ -72,24 +76,23 @@ jobs:
           if(gate.allowed) process.exit(1);
           console.log(JSON.stringify(gate));
           NODE
+      - name: Build live GitHub dogfood snapshot (read only)
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/development-orchestrator-github-read-v01.js --output /tmp/orchestrator-live.json
       - name: Dogfood Stage 2 against live GitHub state (read only)
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
-          node scripts/development-orchestrator-v02.js status --json > /tmp/orchestrator-stage2-status.json
-          node scripts/development-orchestrator-v02.js queue qa --json > /tmp/orchestrator-stage2-qa.json
-          node scripts/development-orchestrator-v02.js queue core --json > /tmp/orchestrator-stage2-core.json
-          node scripts/development-orchestrator-v02.js queue remediation --json > /tmp/orchestrator-stage2-remediation.json
-          node scripts/development-orchestrator-v02.js queue founder --json > /tmp/orchestrator-stage2-founder.json
-          node scripts/development-orchestrator-v02.js queue research --json > /tmp/orchestrator-stage2-research.json
+          node scripts/development-orchestrator-v02.js status --json --fixture /tmp/orchestrator-live.json > /tmp/orchestrator-stage2-status.json
+          node scripts/development-orchestrator-v02.js queue qa --json --fixture /tmp/orchestrator-live.json > /tmp/orchestrator-stage2-qa.json
+          node scripts/development-orchestrator-v02.js queue core --json --fixture /tmp/orchestrator-live.json > /tmp/orchestrator-stage2-core.json
+          node scripts/development-orchestrator-v02.js queue remediation --json --fixture /tmp/orchestrator-live.json > /tmp/orchestrator-stage2-remediation.json
+          node scripts/development-orchestrator-v02.js queue founder --json --fixture /tmp/orchestrator-live.json > /tmp/orchestrator-stage2-founder.json
+          node scripts/development-orchestrator-v02.js queue research --json --fixture /tmp/orchestrator-live.json > /tmp/orchestrator-stage2-research.json
           node -e 'const s=require("/tmp/orchestrator-stage2-status.json"); if(s.source!=="live-github-read-only") process.exit(1); console.log(JSON.stringify(s.counts));'
-      - name: Dogfood Stage 3A planner against live GitHub state (zero mutations)
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
+      - name: Dogfood Stage 3A planner against same live GitHub snapshot (zero mutations)
         run: |
-          node scripts/development-orchestrator-v03a.js plan --json > /tmp/orchestrator-stage3a-plan.json
+          node scripts/development-orchestrator-v03a.js plan --json --fixture /tmp/orchestrator-live.json > /tmp/orchestrator-stage3a-plan.json
           node - <<'NODE'
           const fs = require('fs');
           const p = JSON.parse(fs.readFileSync('/tmp/orchestrator-stage3a-plan.json', 'utf8'));
@@ -107,16 +110,43 @@ jobs:
           LEAGUE_VECTOR_ORCHESTRATOR_EXECUTE: "0"
           LEAGUE_VECTOR_STAGE3B_ACTIVATED: "0"
         run: |
-          node -e 'const fs=require("fs"); const p=JSON.parse(fs.readFileSync("/tmp/orchestrator-stage3a-plan.json","utf8")); const plans=p.plans||[]; if(plans.length) fs.writeFileSync("/tmp/stage3b-plan.json",JSON.stringify(plans[0])); else console.log("no structured live plan to dry-run through executor");'
-          if [ -f /tmp/stage3b-plan.json ]; then
-            node scripts/development-orchestrator-v03b.js --plan /tmp/stage3b-plan.json --json > /tmp/orchestrator-stage3b-audit.json
-            node -e 'const a=require("/tmp/orchestrator-stage3b-audit.json"); if(a.mode!=="dry-run"||a.mutations_attempted.length||a.mutations_completed.length) process.exit(1); console.log(JSON.stringify({pr:a.pr,result:a.post_write_verification,abort:a.aborted_reason}));'
-          fi
+          node - <<'NODE'
+          const fs = require('fs');
+          const { executePlan } = require('./scripts/development-orchestrator-v03b.js');
+          const { loadLiveRepositoryGraphql } = require('./scripts/development-orchestrator-github-read-v01.js');
+          const p = JSON.parse(fs.readFileSync('/tmp/orchestrator-stage3a-plan.json', 'utf8'));
+          const plans = p.plans || [];
+          if (!plans.length) {
+            console.log('no structured live plan to dry-run through executor');
+            process.exit(0);
+          }
+          const adapter = {
+            readRepository(repository) {
+              return loadLiveRepositoryGraphql(repository, process.env.GITHUB_TOKEN);
+            }
+          };
+          executePlan({
+            plan: plans[0],
+            repository: process.env.GITHUB_REPOSITORY,
+            adapter,
+            mode: 'dry-run',
+            env: process.env
+          }).then((audit) => {
+            fs.writeFileSync('/tmp/orchestrator-stage3b-audit.json', `${JSON.stringify(audit, null, 2)}\n`);
+            if (audit.mode !== 'dry-run' || audit.mutations_attempted.length || audit.mutations_completed.length) process.exit(1);
+            if (audit.post_write_verification !== 'dry-run-no-write') process.exit(1);
+            console.log(JSON.stringify({pr:audit.pr,result:audit.post_write_verification,abort:audit.aborted_reason}));
+          }).catch((error) => {
+            console.error(error.message);
+            process.exit(2);
+          });
+          NODE
       - name: Upload Stage 3A/3B dry-run evidence
         uses: actions/upload-artifact@v4
         with:
           name: development-orchestrator-stage3a-stage3b-preview
           path: |
+            /tmp/orchestrator-live.json
             /tmp/orchestrator-stage3a-plan.json
             /tmp/orchestrator-stage3b-audit.json
           if-no-files-found: warn

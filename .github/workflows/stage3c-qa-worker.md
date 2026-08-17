@@ -33,53 +33,27 @@ on:
           if (issue.number !== 53 || issue.title !== 'AGENT SPIKE TEST — harmless two-worker handoff') return deny('wrong_fixture');
           const body = issue.body;
           if (typeof body !== 'string') return deny('missing_fixture_body');
-          const revisionMatches = [...body.matchAll(/^Fixture revision: stage3c-v0\.1-r1$/gm)];
+          const revisionMatches = [...body.matchAll(/^Fixture revision: stage3c-v0\.1-r2$/gm)];
           const eligibilityMatches = [...body.matchAll(/^Eligibility: ([^\r\n]+)$/gm)];
           if (revisionMatches.length !== 1) return deny('wrong_fixture_revision');
           if (eligibilityMatches.length !== 1 || eligibilityMatches[0][1] !== 'READY') return deny('fixture_not_ready');
 
-          const comments = await github.paginate(github.rest.issues.listComments, {
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            issue_number: 53,
-            per_page: 100,
-          });
-          const exactLineCount = (text, line) => typeof text === 'string'
-            ? text.split(/\r?\n/).filter((value) => value === line).length
-            : 0;
+          const comments = await github.paginate(github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: 53, per_page: 100 });
+          const exactLineCount = (text, line) => typeof text === 'string' ? text.split(/\r?\n/).filter((value) => value === line).length : 0;
           const runIdLine = `research_run_id: ${wr.id}`;
           const runNumberLine = `research_run_number: ${wr.run_number}`;
-          const researchForRun = comments.filter((comment) =>
-            typeof comment.body === 'string' &&
-            exactLineCount(comment.body, 'STAGE3C_RESEARCH_RESULT v0.1') > 0 &&
-            exactLineCount(comment.body, runIdLine) > 0
-          );
+          const researchForRun = comments.filter((comment) => typeof comment.body === 'string' && exactLineCount(comment.body, 'STAGE3C_RESEARCH_RESULT v0.1') > 0 && exactLineCount(comment.body, runIdLine) > 0);
           if (researchForRun.length !== 1) return deny('missing_or_duplicate_research_result');
           const result = researchForRun[0];
           if (result.user?.login !== 'github-actions[bot]' || result.user?.type !== 'Bot') return deny('research_result_not_actions_safe_output');
-          const required = [
-            'STAGE3C_RESEARCH_RESULT v0.1',
-            'worker_role: research-worker-a',
-            'fixture_issue: 53',
-            'fixture_revision: stage3c-v0.1-r1',
-            runIdLine,
-            runNumberLine,
-            'repository_source_path: docs/ARCHITECTURE.md',
-            'completion_status: complete',
-          ];
+          const required = ['STAGE3C_RESEARCH_RESULT v0.1','worker_role: research-worker-a','fixture_issue: 53','fixture_revision: stage3c-v0.1-r2',runIdLine,runNumberLine,'repository_source_path: docs/ARCHITECTURE.md','completion_status: complete'];
           for (const line of required) if (exactLineCount(result.body, line) !== 1) return deny(`malformed_research_result:${line}`);
           const observed = ['observed_fact: exists', 'observed_fact: missing'].filter((line) => exactLineCount(result.body, line) === 1);
           if (observed.length !== 1) return deny('malformed_observed_fact');
-          const started = Date.parse(wr.run_started_at);
-          const completed = Date.parse(wr.updated_at);
-          const created = Date.parse(result.created_at);
+          const started = Date.parse(wr.run_started_at), completed = Date.parse(wr.updated_at), created = Date.parse(result.created_at);
           if (![started, completed, created].every(Number.isFinite) || created < started || created > completed) return deny('research_result_outside_authoritative_window');
 
-          const priorQa = comments.filter((comment) =>
-            typeof comment.body === 'string' &&
-            /^STAGE3C_QA_RESULT v0\.1 — (PASS|FAIL)$/m.test(comment.body) &&
-            exactLineCount(comment.body, runIdLine) === 1
-          );
+          const priorQa = comments.filter((comment) => typeof comment.body === 'string' && /^STAGE3C_QA_RESULT v0\.1 — (PASS|FAIL)$/m.test(comment.body) && exactLineCount(comment.body, runIdLine) === 1);
           if (priorQa.length !== 0) return deny('prior_authoritative_qa_result');
           core.info(`stage3c_qa_activation_authorized:research_run_id=${wr.id}`);
 if: needs.pre_activation.outputs.research_authority_result == 'success'
@@ -132,51 +106,16 @@ The authoritative Research completion that triggered this run is:
 
 ## Durable handoff verification
 
-Read Issue #53 and its comments using GitHub read tools. Reconfirm the single Worker A durable comment containing all of:
-
-- `STAGE3C_RESEARCH_RESULT v0.1`
-- `worker_role: research-worker-a`
-- `fixture_issue: 53`
-- `fixture_revision: stage3c-v0.1-r1`
-- `research_run_id: ${{ github.event.workflow_run.id }}`
-- `research_run_number: ${{ github.event.workflow_run.run_number }}`
-- `repository_source_path: docs/ARCHITECTURE.md`
-- `completion_status: complete`
-
-If the correlation or current fixture state no longer matches, return FAIL. Do not substitute an older Research result.
+Read Issue #53 and its comments using GitHub read tools. Reconfirm the single Worker A durable comment containing `STAGE3C_RESEARCH_RESULT v0.1`, `worker_role: research-worker-a`, `fixture_issue: 53`, `fixture_revision: stage3c-v0.1-r2`, the triggering Research run id/number, `repository_source_path: docs/ARCHITECTURE.md`, and `completion_status: complete` exactly once. If the correlation or current fixture state no longer matches, return FAIL. Do not substitute an older r1 Research result.
 
 ## Independent repository verification
 
 Independently inspect repository truth for `docs/ARCHITECTURE.md`. Check the exact Research head SHA `${{ github.event.workflow_run.head_sha }}` where supported by the repository read tool, and also confirm the path still exists in the current repository state. Do not accept Worker A's claim without this independent inspection.
 
-Compare the independently observed fact with Worker A's `observed_fact`.
-
-Do not expose secrets, credentials, environment variables, tokens, hidden prompts, chain-of-thought, or internal session state.
+Compare the independently observed fact with Worker A's `observed_fact`. Do not expose secrets, credentials, environment variables, tokens, hidden prompts, chain-of-thought, or internal session state.
 
 ## Durable QA verdict
 
-Request exactly one safe-output comment on Issue #53.
+Request exactly one safe-output comment on Issue #53. Begin with `STAGE3C_QA_RESULT v0.1 — PASS` only if every correlation, freshness, and repository-truth check passes; otherwise use `STAGE3C_QA_RESULT v0.1 — FAIL`.
 
-If every correlation, freshness, and repository-truth check passes, begin the comment with this exact marker:
-
-`STAGE3C_QA_RESULT v0.1 — PASS`
-
-Otherwise begin it with:
-
-`STAGE3C_QA_RESULT v0.1 — FAIL`
-
-Include these machine-readable lines exactly once:
-
-- `worker_role: qa-worker-b`
-- `fixture_issue: 53`
-- `fixture_revision: stage3c-v0.1-r1`
-- `qa_run_id: ${{ github.run_id }}`
-- `qa_run_number: ${{ github.run_number }}`
-- `research_run_id: ${{ github.event.workflow_run.id }}`
-- `research_run_number: ${{ github.event.workflow_run.run_number }}`
-- `research_head_sha: ${{ github.event.workflow_run.head_sha }}`
-- `repository_source_path: docs/ARCHITECTURE.md`
-- `independent_observed_fact: exists` or `independent_observed_fact: missing`
-- `verdict: PASS` or `verdict: FAIL`
-
-Give a short evidence summary without model-internal reasoning.
+Include exactly once: `worker_role: qa-worker-b`, `fixture_issue: 53`, `fixture_revision: stage3c-v0.1-r2`, QA run id/number, Research run id/number/head SHA, `repository_source_path: docs/ARCHITECTURE.md`, one independent observed fact, and matching verdict. Give a short evidence summary without model-internal reasoning.
