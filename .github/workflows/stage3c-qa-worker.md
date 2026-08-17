@@ -6,7 +6,6 @@ on:
     workflows: ['Stage 3C Research Worker A']
     types: [completed]
     branches: [main]
-    conclusion: success
 permissions:
   contents: read
   issues: read
@@ -42,7 +41,7 @@ The authoritative Research completion that triggered this run is:
 - research head SHA: `${{ github.event.workflow_run.head_sha }}`
 - research conclusion: `${{ github.event.workflow_run.conclusion }}`
 
-Proceed only if conclusion is `success` and the source repository is the current League Vector repository. Compiler/runtime guards enforce the exact workflow name, same-repository boundary, and `main` branch restriction.
+Proceed only if conclusion is `success` and the source repository is the current League Vector repository. The workflow_run trigger enforces the exact workflow name and `main` branch restriction; this role contract independently fails closed on any non-success conclusion.
 
 ## Durable handoff verification
 
