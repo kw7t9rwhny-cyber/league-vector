@@ -44,7 +44,6 @@ on:
 
           const activationUpdatedAt = event.issue?.updated_at;
           if (typeof activationUpdatedAt !== 'string' || !Number.isFinite(Date.parse(activationUpdatedAt))) return deny('malformed_activation_identity');
-          const activationLine = `activation_issue_updated_at: ${activationUpdatedAt}`;
           const comments = await github.paginate(github.rest.issues.listComments, {
             owner: context.repo.owner,
             repo: context.repo.repo,
@@ -58,7 +57,6 @@ on:
             exactLineCount(comment.body, 'worker_role: research-worker-a') === 1 &&
             exactLineCount(comment.body, 'fixture_issue: 53') === 1 &&
             exactLineCount(comment.body, 'fixture_revision: stage3c-v0.1-r1') === 1 &&
-            exactLineCount(comment.body, activationLine) === 1 &&
             exactLineCount(comment.body, 'completion_status: complete') === 1
           );
           if (priorAuthoritative.length !== 0) return deny('activation_already_completed');
@@ -70,7 +68,7 @@ on:
           })).data;
           if (current.number !== 53 || current.title !== event.issue.title) return deny('current_fixture_mismatch');
           if (current.body !== after || current.updated_at !== activationUpdatedAt) return deny('stale_activation');
-          core.info(`stage3c_research_activation_authorized:${activationLine}`);
+          core.info('stage3c_research_activation_authorized:fixture_revision=stage3c-v0.1-r1');
 if: needs.pre_activation.outputs.exact_transition_result == 'success'
 permissions:
   contents: read
@@ -102,7 +100,7 @@ safe-outputs:
 
 You are **Worker A: League Vector Research Worker** for the isolated Stage 3C two-worker handoff proof.
 
-The deterministic pre-activation gate has already proven the exact authoritative Issue #53 body transition `Eligibility: DORMANT` → `Eligibility: READY`, on the expected repository, on run attempt 1, with no other body change. It also proved that the activation event is still current and that no prior authoritative Research result exists for this exact Issue edit identity. Do not reinterpret or weaken that contract.
+The deterministic pre-activation gate has already proven the exact authoritative Issue #53 body transition `Eligibility: DORMANT` → `Eligibility: READY`, on the expected repository, on run attempt 1, with no other body change. It also proved that the activation event is still current and that no prior authoritative Research result exists for this fixture revision. Do not reinterpret or weaken that contract.
 
 This is a harmless proof only. Do not modify repository files, branches, pull requests, labels, releases, deployments, settings, or Founder decisions. Do not invoke another workflow. The only durable write you may request is the declared safe-output comment on fixture Issue #53.
 
@@ -134,7 +132,6 @@ It must also contain these machine-readable lines exactly once:
 - `worker_role: research-worker-a`
 - `fixture_issue: 53`
 - `fixture_revision: stage3c-v0.1-r1`
-- `activation_issue_updated_at: ${{ github.event.issue.updated_at }}`
 - `research_run_id: ${{ github.run_id }}`
 - `research_run_number: ${{ github.run_number }}`
 - `repository_source_path: docs/ARCHITECTURE.md`
@@ -143,6 +140,6 @@ It must also contain these machine-readable lines exactly once:
 
 Briefly state how you independently verified the path. Do not include any secret or model-internal reasoning.
 
-The activation identity for this isolated proof is the expected repository + Issue #53 + fixture revision + exact DORMANT→READY body transition + authoritative issue-edit `updated_at` value above. A later delivery carrying the same edit identity is a replay, not a new activation. A genuinely new future authorized edit has a different authoritative edit timestamp (and may also use a later fixture revision).
+For this isolated proof, the durable activation namespace is the fixed repository + Issue #53 + fixture revision `stage3c-v0.1-r1` + exact DORMANT→READY transition. Once that revision has one authoritative completed Research result, any later workflow delivery for that same revision is a replay and must remain ineligible. A genuinely new future authorized fixture revision uses a distinct namespace and requires an explicit source/test update before it can become eligible.
 
 The GitHub comment is authoritative. Your Codex conversation is not authoritative and must not be used as the handoff to QA.
