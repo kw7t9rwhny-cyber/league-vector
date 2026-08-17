@@ -4,7 +4,7 @@ description: Isolated Stage 3C Research worker for the harmless two-worker auton
 on:
   issues:
     types: [edited]
-if: github.event.issue.number == 53 && github.event.issue.title == 'AGENT SPIKE TEST — harmless two-worker handoff' && contains(github.event.issue.body, 'Eligibility: `READY`')
+if: "github.event.issue.number == 53 && github.event.issue.title == 'AGENT SPIKE TEST — harmless two-worker handoff' && contains(github.event.issue.body, 'Eligibility: READY')"
 permissions:
   contents: read
   issues: read
@@ -38,8 +38,8 @@ This is a harmless proof only. Do not modify repository files, branches, pull re
 Read Issue #53. Proceed only if all of these are currently true:
 
 - title is exactly `AGENT SPIKE TEST — harmless two-worker handoff`
-- body contains `Fixture revision: `stage3c-v0.1-r1``
-- body contains `Eligibility: `READY``
+- body contains the exact line `Fixture revision: stage3c-v0.1-r1`
+- body contains the exact line `Eligibility: READY`
 - the requested harmless fact is whether `docs/ARCHITECTURE.md` exists at exactly that repository path
 
 If any condition is false, produce no research result and use the safe-output no-op path.
