@@ -45,6 +45,14 @@ jobs:
           PIN=6aab9e5b5c91c615506061f09bedd81a23babe3c
           "$RUNNER_TEMP/gh-aw" compile stage3c-research-worker --strict --action-mode action --actions-repo github/gh-aw-actions --action-tag "$PIN"
           "$RUNNER_TEMP/gh-aw" compile stage3c-qa-worker --strict --action-mode action --actions-repo github/gh-aw-actions --action-tag "$PIN"
+      - name: Upload deterministic r4 generated locks
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage3c-r4-generated-locks
+          path: |
+            .github/workflows/stage3c-research-worker.lock.yml
+            .github/workflows/stage3c-qa-worker.lock.yml
+          if-no-files-found: error
       - name: Verify byte-identical hardened locks
         run: |
           cmp --silent "$RUNNER_TEMP/research.lock.yml" .github/workflows/stage3c-research-worker.lock.yml
