@@ -23,7 +23,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install pinned gh-aw compiler
-        uses: github/gh-aw/actions/setup-cli@v0.37.18
+        uses: github/gh-aw/actions/setup-cli@8f1f2d2b8c9493bc38a26994efb4241fe3870339
         with:
           version: v0.37.18
 
