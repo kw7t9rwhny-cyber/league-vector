@@ -9,6 +9,7 @@ on:
       - '.github/workflows/stage3c-qa-worker.lock.yml'
       - '.github/workflows/stage3c-agentic-compile-validation.yml'
       - 'tests/development-orchestrator-stage3c-agentic.test.js'
+      - 'tests/development-orchestrator-stage3c-ghaw-compile.test.js'
       - 'docs/development-orchestrator-stage3c-two-worker-proof-v01.md'
   workflow_dispatch:
 
@@ -22,25 +23,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install pinned gh-aw compiler
-        uses: github/gh-aw/actions/setup-cli@8f1f2d2b8c9493bc38a26994efb4241fe3870339
-        with:
-          version: v0.37.18
-
-      - name: Record compiler version
-        run: gh aw version
+      - name: Install verified gh-aw v0.37.18 compiler
+        shell: bash
+        run: |
+          curl --fail --silent --show-error --location \
+            https://github.com/github/gh-aw/releases/download/v0.37.18/linux-amd64 \
+            --output "$RUNNER_TEMP/gh-aw"
+          echo "626f8f73842581f08072f2e0bc8dd49cf4e7e70977186e582cff86ac2d472c04  $RUNNER_TEMP/gh-aw" | sha256sum --check --strict
+          chmod 0700 "$RUNNER_TEMP/gh-aw"
+          "$RUNNER_TEMP/gh-aw" version
 
       - name: Compile Stage 3C Research Worker A
-        run: gh aw compile stage3c-research-worker --strict
+        run: "$RUNNER_TEMP/gh-aw compile stage3c-research-worker --strict"
 
       - name: Compile Stage 3C QA Worker B
-        run: gh aw compile stage3c-qa-worker --strict
+        run: "$RUNNER_TEMP/gh-aw compile stage3c-qa-worker --strict"
 
       - name: Strict validate Research Worker A
-        run: gh aw validate stage3c-research-worker --strict
+        run: "$RUNNER_TEMP/gh-aw validate stage3c-research-worker --strict"
 
       - name: Strict validate QA Worker B
-        run: gh aw validate stage3c-qa-worker --strict
+        run: "$RUNNER_TEMP/gh-aw validate stage3c-qa-worker --strict"
 
       - name: Verify committed hardened locks are exact compiler output
         run: |
@@ -64,5 +67,4 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-# This workflow performs compilation/static validation only.
-# It does not reference OPENAI_API_KEY, does not invoke Codex, and cannot run either Stage 3C worker.
+# Compilation/static validation only. No OpenAI secret is referenced and no Codex execution occurs.
