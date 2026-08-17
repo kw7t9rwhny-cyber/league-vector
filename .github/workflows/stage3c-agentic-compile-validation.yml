@@ -9,12 +9,11 @@ on:
       - '.github/workflows/stage3c-qa-worker.lock.yml'
       - '.github/workflows/stage3c-agentic-compile-validation.yml'
       - 'tests/development-orchestrator-stage3c-agentic.test.js'
-      - 'tests/development-orchestrator-stage3c-ghaw-compile.test.js'
       - 'docs/development-orchestrator-stage3c-two-worker-proof-v01.md'
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   compile-and-validate:
@@ -22,8 +21,6 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: agent/stage3c-two-worker-proof-v01
 
       - name: Install verified gh-aw v0.86.2 compiler
         shell: bash
@@ -34,6 +31,11 @@ jobs:
           echo "b8fd100d1d56a77b842ad28375ff361215a5aa1277db6b9a05d70054cde7260e  $RUNNER_TEMP/gh-aw" | sha256sum --check --strict
           chmod 0700 "$RUNNER_TEMP/gh-aw"
           "$RUNNER_TEMP/gh-aw" version
+
+      - name: Preserve committed hardened locks
+        run: |
+          cp .github/workflows/stage3c-research-worker.lock.yml "$RUNNER_TEMP/research.lock.yml"
+          cp .github/workflows/stage3c-qa-worker.lock.yml "$RUNNER_TEMP/qa.lock.yml"
 
       - name: Compile Stage 3C Research Worker A
         env:
@@ -55,28 +57,10 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: "$RUNNER_TEMP/gh-aw validate stage3c-qa-worker --strict"
 
-      - name: Stage exact generated locks for connector promotion
-        shell: bash
+      - name: Verify exact hardened lock determinism
         run: |
-          mkdir -p stage3c-lock-bootstrap
-          cp .github/workflows/stage3c-research-worker.lock.yml stage3c-lock-bootstrap/stage3c-research-worker.lock.yml
-          cp .github/workflows/stage3c-qa-worker.lock.yml stage3c-lock-bootstrap/stage3c-qa-worker.lock.yml
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add stage3c-lock-bootstrap/
-          git commit -m "stage exact gh-aw v0.86.2 locks for promotion"
-          git push origin HEAD:agent/stage3c-two-worker-proof-v01
+          cmp --silent "$RUNNER_TEMP/research.lock.yml" .github/workflows/stage3c-research-worker.lock.yml
+          cmp --silent "$RUNNER_TEMP/qa.lock.yml" .github/workflows/stage3c-qa-worker.lock.yml
 
-      - name: Upload deterministic compiled locks for inspection
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: stage3c-agentic-compiled-locks
-          path: |
-            .github/workflows/stage3c-research-worker.lock.yml
-            .github/workflows/stage3c-qa-worker.lock.yml
-          if-no-files-found: error
-          retention-days: 7
-
-# TEMPORARY BOOTSTRAP ONLY. Generated workflow bytes are staged outside .github/workflows because GITHUB_TOKEN cannot update workflow files.
+# Static compilation/validation only. Read-only GITHUB_TOKEN is scoped to gh-aw action-pin resolution.
 # No OpenAI secret is referenced and no Codex execution occurs.
