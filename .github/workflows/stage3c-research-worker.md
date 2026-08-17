@@ -5,17 +5,19 @@ on:
   issues:
     types: [edited]
   permissions:
-    issues: read
+    issues: write
   steps:
-    - name: Prove exact authoritative DORMANT to READY fixture transition and durable activation idempotency
+    - name: Prove exact authoritative DORMANT to READY transition and claim activation once
       id: exact_transition
       uses: actions/github-script@v9
       env:
         EXPECTED_REPOSITORY: kw7t9rwhny-cyber/league-vector
       with:
         script: |
+          const crypto = require('node:crypto');
           const deny = (why) => core.setFailed(`stage3c_research_activation_denied:${why}`);
           const event = context.payload;
+          const revision = 'stage3c-v0.1-r1';
           const eligibility = (body) => {
             if (typeof body !== 'string') return null;
             const matches = [...body.matchAll(/^Eligibility: ([^\r\n]+)$/gm)];
@@ -28,6 +30,8 @@ on:
           const exactLineCount = (text, line) => typeof text === 'string'
             ? text.split(/\r?\n/).filter((value) => value === line).length
             : 0;
+          const sha256 = (value) => crypto.createHash('sha256').update(value, 'utf8').digest('hex');
+
           if (process.env.GITHUB_RUN_ATTEMPT !== '1') return deny('replayed_run');
           if (event.repository?.full_name !== process.env.EXPECTED_REPOSITORY) return deny('wrong_repository');
           if (event.issue?.number !== 53) return deny('wrong_issue');
@@ -44,22 +48,36 @@ on:
 
           const activationUpdatedAt = event.issue?.updated_at;
           if (typeof activationUpdatedAt !== 'string' || !Number.isFinite(Date.parse(activationUpdatedAt))) return deny('malformed_activation_identity');
+          const activationMaterial = JSON.stringify({
+            repository: process.env.EXPECTED_REPOSITORY,
+            fixture_issue: 53,
+            fixture_revision: revision,
+            transition: 'DORMANT->READY',
+            previous_body_sha256: sha256(before),
+            current_body_sha256: sha256(after),
+            issue_updated_at: activationUpdatedAt,
+          });
+          const activationId = sha256(activationMaterial);
+          if (!/^[a-f0-9]{64}$/.test(activationId)) return deny('malformed_activation_identity');
+
           const comments = await github.paginate(github.rest.issues.listComments, {
             owner: context.repo.owner,
             repo: context.repo.repo,
             issue_number: 53,
             per_page: 100,
           });
-          const priorAuthoritative = comments.filter((comment) =>
+          const activationIdLine = `activation_id: ${activationId}`;
+          const priorClaims = comments.filter((comment) =>
             comment.user?.login === 'github-actions[bot]' &&
             comment.user?.type === 'Bot' &&
-            exactLineCount(comment.body, 'STAGE3C_RESEARCH_RESULT v0.1') === 1 &&
-            exactLineCount(comment.body, 'worker_role: research-worker-a') === 1 &&
+            exactLineCount(comment.body, 'STAGE3C_RESEARCH_ACTIVATION_CLAIM v0.1') === 1 &&
+            exactLineCount(comment.body, activationIdLine) === 1 &&
             exactLineCount(comment.body, 'fixture_issue: 53') === 1 &&
-            exactLineCount(comment.body, 'fixture_revision: stage3c-v0.1-r1') === 1 &&
-            exactLineCount(comment.body, 'completion_status: complete') === 1
+            exactLineCount(comment.body, `fixture_revision: ${revision}`) === 1 &&
+            exactLineCount(comment.body, 'transition: DORMANT->READY') === 1 &&
+            exactLineCount(comment.body, 'claim_status: claimed') === 1
           );
-          if (priorAuthoritative.length !== 0) return deny('activation_already_completed');
+          if (priorClaims.length !== 0) return deny('activation_already_claimed');
 
           const current = (await github.rest.issues.get({
             owner: context.repo.owner,
@@ -68,7 +86,24 @@ on:
           })).data;
           if (current.number !== 53 || current.title !== event.issue.title) return deny('current_fixture_mismatch');
           if (current.body !== after || current.updated_at !== activationUpdatedAt) return deny('stale_activation');
-          core.info('stage3c_research_activation_authorized:fixture_revision=stage3c-v0.1-r1');
+
+          const claimBody = [
+            'STAGE3C_RESEARCH_ACTIVATION_CLAIM v0.1',
+            activationIdLine,
+            'fixture_issue: 53',
+            `fixture_revision: ${revision}`,
+            'transition: DORMANT->READY',
+            `research_run_id: ${context.runId}`,
+            `research_run_number: ${context.runNumber}`,
+            'claim_status: claimed',
+          ].join('\n');
+          await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: 53,
+            body: claimBody,
+          });
+          core.info(`stage3c_research_activation_claimed:${activationId}`);
 if: needs.pre_activation.outputs.exact_transition_result == 'success'
 permissions:
   contents: read
@@ -77,7 +112,7 @@ engine: codex
 timeout-minutes: 10
 concurrency:
   group: stage3c-research-fixture-53
-  cancel-in-progress: true
+  cancel-in-progress: false
 tools:
   github:
     toolsets: [repos, issues]
@@ -100,7 +135,7 @@ safe-outputs:
 
 You are **Worker A: League Vector Research Worker** for the isolated Stage 3C two-worker handoff proof.
 
-The deterministic pre-activation gate has already proven the exact authoritative Issue #53 body transition `Eligibility: DORMANT` → `Eligibility: READY`, on the expected repository, on run attempt 1, with no other body change. It also proved that the activation event is still current and that no prior authoritative Research result exists for this fixture revision. Do not reinterpret or weaken that contract.
+The deterministic pre-activation gate has already proven the exact authoritative Issue #53 body transition `Eligibility: DORMANT` → `Eligibility: READY`, on the expected repository, on run attempt 1, with no other body change. It also created the one durable deterministic activation claim for this exact event identity before Codex was allowed to start. Do not reinterpret or weaken that contract.
 
 This is a harmless proof only. Do not modify repository files, branches, pull requests, labels, releases, deployments, settings, or Founder decisions. Do not invoke another workflow. The only durable write you may request is the declared safe-output comment on fixture Issue #53.
 
@@ -113,7 +148,7 @@ Read Issue #53. Proceed only if all of these are currently true:
 - body contains the exact line `Eligibility: READY` exactly once
 - the requested harmless fact is whether `docs/ARCHITECTURE.md` exists at exactly that repository path
 
-If any condition is false, produce no research result and make no durable write. Fail closed.
+If any condition is false, produce no research result and make no durable Research-result write. Fail closed.
 
 ## Independent research task
 
@@ -140,6 +175,6 @@ It must also contain these machine-readable lines exactly once:
 
 Briefly state how you independently verified the path. Do not include any secret or model-internal reasoning.
 
-For this isolated proof, the durable activation namespace is the fixed repository + Issue #53 + fixture revision `stage3c-v0.1-r1` + exact DORMANT→READY transition. Once that revision has one authoritative completed Research result, any later workflow delivery for that same revision is a replay and must remain ineligible. A genuinely new future authorized fixture revision uses a distinct namespace and requires an explicit source/test update before it can become eligible.
+For this isolated proof, the durable activation identity is SHA-256 over the fixed repository, Issue #53, fixture revision, exact DORMANT→READY transition, hashes of the authoritative previous/current bodies, and the issue edit timestamp. Research runs are serialized. The first authorized delivery creates one GitHub Actions activation-claim comment before Codex starts; any later workflow run for the same activation sees that durable claim and fails closed. A genuinely new future authorized fixture revision has a distinct activation identity and requires an explicit source/test revision before eligibility.
 
-The GitHub comment is authoritative. Your Codex conversation is not authoritative and must not be used as the handoff to QA.
+The GitHub Research-result comment is authoritative for QA. Your Codex conversation is not authoritative and must not be used as the handoff to QA.
