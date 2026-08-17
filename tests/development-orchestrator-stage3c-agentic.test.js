@@ -35,21 +35,26 @@ test("Research Worker A is exact fixture-transition scoped and read-only", () =>
   assert.match(research, /issues: read/);
   assert.match(research, /STAGE3C_RESEARCH_RESULT v0\.1/);
   assert.match(research, /research_run_id: \$\{\{ github\.run_id \}\}/);
+  assert.match(research, /research_run_number: \$\{\{ github\.run_number \}\}/);
   assert.match(research, /repository_source_path: docs\/ARCHITECTURE\.md/);
+  assert.doesNotMatch(research, /github\.sha|github\.run_attempt/);
 });
 
-test("QA Worker B chains only once from first successful Research completion", () => {
+test("QA Worker B chains from successful Research completion with durable de-duplication", () => {
   assert.match(qa, /workflow_run:/);
   assert.match(qa, /workflows: \['Stage 3C Research Worker A'\]/);
   assert.match(qa, /types: \[completed\]/);
   assert.match(qa, /branches: \[main\]/);
   assert.match(qa, /conclusion: success/);
-  assert.match(qa, /github\.event\.workflow_run\.run_attempt == 1/);
   assert.match(qa, /fresh independent Codex execution/);
   assert.match(qa, /research_run_id: \$\{\{ github\.event\.workflow_run\.id \}\}/);
+  assert.match(qa, /research_run_number: \$\{\{ github\.event\.workflow_run\.run_number \}\}/);
   assert.match(qa, /research_head_sha: \$\{\{ github\.event\.workflow_run\.head_sha \}\}/);
+  assert.match(qa, /prior QA comment already contains both/);
+  assert.match(qa, /produce no second QA result/);
   assert.match(qa, /STAGE3C_QA_RESULT v0\.1 — PASS/);
   assert.match(qa, /STAGE3C_QA_RESULT v0\.1 — FAIL/);
+  assert.doesNotMatch(qa, /run_attempt/);
 });
 
 test("Both workers expose only one fixed-issue add-comment safe output", () => {
@@ -72,7 +77,7 @@ test("workers are read-only and never directly reference OpenAI/GitHub secrets",
   assert.doesNotMatch(qa, /actions: read/);
 });
 
-test("concurrency, transition gating, run-attempt gating and timeout bound fan-out", () => {
+test("concurrency, transition gating, durable QA de-duplication and timeout bound fan-out", () => {
   assert.match(research, /group: stage3c-research-fixture-53/);
   assert.match(research, /cancel-in-progress: true/);
   assert.match(qa, /group: stage3c-qa-\$\{\{ github\.event\.workflow_run\.id \}\}/);
