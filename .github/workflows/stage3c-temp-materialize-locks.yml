@@ -4,7 +4,7 @@ on:
     branches: [agent/stage3c-transient-authority-recovery-v01]
     paths: ['.github/workflows/stage3c-temp-materialize-locks.yml']
 permissions:
-  contents: read
+  contents: write
 jobs:
   materialize:
     runs-on: ubuntu-latest
@@ -16,7 +16,8 @@ jobs:
           curl --fail --silent --show-error --location https://github.com/github/gh-aw/releases/download/v0.86.2/linux-amd64 -o "$RUNNER_TEMP/gh-aw"
           echo "b8fd100d1d56a77b842ad28375ff361215a5aa1277db6b9a05d70054cde7260e  $RUNNER_TEMP/gh-aw" | sha256sum -c --strict
           chmod 0700 "$RUNNER_TEMP/gh-aw"
-      - name: Strict compile exact locks
+      - name: Strict compile and materialize immutable blobs
+        env: {GH_TOKEN: '${{ github.token }}'}
         run: |
           set -euo pipefail
           PIN=6aab9e5b5c91c615506061f09bedd81a23babe3c
@@ -24,11 +25,14 @@ jobs:
           "$RUNNER_TEMP/gh-aw" validate stage3c-qa-worker --strict
           "$RUNNER_TEMP/gh-aw" compile stage3c-research-worker --strict --action-mode action --actions-repo github/gh-aw-actions --action-tag "$PIN"
           "$RUNNER_TEMP/gh-aw" compile stage3c-qa-worker --strict --action-mode action --actions-repo github/gh-aw-actions --action-tag "$PIN"
-          sha256sum .github/workflows/stage3c-research-worker.lock.yml .github/workflows/stage3c-qa-worker.lock.yml
-      - uses: actions/upload-artifact@v4
-        with:
-          name: stage3c-r3-compiled-locks
-          path: |
-            .github/workflows/stage3c-research-worker.lock.yml
-            .github/workflows/stage3c-qa-worker.lock.yml
-          if-no-files-found: error
+          python3 - <<'PY'
+          import base64,hashlib,json,os,subprocess,time
+          for label,path in [('RESEARCH','.github/workflows/stage3c-research-worker.lock.yml'),('QA','.github/workflows/stage3c-qa-worker.lock.yml')]:
+              raw=open(path,'rb').read(); payload=json.dumps({'content':base64.b64encode(raw).decode(),'encoding':'base64'}).encode(); out=None
+              for attempt in range(4):
+                  p=subprocess.run(['gh','api','--method','POST',f'/repos/{os.environ["GITHUB_REPOSITORY"]}/git/blobs','--input','-'],input=payload,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+                  if p.returncode==0: out=p.stdout; break
+                  if attempt==3: raise SystemExit(p.stderr.decode())
+                  time.sleep(2**attempt)
+              print(f'{label}_BLOB={json.loads(out)["sha"]}'); print(f'{label}_SHA256={hashlib.sha256(raw).hexdigest()}')
+          PY
