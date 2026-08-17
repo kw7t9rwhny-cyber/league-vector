@@ -59,6 +59,16 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: "$RUNNER_TEMP/gh-aw validate stage3c-qa-worker --strict"
 
+      - name: Capture compiler-generated hardened locks for remediation
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage3c-regenerated-locks
+          path: |
+            .github/workflows/stage3c-research-worker.lock.yml
+            .github/workflows/stage3c-qa-worker.lock.yml
+          if-no-files-found: error
+          retention-days: 1
+
       - name: Verify exact hardened lock determinism
         run: |
           cmp --silent "$RUNNER_TEMP/research.lock.yml" .github/workflows/stage3c-research-worker.lock.yml
