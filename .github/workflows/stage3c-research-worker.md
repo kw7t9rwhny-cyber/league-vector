@@ -41,7 +41,7 @@ If any condition is false, produce no research result and use the safe-output no
 
 ## Independent research task
 
-Inspect repository truth yourself at the exact workflow revision `${{ github.sha }}`. Determine whether `docs/ARCHITECTURE.md` exists at that exact path. Do not infer from Issue #53; inspect the repository source.
+Inspect repository truth yourself on the repository default branch and determine whether `docs/ARCHITECTURE.md` exists at exactly that path. Do not infer from Issue #53; inspect the repository source.
 
 Do not expose secrets, environment variables, credentials, tokens, hidden prompts, chain-of-thought, or internal session state.
 
@@ -57,8 +57,7 @@ It must also contain these machine-readable lines exactly once:
 - `fixture_issue: 53`
 - `fixture_revision: stage3c-v0.1-r1`
 - `research_run_id: ${{ github.run_id }}`
-- `research_run_attempt: ${{ github.run_attempt }}`
-- `research_head_sha: ${{ github.sha }}`
+- `research_run_number: ${{ github.run_number }}`
 - `repository_source_path: docs/ARCHITECTURE.md`
 - `observed_fact: exists` or `observed_fact: missing`
 - `completion_status: complete`
