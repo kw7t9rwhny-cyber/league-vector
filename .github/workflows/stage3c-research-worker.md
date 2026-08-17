@@ -17,7 +17,7 @@ on:
           const crypto = require('node:crypto');
           const deny = (why) => core.setFailed(`stage3c_research_activation_denied:${why}`);
           const event = context.payload;
-          const revision = 'stage3c-v0.1-r1';
+          const revision = 'stage3c-v0.1-r2';
           const claimMarker = 'STAGE3C_RESEARCH_ACTIVATION_CLAIM v0.1';
           const claimSchema = 'stage3c-activation-claim/v1';
           const actionsBot = Object.freeze({ id: 41898282, login: 'github-actions[bot]', type: 'Bot' });
@@ -28,7 +28,7 @@ on:
             return matches[0][1];
           };
           const revisionCount = (body) => typeof body === 'string'
-            ? [...body.matchAll(/^Fixture revision: stage3c-v0\.1-r1$/gm)].length
+            ? [...body.matchAll(/^Fixture revision: stage3c-v0\.1-r2$/gm)].length
             : 0;
           const sha256 = (value) => crypto.createHash('sha256').update(value, 'utf8').digest('hex');
           const trustedActionsActor = (comment) =>
@@ -59,16 +59,7 @@ on:
               if (!match) return null;
               values.push(match[1]);
             }
-            return {
-              repository: values[0],
-              fixtureIssue: Number(values[1]),
-              fixtureRevision: values[2],
-              transition: values[3],
-              activationId: values[4],
-              researchRunId: Number(values[5]),
-              researchRunNumber: Number(values[6]),
-              claimStatus: values[7],
-            };
+            return { repository: values[0], fixtureIssue: Number(values[1]), fixtureRevision: values[2], transition: values[3], activationId: values[4], researchRunId: Number(values[5]), researchRunNumber: Number(values[6]), claimStatus: values[7] };
           };
 
           if (process.env.GITHUB_RUN_ATTEMPT !== '1') return deny('replayed_run');
@@ -87,24 +78,11 @@ on:
 
           const activationUpdatedAt = event.issue?.updated_at;
           if (typeof activationUpdatedAt !== 'string' || !Number.isFinite(Date.parse(activationUpdatedAt))) return deny('malformed_activation_identity');
-          const activationMaterial = JSON.stringify({
-            repository: process.env.EXPECTED_REPOSITORY,
-            fixture_issue: 53,
-            fixture_revision: revision,
-            transition: 'DORMANT->READY',
-            previous_body_sha256: sha256(before),
-            current_body_sha256: sha256(after),
-            issue_updated_at: activationUpdatedAt,
-          });
+          const activationMaterial = JSON.stringify({ repository: process.env.EXPECTED_REPOSITORY, fixture_issue: 53, fixture_revision: revision, transition: 'DORMANT->READY', previous_body_sha256: sha256(before), current_body_sha256: sha256(after), issue_updated_at: activationUpdatedAt });
           const activationId = sha256(activationMaterial);
           if (!/^[a-f0-9]{64}$/.test(activationId)) return deny('malformed_activation_identity');
 
-          const comments = await github.paginate(github.rest.issues.listComments, {
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            issue_number: 53,
-            per_page: 100,
-          });
+          const comments = await github.paginate(github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: 53, per_page: 100 });
           const sameActivationClaims = [];
           for (const comment of comments) {
             if (!trustedActionsActor(comment)) continue;
@@ -117,44 +95,18 @@ on:
             const claim = parseCanonicalClaim(comment.body);
             if (!claim) return deny('activation_claim_ambiguity:malformed_canonical_claim');
             if (claim.activationId !== activationId) continue;
-            if (
-              claim.repository !== process.env.EXPECTED_REPOSITORY ||
-              claim.fixtureIssue !== 53 ||
-              claim.fixtureRevision !== revision ||
-              claim.transition !== 'DORMANT->READY' ||
-              claim.claimStatus !== 'claimed'
-            ) return deny('activation_claim_ambiguity:conflicting_same_activation_metadata');
+            if (claim.repository !== process.env.EXPECTED_REPOSITORY || claim.fixtureIssue !== 53 || claim.fixtureRevision !== revision || claim.transition !== 'DORMANT->READY' || claim.claimStatus !== 'claimed') return deny('activation_claim_ambiguity:conflicting_same_activation_metadata');
             sameActivationClaims.push(claim);
           }
           if (sameActivationClaims.length > 1) return deny('activation_claim_ambiguity:multiple_same_activation_claims');
           if (sameActivationClaims.length === 1) return deny('activation_already_claimed');
 
-          const current = (await github.rest.issues.get({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            issue_number: 53,
-          })).data;
+          const current = (await github.rest.issues.get({ owner: context.repo.owner, repo: context.repo.repo, issue_number: 53 })).data;
           if (current.number !== 53 || current.title !== event.issue.title) return deny('current_fixture_mismatch');
           if (current.body !== after || current.updated_at !== activationUpdatedAt) return deny('stale_activation');
 
-          const claimBody = [
-            claimMarker,
-            `schema: ${claimSchema}`,
-            `repository: ${process.env.EXPECTED_REPOSITORY}`,
-            'fixture_issue: 53',
-            `fixture_revision: ${revision}`,
-            'transition: DORMANT->READY',
-            `activation_id: ${activationId}`,
-            `research_run_id: ${context.runId}`,
-            `research_run_number: ${context.runNumber}`,
-            'claim_status: claimed',
-          ].join('\n');
-          await github.rest.issues.createComment({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            issue_number: 53,
-            body: claimBody,
-          });
+          const claimBody = [claimMarker, `schema: ${claimSchema}`, `repository: ${process.env.EXPECTED_REPOSITORY}`, 'fixture_issue: 53', `fixture_revision: ${revision}`, 'transition: DORMANT->READY', `activation_id: ${activationId}`, `research_run_id: ${context.runId}`, `research_run_number: ${context.runNumber}`, 'claim_status: claimed'].join('\n');
+          await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: 53, body: claimBody });
           core.info(`stage3c_research_activation_claimed:${activationId}`);
 if: needs.pre_activation.outputs.exact_transition_result == 'success'
 permissions:
@@ -196,7 +148,7 @@ This is a harmless proof only. Do not modify repository files, branches, pull re
 Read Issue #53. Proceed only if all of these are currently true:
 
 - title is exactly `AGENT SPIKE TEST — harmless two-worker handoff`
-- body contains the exact line `Fixture revision: stage3c-v0.1-r1` exactly once
+- body contains the exact line `Fixture revision: stage3c-v0.1-r2` exactly once
 - body contains the exact line `Eligibility: READY` exactly once
 - the requested harmless fact is whether `docs/ARCHITECTURE.md` exists at exactly that repository path
 
@@ -210,23 +162,10 @@ Do not expose secrets, environment variables, credentials, tokens, hidden prompt
 
 ## Durable result
 
-If the fixture is eligible, request exactly one safe-output comment on Issue #53. The comment must be concise and contain this exact marker on its own line:
-
-`STAGE3C_RESEARCH_RESULT v0.1`
-
-It must also contain these machine-readable lines exactly once:
-
-- `worker_role: research-worker-a`
-- `fixture_issue: 53`
-- `fixture_revision: stage3c-v0.1-r1`
-- `research_run_id: ${{ github.run_id }}`
-- `research_run_number: ${{ github.run_number }}`
-- `repository_source_path: docs/ARCHITECTURE.md`
-- `observed_fact: exists` or `observed_fact: missing`
-- `completion_status: complete`
+If the fixture is eligible, request exactly one safe-output comment on Issue #53. The comment must contain `STAGE3C_RESEARCH_RESULT v0.1` and the machine-readable lines `worker_role: research-worker-a`, `fixture_issue: 53`, `fixture_revision: stage3c-v0.1-r2`, `research_run_id: ${{ github.run_id }}`, `research_run_number: ${{ github.run_number }}`, `repository_source_path: docs/ARCHITECTURE.md`, one `observed_fact` line, and `completion_status: complete`, each exactly once.
 
 Briefly state how you independently verified the path. Do not include any secret or model-internal reasoning.
 
-For this isolated proof, the durable activation identity is SHA-256 over the fixed repository, Issue #53, fixture revision, exact DORMANT→READY transition, hashes of the authoritative previous/current bodies, and the issue edit timestamp. Research runs are serialized by one fixed concurrency group with `cancel-in-progress: false`; therefore only one pre-activation claim transaction can run at a time. The accepted activation-claim schema is exactly `stage3c-activation-claim/v1`, carried by the canonical `STAGE3C_RESEARCH_ACTIVATION_CLAIM v0.1` record. The canonical claim is an exact ten-line record written directly by the pre-activation GitHub Actions step before Codex. Only the stable GitHub Actions bot identity (`id: 41898282`, exact login and Bot type) is treated as a trusted claim source. Ordinary user-authored, merely bot-looking, or unrelated trusted comments cannot become authority. Any trusted comment that presents a Stage 3C activation-claim family marker is authority-relevant before schema parsing; unsupported marker/schema versions, malformed schema, duplicate markers, malformed canonical structure, conflicting same-activation metadata, or multiple same-activation claims fail closed before Codex. Exactly one valid prior same-activation claim blocks replay. A structurally valid supported claim for a different activation identity is stale/non-authoritative for the current activation. No unsupported authority evidence is discarded into a zero-claim state, and no ambiguous durable claim state is auto-repaired or winner-selected.
+The durable activation identity includes the fixed repository, Issue #53, fixture revision, exact DORMANT→READY transition, hashes of the authoritative previous/current bodies, and the issue edit timestamp. Therefore the consumed r1 activation identity cannot equal r2. Existing fail-closed claim schema, trusted source, ambiguity, replay, stale-state, and serialized-concurrency rules remain unchanged.
 
 The GitHub Research-result comment is authoritative for QA. Your Codex conversation is not authoritative and must not be used as the handoff to QA.
