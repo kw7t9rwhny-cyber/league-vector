@@ -51,6 +51,10 @@ tools:
   github:
     toolsets: [repos, issues]
 safe-outputs:
+  report-failure-as-issue: false
+  missing-tool: false
+  missing-data: false
+  noop: false
   add-comment:
     target: "53"
     max: 1
@@ -76,7 +80,7 @@ Read Issue #53. Proceed only if all of these are currently true:
 - body contains the exact line `Eligibility: READY` exactly once
 - the requested harmless fact is whether `docs/ARCHITECTURE.md` exists at exactly that repository path
 
-If any condition is false, produce no research result and use the safe-output no-op path.
+If any condition is false, produce no research result and make no durable write. Fail closed.
 
 ## Independent research task
 
