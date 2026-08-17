@@ -29,10 +29,12 @@ jobs:
           echo "b8fd100d1d56a77b842ad28375ff361215a5aa1277db6b9a05d70054cde7260e  $RUNNER_TEMP/gh-aw" | sha256sum --check --strict
           chmod 0700 "$RUNNER_TEMP/gh-aw"
           "$RUNNER_TEMP/gh-aw" version
-      - name: Compile and strict validate with authoritative action pin resolution
+      - name: Generate authoritative action pin cache then compile
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
+          "$RUNNER_TEMP/gh-aw" update-actions
+          test -f .github/aw/actions-lock.json
           "$RUNNER_TEMP/gh-aw" compile stage3c-research-worker --strict
           "$RUNNER_TEMP/gh-aw" compile stage3c-qa-worker --strict
           "$RUNNER_TEMP/gh-aw" validate stage3c-research-worker --strict
@@ -42,9 +44,8 @@ jobs:
         run: |
           set -euo pipefail
           test "${GITHUB_HEAD_REF}" = "agent/stage3c-two-worker-proof-v01"
-          test -f .github/aw/actions-lock.json
           rm -f .gitattributes
-          git status --short
+          rm -f .github/aw/compat.json
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -- .github/aw/actions-lock.json .github/workflows/stage3c-research-worker.lock.yml .github/workflows/stage3c-qa-worker.lock.yml
