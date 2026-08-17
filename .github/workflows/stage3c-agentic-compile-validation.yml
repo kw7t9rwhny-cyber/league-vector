@@ -23,13 +23,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install verified gh-aw v0.37.18 compiler
+      - name: Install verified gh-aw v0.86.2 compiler
         shell: bash
         run: |
           curl --fail --silent --show-error --location \
-            https://github.com/github/gh-aw/releases/download/v0.37.18/linux-amd64 \
+            https://github.com/github/gh-aw/releases/download/v0.86.2/linux-amd64 \
             --output "$RUNNER_TEMP/gh-aw"
-          echo "626f8f73842581f08072f2e0bc8dd49cf4e7e70977186e582cff86ac2d472c04  $RUNNER_TEMP/gh-aw" | sha256sum --check --strict
+          echo "b8fd100d1d56a77b842ad28375ff361215a5aa1277db6b9a05d70054cde7260e  $RUNNER_TEMP/gh-aw" | sha256sum --check --strict
           chmod 0700 "$RUNNER_TEMP/gh-aw"
           "$RUNNER_TEMP/gh-aw" version
 
