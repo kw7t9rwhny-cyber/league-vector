@@ -32,13 +32,41 @@ Worker A's Codex job is gated by a deterministic gh-aw pre-activation step. It s
 - current issue body is present and contains exactly one identical fixture revision and exactly one `Eligibility: READY`;
 - current body is byte-for-byte the prior body except for the single exact `Eligibility: DORMANT` → `Eligibility: READY` replacement;
 - the event issue edit timestamp is well formed and still matches live Issue #53 state;
-- no prior GitHub-Actions-authored durable activation claim exists for the exact activation identity.
+- durable activation-claim evidence is unambiguous and resolves to zero prior claims for this activation.
 
 The activation identity is SHA-256 over a canonical record containing the exact repository, Issue #53, fixture revision, `DORMANT->READY` transition, SHA-256 of the prior body, SHA-256 of the current body, and the authoritative issue edit timestamp. A duplicate delivery of the same historical transition therefore has the same activation identity. A future explicitly authorized fixture revision has a distinct namespace/identity.
 
-Before Codex starts, the deterministic pre-activation job writes exactly one fixed-issue comment containing `STAGE3C_RESEARCH_ACTIVATION_CLAIM v0.1`, the activation ID, fixture/revision, transition, Research run identity, and `claim_status: claimed`. This writer is not the Codex model and is restricted to Issue #53. Research workflow concurrency is fixture-specific with `cancel-in-progress: false`, so duplicate/new workflow runs serialize: the first authorized run creates the durable claim; every later delivery for the same activation observes the claim and fails closed before Codex. The claim survives first-run completion or failure and intentionally prevents retries from creating competing Research authority.
+### Canonical activation-claim schema
 
-READY→READY, UNKNOWN→READY, missing/malformed prior/current body, duplicate eligibility/revision markers, wrong issue/repository/title, same-run reruns, duplicate event delivery, sequential replay after the first Research run, stale events, and unrelated body edits all fail before the Codex agent job. Worker A has a 10-minute agent timeout.
+The one accepted claim representation is exactly nine LF-delimited lines, in this exact order, with no extra lines, duplicate fields, carriage returns, alternate whitespace, or prose:
+
+```text
+STAGE3C_RESEARCH_ACTIVATION_CLAIM v0.1
+repository: kw7t9rwhny-cyber/league-vector
+fixture_issue: 53
+fixture_revision: stage3c-v0.1-r1
+transition: DORMANT->READY
+activation_id: <64 lowercase hex>
+research_run_id: <positive integer>
+research_run_number: <positive integer>
+claim_status: claimed
+```
+
+The authority-bearing source identity is the stable GitHub Actions bot identity: numeric user id `41898282`, exact login `github-actions[bot]`, and type `Bot`. A username string, `Bot` type, or marker text alone is never authority. User-authored spoofed prose and merely bot-looking identities are ignored and cannot authorize or establish a claim.
+
+Trusted GitHub-Actions-authored claim evidence is parsed strictly. An exact canonical marker from that trusted source with a malformed/truncated schema, duplicate marker, invalid hash, malformed run correlation, noncanonical whitespace, or conflicting same-activation repository/fixture/revision/transition/status is an ambiguity and fails closed before Codex. The parser never picks first/last/newest/oldest evidence and never silently repairs or deletes contradictory records.
+
+For the current activation identity:
+
+- zero valid prior claims and no ambiguous trusted claim evidence → the pre-activation step may create the first canonical claim;
+- exactly one valid prior same-activation claim → replay is blocked before Codex;
+- more than one valid same-activation claim → ambiguity, fail closed before Codex;
+- any malformed/conflicting trusted same-claim evidence → ambiguity, fail closed before Codex;
+- a valid canonical claim for a different activation identity or future different fixture revision has no authority over the current activation.
+
+Before Codex starts, the deterministic pre-activation job writes the canonical claim directly to fixed Issue #53. This writer is not the Codex model and its write permission is restricted to the pre-activation GitHub Actions job. Research workflow concurrency is fixture-specific with `cancel-in-progress: false`. The fixed concurrency group serializes Research workflow executions so two duplicate starts cannot execute their pre-activation claim transactions concurrently: the first running execution either establishes durable claim state or fails; a later execution re-reads that durable state before its Codex gate can become reachable. No claim state is auto-recovered.
+
+READY→READY, UNKNOWN→READY, missing/malformed prior/current body, duplicate eligibility/revision markers, wrong issue/repository/title, same-run reruns, duplicate event delivery, sequential replay after the first Research run, stale events, unrelated body edits, malformed trusted claims, conflicting claims, duplicate same-activation claims, duplicate markers, and noncanonical claim records all fail before the Codex agent job. Worker A has a 10-minute agent timeout.
 
 ## Exact Worker B authority contract
 
@@ -72,7 +100,7 @@ issues: read
 
 The generated Codex GitHub MCP is explicitly read-only (`GITHUB_READ_ONLY=1`). No model-facing job has a GitHub write permission.
 
-Worker A's deterministic pre-activation job alone requires `issues: write` to create the fixed Issue #53 activation claim before Codex starts. This credential is held by the GitHub Actions pre-activation step, never exposed to the Codex agent. The executable lock audit requires the pre-activation block to contain the exact activation-claim marker, `issue_number: 53`, and `createComment`, and forbids content/PR/actions writes there. Worker B's pre-activation remains `issues: read` only.
+Worker A's deterministic pre-activation job alone requires `issues: write` to create the fixed Issue #53 activation claim before Codex starts. This credential is held by the GitHub Actions pre-activation step, never exposed to the Codex agent. The executable lock audit requires the pre-activation block to contain the exact activation-claim marker, stable GitHub Actions bot id, strict parser/ambiguity denials, `issue_number: 53`, and `createComment`, and forbids content/PR/actions writes there. Worker B's pre-activation remains `issues: read` only.
 
 The executable `.lock.yml` files are audited directly, not inferred from Markdown sources. They must contain none of:
 
