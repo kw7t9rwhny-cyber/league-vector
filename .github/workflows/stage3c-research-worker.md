@@ -19,6 +19,7 @@ on:
           const event = context.payload;
           const revision = 'stage3c-v0.1-r1';
           const claimMarker = 'STAGE3C_RESEARCH_ACTIVATION_CLAIM v0.1';
+          const claimSchema = 'stage3c-activation-claim/v1';
           const actionsBot = Object.freeze({ id: 41898282, login: 'github-actions[bot]', type: 'Bot' });
           const eligibility = (body) => {
             if (typeof body !== 'string') return null;
@@ -34,10 +35,14 @@ on:
             comment.user?.id === actionsBot.id &&
             comment.user?.login === actionsBot.login &&
             comment.user?.type === actionsBot.type;
+          const claimFamilyLine = (line) =>
+            typeof line === 'string' && /^stage3c_research_activation_claim(?:\s|$)/i.test(line.trim());
+          const authorityRelevantClaimRecord = (body) =>
+            typeof body === 'string' && body.split('\n').some((line) => claimFamilyLine(line));
           const parseCanonicalClaim = (body) => {
             if (typeof body !== 'string' || body.includes('\r')) return null;
             const lines = body.split('\n');
-            if (lines.length !== 9 || lines[0] !== claimMarker) return null;
+            if (lines.length !== 10 || lines[0] !== claimMarker || lines[1] !== `schema: ${claimSchema}`) return null;
             const patterns = [
               /^repository: ([A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+)$/,
               /^fixture_issue: ([1-9][0-9]*)$/,
@@ -50,7 +55,7 @@ on:
             ];
             const values = [];
             for (let i = 0; i < patterns.length; i += 1) {
-              const match = lines[i + 1].match(patterns[i]);
+              const match = lines[i + 2].match(patterns[i]);
               if (!match) return null;
               values.push(match[1]);
             }
@@ -103,10 +108,12 @@ on:
           const sameActivationClaims = [];
           for (const comment of comments) {
             if (!trustedActionsActor(comment)) continue;
-            if (typeof comment.body !== 'string') continue;
-            const markerLineCount = comment.body.split('\n').filter((line) => line === claimMarker).length;
-            if (markerLineCount === 0) continue;
-            if (markerLineCount !== 1) return deny('activation_claim_ambiguity:duplicate_marker');
+            if (!authorityRelevantClaimRecord(comment.body)) continue;
+            const lines = comment.body.split('\n');
+            const familyMarkerLines = lines.filter((line) => claimFamilyLine(line));
+            if (familyMarkerLines.length !== 1) return deny('activation_claim_ambiguity:duplicate_marker');
+            if (lines[0] !== claimMarker) return deny('activation_claim_ambiguity:unsupported_marker_version');
+            if (lines[1] !== `schema: ${claimSchema}`) return deny('activation_claim_ambiguity:unsupported_schema_version');
             const claim = parseCanonicalClaim(comment.body);
             if (!claim) return deny('activation_claim_ambiguity:malformed_canonical_claim');
             if (claim.activationId !== activationId) continue;
@@ -132,6 +139,7 @@ on:
 
           const claimBody = [
             claimMarker,
+            `schema: ${claimSchema}`,
             `repository: ${process.env.EXPECTED_REPOSITORY}`,
             'fixture_issue: 53',
             `fixture_revision: ${revision}`,
@@ -219,6 +227,6 @@ It must also contain these machine-readable lines exactly once:
 
 Briefly state how you independently verified the path. Do not include any secret or model-internal reasoning.
 
-For this isolated proof, the durable activation identity is SHA-256 over the fixed repository, Issue #53, fixture revision, exact DORMANT→READY transition, hashes of the authoritative previous/current bodies, and the issue edit timestamp. Research runs are serialized by one fixed concurrency group with `cancel-in-progress: false`; therefore only one pre-activation claim transaction can run at a time. The canonical claim is an exact nine-line record written directly by the pre-activation GitHub Actions step before Codex. Only the stable GitHub Actions bot identity (`id: 41898282`, exact login and Bot type) is treated as a trusted claim source. Ordinary user-authored or merely bot-looking prose cannot become authority. Any trusted canonical-claim marker with malformed schema, duplicate markers, conflicting same-activation metadata, or multiple same-activation claims fails closed before Codex. Exactly one valid prior same-activation claim blocks replay. A valid claim for a different activation identity is stale/non-authoritative for the current activation. No ambiguous durable claim state is auto-repaired or winner-selected.
+For this isolated proof, the durable activation identity is SHA-256 over the fixed repository, Issue #53, fixture revision, exact DORMANT→READY transition, hashes of the authoritative previous/current bodies, and the issue edit timestamp. Research runs are serialized by one fixed concurrency group with `cancel-in-progress: false`; therefore only one pre-activation claim transaction can run at a time. The accepted activation-claim schema is exactly `stage3c-activation-claim/v1`, carried by the canonical `STAGE3C_RESEARCH_ACTIVATION_CLAIM v0.1` record. The canonical claim is an exact ten-line record written directly by the pre-activation GitHub Actions step before Codex. Only the stable GitHub Actions bot identity (`id: 41898282`, exact login and Bot type) is treated as a trusted claim source. Ordinary user-authored, merely bot-looking, or unrelated trusted comments cannot become authority. Any trusted comment that presents a Stage 3C activation-claim family marker is authority-relevant before schema parsing; unsupported marker/schema versions, malformed schema, duplicate markers, malformed canonical structure, conflicting same-activation metadata, or multiple same-activation claims fail closed before Codex. Exactly one valid prior same-activation claim blocks replay. A structurally valid supported claim for a different activation identity is stale/non-authoritative for the current activation. No unsupported authority evidence is discarded into a zero-claim state, and no ambiguous durable claim state is auto-repaired or winner-selected.
 
 The GitHub Research-result comment is authoritative for QA. Your Codex conversation is not authoritative and must not be used as the handoff to QA.
