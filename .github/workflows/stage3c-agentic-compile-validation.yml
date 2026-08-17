@@ -43,23 +43,17 @@ jobs:
           PIN=6aab9e5b5c91c615506061f09bedd81a23babe3c
           "$RUNNER_TEMP/gh-aw" compile stage3c-research-worker --strict --action-mode action --actions-repo github/gh-aw-actions --action-tag "$PIN"
           "$RUNNER_TEMP/gh-aw" compile stage3c-qa-worker --strict --action-mode action --actions-repo github/gh-aw-actions --action-tag "$PIN"
-      - name: Stage exact generated Research lock
+      - name: Stage exact compiler-generated locks
         shell: bash
         run: |
-          cmp --silent "$RUNNER_TEMP/qa.lock.yml" .github/workflows/stage3c-qa-worker.lock.yml
-          if cmp --silent "$RUNNER_TEMP/research.lock.yml" .github/workflows/stage3c-research-worker.lock.yml; then
-            echo 'Research lock already current.'
+          if cmp --silent "$RUNNER_TEMP/research.lock.yml" .github/workflows/stage3c-research-worker.lock.yml && cmp --silent "$RUNNER_TEMP/qa.lock.yml" .github/workflows/stage3c-qa-worker.lock.yml; then
+            echo 'Generated locks already current.'
             exit 0
           fi
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add .github/workflows/stage3c-research-worker.lock.yml
-          git commit -m 'stage exact generated Stage 3C Research lock'
+          git add .github/workflows/stage3c-research-worker.lock.yml .github/workflows/stage3c-qa-worker.lock.yml
+          git commit -m 'stage exact generated Stage 3C locks'
           git push origin HEAD:agent/stage3c-two-worker-proof-v01
-      - name: Verify byte-identical hardened locks
-        run: |
-          cmp --silent "$RUNNER_TEMP/research.lock.yml" .github/workflows/stage3c-research-worker.lock.yml
-          cmp --silent "$RUNNER_TEMP/qa.lock.yml" .github/workflows/stage3c-qa-worker.lock.yml
-          echo 'byte-identical hardened locks: PASS'
 
 # TEMPORARY compiler staging only. Restore read-only validation before candidate declaration.
