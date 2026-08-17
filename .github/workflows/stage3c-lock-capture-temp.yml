@@ -6,7 +6,7 @@ on:
       - '.github/workflows/stage3c-lock-capture-temp.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   capture:
@@ -32,6 +32,29 @@ jobs:
           "$RUNNER_TEMP/gh-aw" compile stage3c-research-worker --strict --action-mode action --actions-repo github/gh-aw-actions --action-tag "$PIN"
           "$RUNNER_TEMP/gh-aw" compile stage3c-qa-worker --strict --action-mode action --actions-repo github/gh-aw-actions --action-tag "$PIN"
           sha256sum .github/workflows/stage3c-research-worker.lock.yml .github/workflows/stage3c-qa-worker.lock.yml
+      - name: Materialize exact compiler outputs as unreferenced Git blobs
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          for path in .github/workflows/stage3c-research-worker.lock.yml .github/workflows/stage3c-qa-worker.lock.yml; do
+            payload="$RUNNER_TEMP/blob.json"
+            jq -n --arg content "$(base64 -w0 "$path")" '{content:$content,encoding:"base64"}' > "$payload"
+            response=$(curl --fail --silent --show-error \
+              -X POST \
+              -H "Authorization: Bearer $GH_TOKEN" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/$REPOSITORY/git/blobs" \
+              --data-binary "@$payload")
+            sha=$(jq -er '.sha' <<<"$response")
+            local_sha=$(git hash-object "$path")
+            test "$sha" = "$local_sha"
+            echo "compiler_blob:$path:$sha"
+          done
+          echo "No ref or branch was updated by this step."
       - name: Upload exact compiler output
         uses: actions/upload-artifact@v4
         with:
@@ -42,4 +65,4 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-# TEMPORARY diagnostic workflow. Read-only. No Codex, no OPENAI_API_KEY, no issue mutation.
+# TEMPORARY diagnostic workflow. Creates only unreferenced Git blob objects from exact verified compiler output. No ref update, no Codex, no OPENAI_API_KEY, no issue mutation.
