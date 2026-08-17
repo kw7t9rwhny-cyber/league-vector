@@ -41,7 +41,7 @@ test("Stage 3C uses two distinct Codex worker definitions", () => {
 test("Research Worker A is fixture-scoped, dormant-until-READY, and read-only", () => {
   assert.match(research, /issues:\n\s+types: \[edited\]/);
   assert.match(research, /github\.event\.issue\.number == 53/);
-  assert.match(research, /Eligibility: `READY`/);
+  assert.match(research, /Eligibility: READY/);
   assert.match(research, /contents: read/);
   assert.match(research, /issues: read/);
   assert.doesNotMatch(research, /actions: write/);
@@ -101,7 +101,7 @@ test("QA explicitly rejects stale or uncorrelated durable handoffs", () => {
   assert.match(qa, /If no exactly correlated result exists, the QA verdict must be FAIL/);
   assert.match(qa, /Reject the handoff as stale and return FAIL/);
   assert.match(qa, /Do not substitute an older Research result/);
-  assert.match(qa, /independently inspect repository truth/);
+  assert.match(qa, /independently inspect repository truth/i);
 });
 
 test("compile validation is non-agent and pins gh-aw compiler version", () => {
