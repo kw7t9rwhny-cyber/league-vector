@@ -10,6 +10,7 @@ Authoritative architecture: Issue #52. Fixture: Issue #53, `AGENT SPIKE TEST —
 
 ```text
 GitHub Issue #53 exact activation transition
+  -> deterministic durable activation claim
   -> Research Worker A (fresh Codex)
   -> durable STAGE3C_RESEARCH_RESULT v0.1 comment
   -> authoritative GitHub workflow_run completion
@@ -20,7 +21,7 @@ GitHub Issue #53 exact activation transition
 
 Worker A and Worker B are separate Agentic Workflows and separate Codex executions. Worker B receives no Worker A session/thread/chain-of-thought state. Durable GitHub evidence is the only A→B handoff.
 
-## Exact Worker A activation contract
+## Exact Worker A activation contract and durable idempotency
 
 Worker A's Codex job is gated by a deterministic gh-aw pre-activation step. It starts authoritatively only when all conditions hold:
 
@@ -29,11 +30,15 @@ Worker A's Codex job is gated by a deterministic gh-aw pre-activation step. It s
 - `GITHUB_RUN_ATTEMPT` is exactly `1`;
 - prior issue body is present and contains exactly one `Fixture revision: stage3c-v0.1-r1` and exactly one `Eligibility: DORMANT`;
 - current issue body is present and contains exactly one identical fixture revision and exactly one `Eligibility: READY`;
-- current body is byte-for-byte the prior body except for the single exact `Eligibility: DORMANT` → `Eligibility: READY` replacement.
+- current body is byte-for-byte the prior body except for the single exact `Eligibility: DORMANT` → `Eligibility: READY` replacement;
+- the event issue edit timestamp is well formed and still matches live Issue #53 state;
+- no prior GitHub-Actions-authored durable activation claim exists for the exact activation identity.
 
-READY→READY, UNKNOWN→READY, missing/malformed prior/current body, duplicate eligibility/revision markers, wrong issue/repository/title, replayed run attempts, and unrelated body edits all fail before the Codex agent job.
+The activation identity is SHA-256 over a canonical record containing the exact repository, Issue #53, fixture revision, `DORMANT->READY` transition, SHA-256 of the prior body, SHA-256 of the current body, and the authoritative issue edit timestamp. A duplicate delivery of the same historical transition therefore has the same activation identity. A future explicitly authorized fixture revision has a distinct namespace/identity.
 
-Worker A has fixture-specific concurrency with `cancel-in-progress: true` and a 10-minute agent timeout.
+Before Codex starts, the deterministic pre-activation job writes exactly one fixed-issue comment containing `STAGE3C_RESEARCH_ACTIVATION_CLAIM v0.1`, the activation ID, fixture/revision, transition, Research run identity, and `claim_status: claimed`. This writer is not the Codex model and is restricted to Issue #53. Research workflow concurrency is fixture-specific with `cancel-in-progress: false`, so duplicate/new workflow runs serialize: the first authorized run creates the durable claim; every later delivery for the same activation observes the claim and fails closed before Codex. The claim survives first-run completion or failure and intentionally prevents retries from creating competing Research authority.
+
+READY→READY, UNKNOWN→READY, missing/malformed prior/current body, duplicate eligibility/revision markers, wrong issue/repository/title, same-run reruns, duplicate event delivery, sequential replay after the first Research run, stale events, and unrelated body edits all fail before the Codex agent job. Worker A has a 10-minute agent timeout.
 
 ## Exact Worker B authority contract
 
@@ -66,6 +71,8 @@ issues: read
 ```
 
 The generated Codex GitHub MCP is explicitly read-only (`GITHUB_READ_ONLY=1`). No model-facing job has a GitHub write permission.
+
+Worker A's deterministic pre-activation job alone requires `issues: write` to create the fixed Issue #53 activation claim before Codex starts. This credential is held by the GitHub Actions pre-activation step, never exposed to the Codex agent. The executable lock audit requires the pre-activation block to contain the exact activation-claim marker, `issue_number: 53`, and `createComment`, and forbids content/PR/actions writes there. Worker B's pre-activation remains `issues: read` only.
 
 The executable `.lock.yml` files are audited directly, not inferred from Markdown sources. They must contain none of:
 
@@ -113,4 +120,4 @@ No Stage 3C work changes Projection, Dynasty Value, Rookie, IDP, scoring, Sleepe
 
 ## Live proof — NOT AUTHORIZED
 
-Issue #53 must remain `Eligibility: DORMANT` throughout implementation QA. After both independent HIGH-risk QA teams PASS the new exact candidate and Founder separately authorizes the proof, the future proof consists of one exact DORMANT→READY fixture edit followed by zero Founder/Cody action between Research and QA. Any manual prompt copy or QA dispatch is a proof failure.
+Issue #53 must remain `Eligibility: DORMANT` throughout implementation QA. After both Independent HIGH-risk QA PASS verdicts on the new exact candidate and Founder separately authorizes the proof, the future proof consists of one exact DORMANT→READY fixture edit followed by zero Founder/Cody action between Research and QA. Any manual prompt copy or QA dispatch is a proof failure.
