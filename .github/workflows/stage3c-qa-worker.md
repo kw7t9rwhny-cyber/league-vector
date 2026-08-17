@@ -26,7 +26,6 @@ safe-outputs:
   add-comment:
     target: 53
     max: 1
-    required-title-prefix: 'AGENT SPIKE TEST —'
 ---
 
 # League Vector QA Worker
