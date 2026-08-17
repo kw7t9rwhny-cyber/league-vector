@@ -6,6 +6,7 @@ const API_VERSION = "2022-11-28";
 const AUTHORIZED_QA_SOURCES = new Set(["comment", "review"]);
 const SNAPSHOT_SCHEMA = "lv-development-orchestrator-github-read-v0.1";
 const MAX_READ_ATTEMPTS = 3;
+const REPOSITORY_IDENTITY = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 
 function headers(token) {
   return {
@@ -56,8 +57,34 @@ async function githubJson(url, token, fetchImpl = fetch, maxAttempts = MAX_READ_
   return requestJson(url, token, { fetchImpl, maxAttempts, prefix: "github_rest" });
 }
 
+function normalizeRepositoryIdentity(value) {
+  if (typeof value !== "string" || !REPOSITORY_IDENTITY.test(value)) throw new Error("github_repository_identity_malformed");
+  // GitHub documents REST owner and repository path parameters as case-insensitive.
+  // Inputs/outputs are restricted to GitHub's ASCII repository-identifier character set above;
+  // no trimming, Unicode normalization, separator rewriting, or other collapsing transform is used.
+  return value.toLowerCase();
+}
+
+function assertRepositoryIdentity(requested, returned, source) {
+  const requestedIdentity = normalizeRepositoryIdentity(requested);
+  let returnedIdentity;
+  try {
+    returnedIdentity = normalizeRepositoryIdentity(returned);
+  } catch (_) {
+    throw new Error(`${source}_repository_identity_invalid`);
+  }
+  if (returnedIdentity !== requestedIdentity) throw new Error(`${source}_repository_identity_mismatch`);
+}
+
+const REPOSITORY_IDENTITY_QUERY = `query LeagueVectorRepositoryIdentity($owner: String!, $repo: String!) {
+  repository(owner: $owner, name: $repo, followRenames: false) {
+    nameWithOwner
+  }
+}`;
+
 const QA_EVENTS_QUERY = `query LeagueVectorQaEvents($owner: String!, $repo: String!, $number: Int!) {
-  repository(owner: $owner, name: $repo) {
+  repository(owner: $owner, name: $repo, followRenames: false) {
+    nameWithOwner
     pullRequest(number: $number) {
       number
       headRefOid
@@ -72,6 +99,21 @@ const QA_EVENTS_QUERY = `query LeagueVectorQaEvents($owner: String!, $repo: Stri
     }
   }
 }`;
+
+async function fetchRepositoryIdentityGraphql(owner, repo, token, fetchImpl = fetch, maxAttempts = MAX_READ_ATTEMPTS) {
+  const payload = await requestJson("https://api.github.com/graphql", token, {
+    fetchImpl,
+    maxAttempts,
+    prefix: "github_graphql",
+    method: "POST",
+    body: JSON.stringify({ query: REPOSITORY_IDENTITY_QUERY, variables: { owner, repo } })
+  });
+  if (Array.isArray(payload.errors) && payload.errors.length) throw new Error("github_graphql_repository_identity_errors");
+  const repository = payload.data && payload.data.repository;
+  if (!repository || typeof repository !== "object" || Array.isArray(repository)) throw new Error("github_graphql_repository_identity_missing");
+  assertRepositoryIdentity(`${owner}/${repo}`, repository.nameWithOwner, "github_graphql");
+  return repository.nameWithOwner;
+}
 
 function requireConnection(connection, name, prNumber) {
   if (!connection || !Array.isArray(connection.nodes) || !connection.pageInfo || typeof connection.pageInfo.hasNextPage !== "boolean") {
@@ -90,7 +132,10 @@ async function fetchQaEventsGraphql(owner, repo, prNumber, expectedHeadSha, toke
     body: JSON.stringify({ query: QA_EVENTS_QUERY, variables: { owner, repo, number: prNumber } })
   });
   if (Array.isArray(payload.errors) && payload.errors.length) throw new Error(`github_graphql_errors:pr_${prNumber}`);
-  const pullRequest = payload.data && payload.data.repository && payload.data.repository.pullRequest;
+  const repository = payload.data && payload.data.repository;
+  if (!repository || typeof repository !== "object" || Array.isArray(repository)) throw new Error(`github_graphql_repository_missing:pr_${prNumber}`);
+  assertRepositoryIdentity(`${owner}/${repo}`, repository.nameWithOwner, "github_graphql");
+  const pullRequest = repository.pullRequest;
   if (!pullRequest || Number(pullRequest.number) !== Number(prNumber)) throw new Error(`github_graphql_wrong_or_missing_pr:${prNumber}`);
   if (typeof pullRequest.headRefOid !== "string" || pullRequest.headRefOid !== expectedHeadSha) throw new Error(`github_graphql_head_mismatch:pr_${prNumber}`);
   const comments = requireConnection(pullRequest.comments, "comments", prNumber);
@@ -132,14 +177,22 @@ function authorizedQaAuthors(repositoryOwner = null) {
 }
 
 async function loadLiveRepositoryGraphql(repository, token, options = {}) {
-  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(repository || "")) throw new Error("invalid_repository");
+  const requestedIdentity = normalizeRepositoryIdentity(repository);
   if (!token) throw new Error("missing_github_token");
   const [owner, repo] = repository.split("/");
   const base = `https://api.github.com/repos/${owner}/${repo}`;
   const fetchImpl = options.fetchImpl || fetch;
   const maxAttempts = options.maxAttempts || MAX_READ_ATTEMPTS;
+
+  // Establish the exact repository authority boundary before trusting any repository metadata.
+  await fetchRepositoryIdentityGraphql(owner, repo, token, fetchImpl, maxAttempts);
+
   const repoMeta = await githubJson(base, token, fetchImpl, maxAttempts);
+  if (!repoMeta || typeof repoMeta !== "object" || Array.isArray(repoMeta)) throw new Error("github_rest_malformed_repository_metadata");
+  assertRepositoryIdentity(repository, repoMeta.full_name, "github_rest");
   if (!repoMeta.owner || typeof repoMeta.owner.login !== "string" || typeof repoMeta.default_branch !== "string") throw new Error("github_rest_malformed_repository_metadata");
+  if (normalizeRepositoryIdentity(`${repoMeta.owner.login}/${repo}`) !== requestedIdentity) throw new Error("github_rest_repository_owner_mismatch");
+
   const qaAuthors = options.authorizedQaAuthors || authorizedQaAuthors(repoMeta.owner.login);
   const mainRef = await githubJson(`${base}/git/ref/heads/${repoMeta.default_branch}`, token, fetchImpl, maxAttempts);
   if (!mainRef.object || typeof mainRef.object.sha !== "string" || !/^[0-9a-f]{40}$/i.test(mainRef.object.sha)) throw new Error("github_rest_malformed_main_ref");
@@ -168,6 +221,7 @@ async function loadLiveRepositoryGraphql(repository, token, options = {}) {
   return {
     snapshot_schema: SNAPSHOT_SCHEMA,
     source: "live-github-read-only",
+    repository_identity: repository,
     main_sha: mainRef.object.sha,
     qa_authority: { authorized_authors: qaAuthors, sources: [...AUTHORIZED_QA_SOURCES], record_policy: "verdict-only-exact-body" },
     prs
@@ -176,12 +230,16 @@ async function loadLiveRepositoryGraphql(repository, token, options = {}) {
 
 module.exports = {
   API_VERSION,
+  REPOSITORY_IDENTITY_QUERY,
   QA_EVENTS_QUERY,
   SNAPSHOT_SCHEMA,
   MAX_READ_ATTEMPTS,
   isTransientStatus,
   requestJson,
   githubJson,
+  normalizeRepositoryIdentity,
+  assertRepositoryIdentity,
+  fetchRepositoryIdentityGraphql,
   fetchQaEventsGraphql,
   loadLiveRepositoryGraphql
 };
