@@ -51,20 +51,55 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           import re
-          paths = [Path('.github/workflows/stage3c-research-worker.lock.yml'), Path('.github/workflows/stage3c-qa-worker.lock.yml')]
-          forbidden = ['contents: write','pull-requests: write','actions: write','deployments: write','packages: write','administration: write','statuses: write','checks: write']
+
+          paths = [
+              Path('.github/workflows/stage3c-research-worker.lock.yml'),
+              Path('.github/workflows/stage3c-qa-worker.lock.yml'),
+          ]
+          forbidden = [
+              'contents: write', 'pull-requests: write', 'actions: write',
+              'deployments: write', 'packages: write', 'administration: write',
+              'statuses: write', 'checks: write',
+          ]
+
+          def job_block(text, name):
+              marker = f'\n  {name}:\n'
+              start = text.find(marker)
+              assert start >= 0, f'missing job {name}'
+              rest = text[start + len(marker):]
+              nxt = re.search(r'\n  [A-Za-z0-9_-]+:\n', rest)
+              return rest[:nxt.start()] if nxt else rest
+
           for path in paths:
               text = path.read_text()
               for value in forbidden:
                   assert value not in text, f'{path}: forbidden permission {value}'
-              agent = text.split('\n  agent:\n',1)[1].split('\n  ',1)[0]
-              assert 'contents: read' in agent and 'issues: read' in agent
-              assert ': write' not in agent
-              assert 'GITHUB_READ_ONLY' in agent and '"1"' in agent
-              assert 'GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "{\\"add_comment\\":{\\"discussions\\":false,\\"max\\":1,\\"target\\":\\"53\\"}' in text
-              assert 'pull_requests' not in re.search(r'GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: .*', text).group(0)
-              for disallowed in ['create_pull_request','add_labels','remove_labels','merge_pull_request','push_to_pull_request_branch','update_release','dispatch_workflow']:
-                  assert f'\\"{disallowed}\\"' not in re.search(r'GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: .*', text).group(0)
+
+              agent = job_block(text, 'agent')
+              assert 'contents: read' in agent and 'issues: read' in agent, f'{path}: agent read permissions missing'
+              assert ': write' not in agent, f'{path}: model-facing agent has write permission'
+              assert 'GITHUB_READ_ONLY' in agent and '"1"' in agent, f'{path}: GitHub MCP is not read-only'
+
+              safe = job_block(text, 'safe_outputs')
+              assert 'issues: write' in safe, f'{path}: safe output handler lacks intended issue-comment permission'
+              assert 'contents: write' not in safe and 'pull-requests: write' not in safe and 'actions: write' not in safe
+
+              config_match = re.search(r'GH_AW_SAFE_OUTPUTS_HANDLER_CONFIG: "[^\n]+"', text)
+              assert config_match, f'{path}: missing safe-output handler config'
+              config = config_match.group(0)
+              assert '\\"add_comment\\"' in config
+              assert '\\"target\\":\\"53\\"' in config
+              assert '\\"max\\":1' in config
+              assert '\\"issues\\":true' in config
+              assert '\\"pull_requests\\":false' in config
+              assert '\\"discussions\\":false' in config
+              for disallowed in [
+                  'create_pull_request', 'add_labels', 'remove_labels',
+                  'merge_pull_request', 'push_to_pull_request_branch',
+                  'update_release', 'dispatch_workflow', 'create_issue',
+              ]:
+                  assert f'\\"{disallowed}\\"' not in config, f'{path}: disallowed safe output {disallowed}'
+
           print('effective generated lock audit: PASS')
           PY
 
