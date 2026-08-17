@@ -7,9 +7,9 @@ const qa=read(".github/workflows/stage3c-qa-worker.md");
 const repo="kw7t9rwhny-cyber/league-vector",issue=53,r1="stage3c-v0.1-r1",r2="stage3c-v0.1-r2";
 const sha=v=>crypto.createHash("sha256").update(v,"utf8").digest("hex");
 const body=(revision,state)=>`Fixture revision: ${revision}\n\nEligibility: ${state}\n`;
-function eligible({repoName=repo,issueNumber=53,revision=r2,before=body(r2,"DORMANT"),after=body(r2,"READY"),attempt="1"}={}){
+function eligible({repoName=repo,issueNumber=53,before=body(r2,"DORMANT"),after=body(r2,"READY"),attempt="1"}={}){
   const val=b=>{if(typeof b!=="string")return null;const m=[...b.matchAll(/^Eligibility: ([^\r\n]+)$/gm)];return m.length===1?m[0][1]:null};
-  const rev=b=>typeof b==="string"?[...b.matchAll(new RegExp(`^Fixture revision: ${revision.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}$`,"gm"))].length:0;
+  const rev=b=>typeof b==="string"?[...b.matchAll(/^Fixture revision: stage3c-v0\.1-r2$/gm)].length:0;
   return repoName===repo&&issueNumber===issue&&attempt==="1"&&rev(before)===1&&rev(after)===1&&val(before)==="DORMANT"&&val(after)==="READY"&&after===before.replace(/^Eligibility: DORMANT$/m,"Eligibility: READY");
 }
 function activationId(revision,updatedAt="2026-08-17T14:00:00Z"){
@@ -23,7 +23,8 @@ function qaAuthorizes({revision=r2,result=researchResult(r2),conclusion="success
 
 test("r2 is the only eligible fixture revision",()=>{
   assert.equal(eligible(),true);
-  assert.equal(eligible({revision:r1,before:body(r1,"DORMANT"),after:body(r1,"READY")}),false);
+  assert.equal(eligible({before:body(r1,"DORMANT"),after:body(r1,"READY")}),false);
+  assert.equal(eligible({before:body(r1,"READY"),after:body(r1,"READY")}),false);
   assert.equal(eligible({before:body(r2,"READY"),after:body(r2,"READY")}),false);
   assert.equal(eligible({before:body(r2,"BLOCKED"),after:body(r2,"READY")}),false);
   assert.equal(eligible({before:body(r2,"UNKNOWN"),after:body(r2,"READY")}),false);
