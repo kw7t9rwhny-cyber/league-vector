@@ -7,6 +7,7 @@ const os = require("node:os");
 const path = require("node:path");
 const https = require("node:https");
 const crypto = require("node:crypto");
+const zlib = require("node:zlib");
 const { spawnSync } = require("node:child_process");
 
 const ROOT = path.resolve(__dirname, "..");
@@ -45,10 +46,13 @@ function run(binary, args) {
       GITHUB_ACTIONS: process.env.GITHUB_ACTIONS || ""
     }
   });
-  if (result.status !== 0) {
-    throw new Error(`gh_aw_${args.join("_")}_failed\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
-  }
-  return `${result.stdout}${result.stderr}`;
+  if (result.status !== 0) throw new Error(`gh_aw_${args.join("_")}_failed\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`);
+}
+
+function emitCompressed(marker, text) {
+  console.log(`${marker}_GZIP_BASE64_BEGIN`);
+  console.log(zlib.gzipSync(Buffer.from(text, "utf8"), { level: 9 }).toString("base64"));
+  console.log(`${marker}_GZIP_BASE64_END`);
 }
 
 test("official gh-aw v0.37.18 compiles Stage 3C agent workflows without Codex execution", { timeout: 120000 }, async (t) => {
@@ -56,12 +60,11 @@ test("official gh-aw v0.37.18 compiles Stage 3C agent workflows without Codex ex
     t.skip("CI-only bootstrap compiler; no network/tool download during local unit tests");
     return;
   }
-
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "stage3c-ghaw-"));
   const binary = path.join(dir, "gh-aw");
   await download(URL, binary);
   const digest = crypto.createHash("sha256").update(fs.readFileSync(binary)).digest("hex");
-  assert.equal(digest, EXPECTED_SHA256, "downloaded gh-aw binary must match published release digest");
+  assert.equal(digest, EXPECTED_SHA256);
   fs.chmodSync(binary, 0o700);
 
   run(binary, ["compile", "stage3c-research-worker", "--strict"]);
@@ -69,22 +72,13 @@ test("official gh-aw v0.37.18 compiles Stage 3C agent workflows without Codex ex
   run(binary, ["validate", "stage3c-research-worker", "--strict"]);
   run(binary, ["validate", "stage3c-qa-worker", "--strict"]);
 
-  const researchLock = path.join(ROOT, ".github/workflows/stage3c-research-worker.lock.yml");
-  const qaLock = path.join(ROOT, ".github/workflows/stage3c-qa-worker.lock.yml");
-  assert.ok(fs.existsSync(researchLock));
-  assert.ok(fs.existsSync(qaLock));
-
-  const research = fs.readFileSync(researchLock, "utf8");
-  const qa = fs.readFileSync(qaLock, "utf8");
+  const research = fs.readFileSync(path.join(ROOT, ".github/workflows/stage3c-research-worker.lock.yml"), "utf8");
+  const qa = fs.readFileSync(path.join(ROOT, ".github/workflows/stage3c-qa-worker.lock.yml"), "utf8");
   assert.match(research, /Stage 3C Research Worker A/);
   assert.match(qa, /Stage 3C QA Worker B/);
   assert.doesNotMatch(research, /pull_request_target/);
   assert.doesNotMatch(qa, /pull_request_target/);
 
-  console.log("STAGE3C_RESEARCH_LOCK_BASE64_BEGIN");
-  console.log(Buffer.from(research, "utf8").toString("base64"));
-  console.log("STAGE3C_RESEARCH_LOCK_BASE64_END");
-  console.log("STAGE3C_QA_LOCK_BASE64_BEGIN");
-  console.log(Buffer.from(qa, "utf8").toString("base64"));
-  console.log("STAGE3C_QA_LOCK_BASE64_END");
+  emitCompressed("STAGE3C_RESEARCH_LOCK", research);
+  emitCompressed("STAGE3C_QA_LOCK", qa);
 });
