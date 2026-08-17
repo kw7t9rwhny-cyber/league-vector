@@ -7,7 +7,6 @@ on:
     types: [completed]
     branches: [main]
     conclusion: success
-if: "github.event.workflow_run.run_attempt == 1"
 permissions:
   contents: read
   issues: read
@@ -37,25 +36,26 @@ Do not modify repository files, branches, pull requests, labels, releases, deplo
 
 The authoritative Research completion that triggered this run is:
 
-- workflow name: `${{ github.event.workflow_run.name }}`
+- workflow name: `Stage 3C Research Worker A`
 - research run id: `${{ github.event.workflow_run.id }}`
-- research run attempt: `${{ github.event.workflow_run.run_attempt }}`
+- research run number: `${{ github.event.workflow_run.run_number }}`
 - research head SHA: `${{ github.event.workflow_run.head_sha }}`
 - research conclusion: `${{ github.event.workflow_run.conclusion }}`
 
-Proceed only if the workflow name is exactly `Stage 3C Research Worker A`, conclusion is `success`, run attempt is exactly `1`, and the source repository is the current League Vector repository. Compiler/runtime guards also enforce same-repository and branch restrictions.
+Proceed only if conclusion is `success` and the source repository is the current League Vector repository. Compiler/runtime guards enforce the exact workflow name, same-repository boundary, and `main` branch restriction.
 
 ## Durable handoff verification
 
-Read Issue #53 and its comments using GitHub read tools. Find the Worker A durable comment containing all of:
+Read Issue #53 and its comments using GitHub read tools. First check whether a prior QA comment already contains both `STAGE3C_QA_RESULT v0.1` and `research_run_id: ${{ github.event.workflow_run.id }}`. If such a QA result already exists, produce no second QA result and use the safe-output no-op path.
+
+Otherwise find the Worker A durable comment containing all of:
 
 - `STAGE3C_RESEARCH_RESULT v0.1`
 - `worker_role: research-worker-a`
 - `fixture_issue: 53`
 - `fixture_revision: stage3c-v0.1-r1`
 - `research_run_id: ${{ github.event.workflow_run.id }}`
-- `research_run_attempt: 1`
-- `research_head_sha: ${{ github.event.workflow_run.head_sha }}`
+- `research_run_number: ${{ github.event.workflow_run.run_number }}`
 - `repository_source_path: docs/ARCHITECTURE.md`
 - `completion_status: complete`
 
@@ -89,9 +89,9 @@ Include these machine-readable lines exactly once:
 - `fixture_issue: 53`
 - `fixture_revision: stage3c-v0.1-r1`
 - `qa_run_id: ${{ github.run_id }}`
-- `qa_run_attempt: ${{ github.run_attempt }}`
+- `qa_run_number: ${{ github.run_number }}`
 - `research_run_id: ${{ github.event.workflow_run.id }}`
-- `research_run_attempt: ${{ github.event.workflow_run.run_attempt }}`
+- `research_run_number: ${{ github.event.workflow_run.run_number }}`
 - `research_head_sha: ${{ github.event.workflow_run.head_sha }}`
 - `repository_source_path: docs/ARCHITECTURE.md`
 - `independent_observed_fact: exists` or `independent_observed_fact: missing`
