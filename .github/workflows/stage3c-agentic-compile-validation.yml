@@ -62,5 +62,5 @@ jobs:
           cmp --silent "$RUNNER_TEMP/research.lock.yml" .github/workflows/stage3c-research-worker.lock.yml
           cmp --silent "$RUNNER_TEMP/qa.lock.yml" .github/workflows/stage3c-qa-worker.lock.yml
 
-# Static compilation/validation only. Read-only GITHUB_TOKEN is scoped to gh-aw action-pin resolution.
-# No OpenAI secret is referenced and no Codex execution occurs.
+# Final candidate validation: static compilation only, read-only GITHUB_TOKEN, no Codex execution.
+# No OpenAI secret is referenced and no OpenAI inference occurs.
