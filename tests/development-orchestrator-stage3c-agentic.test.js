@@ -116,13 +116,18 @@ test("effective generated safe-output handler is fixed to one Issue 53 comment c
     assert.match(config, /add_comment/);
     assert.match(config, /target\\":\\"53/);
     assert.match(config, /max\\":1/);
+    assert.match(config, /report_incomplete/);
+    assert.doesNotMatch(config, /create_report_incomplete_issue/);
     for (const forbidden of ["create_pull_request","add_labels","remove_labels","merge_pull_request","push_to_pull_request_branch","update_release","dispatch_workflow","create_issue"]) assert.ok(!config.includes(`\\\"${forbidden}\\\"`), forbidden);
+    assert.match(lock, /GH_AW_REPORT_INCOMPLETE_CREATE_ISSUE: "false"/);
+    assert.match(lock, /GH_AW_FAILURE_REPORT_AS_ISSUE: "false"/);
   }
 });
 
 test("source safe outputs disable non-fixture write/report channels", () => {
   for (const source of [research, qa]) {
     assert.match(source, /report-failure-as-issue: false/);
+    assert.match(source, /report-incomplete:\n\s+create-issue: false/);
     assert.match(source, /missing-tool: false/);
     assert.match(source, /missing-data: false/);
     assert.match(source, /noop: false/);
@@ -155,9 +160,11 @@ test("secret boundary remains native Codex engine authentication", () => {
   }
 });
 
-test("verified gh-aw compiler is read-only and byte-compares executable locks", () => {
+test("verified gh-aw compiler is read-only, exact-runtime-pinned, and byte-compares executable locks", () => {
   assert.match(compile, /v0\.86\.2\/linux-amd64/);
   assert.match(compile, /b8fd100d1d56a77b842ad28375ff361215a5aa1277db6b9a05d70054cde7260e/);
+  assert.match(compile, /PIN=6aab9e5b5c91c615506061f09bedd81a23babe3c/);
+  assert.match(compile, /--action-tag "\$PIN"/);
   assert.match(compile, /contents: read/);
   assert.doesNotMatch(compile, /contents: write/);
   assert.match(compile, /compile stage3c-research-worker --strict/);
