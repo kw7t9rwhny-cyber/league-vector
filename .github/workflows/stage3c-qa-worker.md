@@ -64,7 +64,7 @@ Read Issue #53 and its comments using GitHub read tools. Find the Worker A durab
 
 If no exactly correlated result exists, the QA verdict must be FAIL. Do not substitute an older Research result.
 
-Reject the handoff as stale and return FAIL if the current Issue #53 title or fixture revision differs from the expected values, or if its body no longer contains `Eligibility: `READY``.
+Reject the handoff as stale and return FAIL if the current Issue #53 title or fixture revision differs from the expected values, or if its body no longer contains the exact line `Eligibility: READY`.
 
 ## Independent repository verification
 
