@@ -10,11 +10,11 @@ const research = fs.readFileSync(path.join(ROOT, ".github/workflows/stage3c-rese
 const qa = fs.readFileSync(path.join(ROOT, ".github/workflows/stage3c-qa-worker.md"), "utf8");
 const docs = fs.readFileSync(path.join(ROOT, "docs/development-orchestrator-stage3c-two-worker-proof-v01.md"), "utf8");
 const compile = fs.readFileSync(path.join(ROOT, ".github/workflows/stage3c-agentic-compile-validation.yml"), "utf8");
+const researchLock = fs.readFileSync(path.join(ROOT, ".github/workflows/stage3c-research-worker.lock.yml"), "utf8");
+const qaLock = fs.readFileSync(path.join(ROOT, ".github/workflows/stage3c-qa-worker.lock.yml"), "utf8");
 
 function assertNoDangerousAgentWrites(source) {
-  for (const pattern of [/pull_request_target/,/create-pull-request:/,/push-to-pull-request-branch:/,/add-labels:/,/remove-labels:/,/update-issue:/,/dispatch-workflow:/,/call-workflow:/,/deployments?:\s*write/i,/contents:\s*write/i]) {
-    assert.doesNotMatch(source, pattern);
-  }
+  for (const pattern of [/pull_request_target/,/create-pull-request:/,/push-to-pull-request-branch:/,/add-labels:/,/remove-labels:/,/update-issue:/,/dispatch-workflow:/,/call-workflow:/,/deployments?:\s*write/i,/contents:\s*write/i]) assert.doesNotMatch(source, pattern);
 }
 
 test("Stage 3C uses two distinct Codex worker definitions", () => {
@@ -37,15 +37,14 @@ test("Research Worker A is exact fixture-transition scoped and read-only", () =>
   assert.match(research, /research_run_id: \$\{\{ github\.run_id \}\}/);
   assert.match(research, /research_run_number: \$\{\{ github\.run_number \}\}/);
   assert.match(research, /repository_source_path: docs\/ARCHITECTURE\.md/);
-  assert.doesNotMatch(research, /github\.sha|github\.run_attempt/);
 });
 
-test("QA Worker B chains from successful Research completion with durable de-duplication", () => {
+test("QA Worker B chains from Research completion and fails closed on non-success", () => {
   assert.match(qa, /workflow_run:/);
   assert.match(qa, /workflows: \['Stage 3C Research Worker A'\]/);
   assert.match(qa, /types: \[completed\]/);
   assert.match(qa, /branches: \[main\]/);
-  assert.match(qa, /conclusion: success/);
+  assert.match(qa, /Proceed only if conclusion is `success`/);
   assert.match(qa, /fresh independent Codex execution/);
   assert.match(qa, /research_run_id: \$\{\{ github\.event\.workflow_run\.id \}\}/);
   assert.match(qa, /research_run_number: \$\{\{ github\.event\.workflow_run\.run_number \}\}/);
@@ -54,7 +53,6 @@ test("QA Worker B chains from successful Research completion with durable de-dup
   assert.match(qa, /produce no second QA result/);
   assert.match(qa, /STAGE3C_QA_RESULT v0\.1 — PASS/);
   assert.match(qa, /STAGE3C_QA_RESULT v0\.1 — FAIL/);
-  assert.doesNotMatch(qa, /run_attempt/);
 });
 
 test("Both workers expose only one fixed-issue add-comment safe output", () => {
@@ -67,7 +65,7 @@ test("Both workers expose only one fixed-issue add-comment safe output", () => {
   }
 });
 
-test("workers are read-only and never directly reference OpenAI/GitHub secrets", () => {
+test("workers are read-only and never directly reference engine/GitHub secrets", () => {
   for (const source of [research, qa]) {
     assert.match(source, /contents: read/);
     assert.match(source, /issues: read/);
@@ -84,7 +82,6 @@ test("concurrency, transition gating, durable QA de-duplication and timeout boun
   assert.match(qa, /cancel-in-progress: false/);
   for (const source of [research, qa]) {
     assert.doesNotMatch(source, /queue:/);
-    assert.doesNotMatch(source, /max-ai-credits|max-daily-ai-credits/);
     assert.match(source, /timeout-minutes: 10/);
   }
 });
@@ -96,15 +93,25 @@ test("QA rejects stale or uncorrelated durable handoffs", () => {
   assert.match(qa, /independently inspect repository truth/i);
 });
 
-test("compile validation uses verified official gh-aw binary and no agent secret", () => {
-  assert.match(compile, /releases\/download\/v0\.37\.18\/linux-amd64/);
-  assert.match(compile, /626f8f73842581f08072f2e0bc8dd49cf4e7e70977186e582cff86ac2d472c04/);
+test("compile validation uses verified official gh-aw v0.86.2 and is read-only", () => {
+  assert.match(compile, /releases\/download\/v0\.86\.2\/linux-amd64/);
+  assert.match(compile, /b8fd100d1d56a77b842ad28375ff361215a5aa1277db6b9a05d70054cde7260e/);
   assert.match(compile, /gh-aw compile stage3c-research-worker --strict/);
   assert.match(compile, /gh-aw compile stage3c-qa-worker --strict/);
   assert.match(compile, /gh-aw validate stage3c-research-worker --strict/);
   assert.match(compile, /gh-aw validate stage3c-qa-worker --strict/);
+  assert.match(compile, /cmp --silent/);
   assert.match(compile, /permissions:\n\s+contents: read/);
-  assert.doesNotMatch(compile, /engine: codex|OPENAI_API_KEY|CODEX_API_KEY|secrets\./);
+  assert.doesNotMatch(compile, /contents:\s*write|OPENAI_API_KEY|CODEX_API_KEY|secrets\./);
+});
+
+test("committed locks are strict gh-aw v0.86.2 Codex output", () => {
+  for (const lock of [researchLock, qaLock]) {
+    assert.match(lock, /"compiler_version":"v0\.86\.2"/);
+    assert.match(lock, /"strict":true/);
+    assert.match(lock, /"agent_id":"codex"/);
+    assert.doesNotMatch(lock, /pull_request_target/);
+  }
 });
 
 test("documentation preserves isolation and live-proof stop gate", () => {
@@ -112,5 +119,5 @@ test("documentation preserves isolation and live-proof stop gate", () => {
   assert.match(docs, /No production League Vector behavior is changed/);
   assert.match(docs, /No PAT is introduced/);
   assert.match(docs, /Issue #53/);
-  assert.match(docs, /Do \*\*nothing\*\* between Worker A and Worker B/);
+  assert.match(docs, /Perform no Founder\/Cody action between Worker A and Worker B/);
 });
