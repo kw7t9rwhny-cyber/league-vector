@@ -54,6 +54,9 @@ safe-outputs:
   add-comment:
     target: "53"
     max: 1
+    issues: true
+    pull-requests: false
+    discussions: false
 ---
 
 # League Vector Research Worker
