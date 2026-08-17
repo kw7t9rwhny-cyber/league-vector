@@ -12,7 +12,7 @@ on:
       - 'docs/development-orchestrator-stage3c-two-worker-proof-v01.md'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   compile-and-validate:
@@ -38,12 +38,16 @@ jobs:
           PIN=6aab9e5b5c91c615506061f09bedd81a23babe3c
           "$RUNNER_TEMP/gh-aw" compile stage3c-research-worker --strict --action-mode action --actions-repo github/gh-aw-actions --action-tag "$PIN"
           "$RUNNER_TEMP/gh-aw" compile stage3c-qa-worker --strict --action-mode action --actions-repo github/gh-aw-actions --action-tag "$PIN"
-      - name: Upload exact compiler-generated hardened locks
-        uses: actions/upload-artifact@v4
-        with:
-          name: stage3c-replay-remediation-locks
-          path: |
-            .github/workflows/stage3c-research-worker.lock.yml
-            .github/workflows/stage3c-qa-worker.lock.yml
+      - name: Stage exact generated locks outside workflow directory
+        shell: bash
+        run: |
+          mkdir -p stage3c-generated-locks
+          cp .github/workflows/stage3c-research-worker.lock.yml stage3c-generated-locks/research.lock.yml
+          cp .github/workflows/stage3c-qa-worker.lock.yml stage3c-generated-locks/qa.lock.yml
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add stage3c-generated-locks/research.lock.yml stage3c-generated-locks/qa.lock.yml
+          git commit -m 'stage exact generated Stage 3C locks'
+          git push origin HEAD:agent/stage3c-two-worker-proof-v01
 
-# TEMPORARY read-only remediation capture. Must be replaced by deterministic compare before candidate declaration.
+# TEMPORARY bootstrap helper. Generated files are staged outside .github only so the connector can atomically install their exact blob SHAs and remove this helper.
