@@ -95,6 +95,10 @@ tools:
   github:
     toolsets: [repos, issues]
 safe-outputs:
+  report-failure-as-issue: false
+  missing-tool: false
+  missing-data: false
+  noop: false
   add-comment:
     target: "53"
     max: 1
