@@ -4,7 +4,41 @@ description: Isolated Stage 3C Research worker for the harmless two-worker auton
 on:
   issues:
     types: [edited]
-if: "github.event.issue.number == 53 && github.event.issue.title == 'AGENT SPIKE TEST — harmless two-worker handoff' && github.event.changes.body.from != null && contains(github.event.issue.body, 'Eligibility: READY') && !contains(github.event.changes.body.from, 'Eligibility: READY')"
+  steps:
+    - name: Prove exact authoritative DORMANT to READY fixture transition
+      id: exact_transition
+      env:
+        EXPECTED_REPOSITORY: kw7t9rwhny-cyber/league-vector
+      run: |
+        node <<'NODE'
+        const fs = require('node:fs');
+        const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+        const fail = (why) => { console.error(`stage3c_research_activation_denied:${why}`); process.exit(1); };
+        const eligibility = (body) => {
+          if (typeof body !== 'string') return null;
+          const matches = [...body.matchAll(/^Eligibility: ([^\r\n]+)$/gm)];
+          if (matches.length !== 1) return null;
+          return matches[0][1];
+        };
+        const revisionCount = (body) => typeof body === 'string'
+          ? [...body.matchAll(/^Fixture revision: stage3c-v0\.1-r1$/gm)].length
+          : 0;
+        if (process.env.GITHUB_RUN_ATTEMPT !== '1') fail('replayed_run');
+        if (event.repository?.full_name !== process.env.EXPECTED_REPOSITORY) fail('wrong_repository');
+        if (event.issue?.number !== 53) fail('wrong_issue');
+        if (event.issue?.title !== 'AGENT SPIKE TEST — harmless two-worker handoff') fail('wrong_title');
+        const before = event.changes?.body?.from;
+        const after = event.issue?.body;
+        if (typeof before !== 'string') fail('missing_previous_body');
+        if (typeof after !== 'string') fail('missing_current_body');
+        if (revisionCount(before) !== 1 || revisionCount(after) !== 1) fail('invalid_fixture_revision');
+        if (eligibility(before) !== 'DORMANT') fail('previous_not_dormant');
+        if (eligibility(after) !== 'READY') fail('current_not_ready');
+        const expectedAfter = before.replace(/^Eligibility: DORMANT$/m, 'Eligibility: READY');
+        if (after !== expectedAfter) fail('body_changed_beyond_authorized_transition');
+        console.log('stage3c_research_activation_authorized');
+        NODE
+if: needs.pre_activation.outputs.exact_transition_result == 'success'
 permissions:
   contents: read
   issues: read
@@ -26,6 +60,8 @@ safe-outputs:
 
 You are **Worker A: League Vector Research Worker** for the isolated Stage 3C two-worker handoff proof.
 
+The deterministic pre-activation gate has already proven the exact authoritative Issue #53 body transition `Eligibility: DORMANT` → `Eligibility: READY`, on the expected repository, on run attempt 1, with no other body change. Do not reinterpret or weaken that contract.
+
 This is a harmless proof only. Do not modify repository files, branches, pull requests, labels, releases, deployments, settings, or Founder decisions. Do not invoke another workflow. The only durable write you may request is the declared safe-output comment on fixture Issue #53.
 
 ## Authoritative fixture
@@ -33,8 +69,8 @@ This is a harmless proof only. Do not modify repository files, branches, pull re
 Read Issue #53. Proceed only if all of these are currently true:
 
 - title is exactly `AGENT SPIKE TEST — harmless two-worker handoff`
-- body contains the exact line `Fixture revision: stage3c-v0.1-r1`
-- body contains the exact line `Eligibility: READY`
+- body contains the exact line `Fixture revision: stage3c-v0.1-r1` exactly once
+- body contains the exact line `Eligibility: READY` exactly once
 - the requested harmless fact is whether `docs/ARCHITECTURE.md` exists at exactly that repository path
 
 If any condition is false, produce no research result and use the safe-output no-op path.
