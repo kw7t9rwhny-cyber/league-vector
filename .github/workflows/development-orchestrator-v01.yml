@@ -110,11 +110,37 @@ jobs:
           LEAGUE_VECTOR_ORCHESTRATOR_EXECUTE: "0"
           LEAGUE_VECTOR_STAGE3B_ACTIVATED: "0"
         run: |
-          node -e 'const fs=require("fs"); const p=JSON.parse(fs.readFileSync("/tmp/orchestrator-stage3a-plan.json","utf8")); const plans=p.plans||[]; if(plans.length) fs.writeFileSync("/tmp/stage3b-plan.json",JSON.stringify(plans[0])); else console.log("no structured live plan to dry-run through executor");'
-          if [ -f /tmp/stage3b-plan.json ]; then
-            node scripts/development-orchestrator-v03b.js --plan /tmp/stage3b-plan.json --json > /tmp/orchestrator-stage3b-audit.json
-            node -e 'const a=require("/tmp/orchestrator-stage3b-audit.json"); if(a.mode!=="dry-run"||a.mutations_attempted.length||a.mutations_completed.length) process.exit(1); console.log(JSON.stringify({pr:a.pr,result:a.post_write_verification,abort:a.aborted_reason}));'
-          fi
+          node - <<'NODE'
+          const fs = require('fs');
+          const { executePlan } = require('./scripts/development-orchestrator-v03b.js');
+          const { loadLiveRepositoryGraphql } = require('./scripts/development-orchestrator-github-read-v01.js');
+          const p = JSON.parse(fs.readFileSync('/tmp/orchestrator-stage3a-plan.json', 'utf8'));
+          const plans = p.plans || [];
+          if (!plans.length) {
+            console.log('no structured live plan to dry-run through executor');
+            process.exit(0);
+          }
+          const adapter = {
+            readRepository(repository) {
+              return loadLiveRepositoryGraphql(repository, process.env.GITHUB_TOKEN);
+            }
+          };
+          executePlan({
+            plan: plans[0],
+            repository: process.env.GITHUB_REPOSITORY,
+            adapter,
+            mode: 'dry-run',
+            env: process.env
+          }).then((audit) => {
+            fs.writeFileSync('/tmp/orchestrator-stage3b-audit.json', `${JSON.stringify(audit, null, 2)}\n`);
+            if (audit.mode !== 'dry-run' || audit.mutations_attempted.length || audit.mutations_completed.length) process.exit(1);
+            if (audit.post_write_verification !== 'dry-run-no-write') process.exit(1);
+            console.log(JSON.stringify({pr:audit.pr,result:audit.post_write_verification,abort:audit.aborted_reason}));
+          }).catch((error) => {
+            console.error(error.message);
+            process.exit(2);
+          });
+          NODE
       - name: Upload Stage 3A/3B dry-run evidence
         uses: actions/upload-artifact@v4
         with:
