@@ -26,43 +26,25 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
+          set -euo pipefail
           "$RUNNER_TEMP/gh-aw" validate stage3c-research-worker --strict
           "$RUNNER_TEMP/gh-aw" validate stage3c-qa-worker --strict
           PIN=6aab9e5b5c91c615506061f09bedd81a23babe3c
           "$RUNNER_TEMP/gh-aw" compile stage3c-research-worker --strict --action-mode action --actions-repo github/gh-aw-actions --action-tag "$PIN"
           "$RUNNER_TEMP/gh-aw" compile stage3c-qa-worker --strict --action-mode action --actions-repo github/gh-aw-actions --action-tag "$PIN"
-          sha256sum .github/workflows/stage3c-research-worker.lock.yml .github/workflows/stage3c-qa-worker.lock.yml
-      - name: Materialize exact compiler outputs as unreferenced Git blobs
+          test "$(git hash-object .github/workflows/stage3c-research-worker.lock.yml)" = "03b8dfd957b0fe73a7c40aa6582b4b25ac91662d"
+          test "$(git hash-object .github/workflows/stage3c-qa-worker.lock.yml)" = "b5cf34371dc192d81282dec684a8adc5e022bce6"
+      - name: Commit exact compiler locks and remove this temporary workflow
         shell: bash
         env:
-          GH_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
+          HEAD_BRANCH: ${{ github.head_ref }}
         run: |
           set -euo pipefail
-          for path in .github/workflows/stage3c-research-worker.lock.yml .github/workflows/stage3c-qa-worker.lock.yml; do
-            payload="$RUNNER_TEMP/blob.json"
-            jq -n --arg content "$(base64 -w0 "$path")" '{content:$content,encoding:"base64"}' > "$payload"
-            response=$(curl --fail --silent --show-error \
-              -X POST \
-              -H "Authorization: Bearer $GH_TOKEN" \
-              -H "Accept: application/vnd.github+json" \
-              -H "X-GitHub-Api-Version: 2022-11-28" \
-              "https://api.github.com/repos/$REPOSITORY/git/blobs" \
-              --data-binary "@$payload")
-            sha=$(jq -er '.sha' <<<"$response")
-            local_sha=$(git hash-object "$path")
-            test "$sha" = "$local_sha"
-            echo "compiler_blob:$path:$sha"
-          done
-          echo "No ref or branch was updated by this step."
-      - name: Upload exact compiler output
-        uses: actions/upload-artifact@v4
-        with:
-          name: stage3c-compiler-locks
-          path: |
-            .github/workflows/stage3c-research-worker.lock.yml
-            .github/workflows/stage3c-qa-worker.lock.yml
-          if-no-files-found: error
-          retention-days: 1
+          git config user.name "league-vector-stage3c-install-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add .github/workflows/stage3c-research-worker.lock.yml .github/workflows/stage3c-qa-worker.lock.yml
+          git rm .github/workflows/stage3c-lock-capture-temp.yml
+          git commit -m "refresh Stage 3C locks from verified compiler"
+          git push origin "HEAD:${HEAD_BRANCH}"
 
-# TEMPORARY diagnostic workflow. Creates only unreferenced Git blob objects from exact verified compiler output. No ref update, no Codex, no OPENAI_API_KEY, no issue mutation.
+# TEMPORARY installation-only compiler materialization. No Codex, no OPENAI_API_KEY, no issue mutation; removes itself in the generated-lock commit.
