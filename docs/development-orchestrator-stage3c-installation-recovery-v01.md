@@ -4,7 +4,7 @@
 
 **READY FOR QA — HIGH RISK**
 
-This is an installation/recovery candidate only. It does **not** authorize merge, Codex/OpenAI inference, manual worker dispatch, Issue #53 activation, deployment, release, or production change.
+Installation/recovery procedure only. This document does not authorize live agent execution, OpenAI inference, manual worker dispatch, fixture activation, merge, deployment, release, or production change.
 
 ## STAGE3C-LIVE-ATTEMPT-001
 
@@ -22,128 +22,163 @@ Observed result:
 
 Classification: **VALID DIAGNOSTIC FAILURE — WORKFLOWS NOT INSTALLED ON DEFAULT BRANCH**.
 
-At activation time, repository default branch `main` did not contain `.github/workflows/stage3c-research-worker.lock.yml` or `.github/workflows/stage3c-qa-worker.lock.yml`. The implementation existed on PR #54's branch. GitHub documents that `issues` workflows must exist on the default branch to receive those events, and that a `workflow_run` workflow only triggers when its workflow file exists on the default branch. No Research run existed, so Worker B had no authoritative parent execution.
-
-Attempt #1 remains durable Issue #53 history. Never replay r1 by READY→DORMANT→READY.
+At activation time, default branch `main` did not contain the generated Stage 3C Research or QA executable workflow files. GitHub requires the workflow file to exist on the default branch for the `issues` event and for downstream `workflow_run`. Attempt #1 is preserved in Issue #53 history and r1 must not be replayed.
 
 ## Installation choice
 
-Chosen: **Option B — isolated installation PR from `main`**.
+Chosen: **Option B — isolated installation PR based directly on `main`**.
 
-Do not use PR #54 itself as installation authority. This boundary is intentionally separate so development/remediation history cannot be mistaken for default-branch installation authorization.
+Do not use PR #54 itself as the installation mechanism.
 
-The installation candidate imports the reviewed Stage 3C source/validation/test/documentation material from PR #54 candidate `a93c57dc1486c39cf29db39858f04569377003af`. The two generated hardened locks are **not claimed byte-identical to the old PR #54 lock blobs**: current verified `gh-aw v0.86.2` strict compilation regenerated them. The candidate therefore requires fresh HIGH-risk QA and cannot inherit PR #54's exact-SHA PASS.
+Five non-generated Stage 3C files in this installation boundary remain byte/blob-identical to the dual-QA-reviewed PR #54 candidate `a93c57dc1486c39cf29db39858f04569377003af`:
 
-Current compiler-generated lock Git blob identities:
+- `.github/workflows/stage3c-agentic-compile-validation.yml`
+- `.github/workflows/stage3c-research-worker.md`
+- `.github/workflows/stage3c-qa-worker.md`
+- `tests/development-orchestrator-stage3c-agentic.test.js`
+- `docs/development-orchestrator-stage3c-two-worker-proof-v01.md`
 
-- Research lock: `03b8dfd957b0fe73a7c40aa6582b4b25ac91662d`
-- QA lock: `b5cf34371dc192d81282dec684a8adc5e022bce6`
+The two generated hardened locks are treated separately. On the installation branch, verified official `gh-aw` v0.86.2 strict validation and strict compilation succeeded, but the old PR #54 lock bytes did not reproduce. The deterministic gate therefore failed closed. A temporary installation-only compiler workflow regenerated the locks from the unchanged reviewed sources using the verified official compiler. The final candidate uses the resulting compiler bytes verbatim:
 
-The temporary compiler-capture workflow used during preparation has been removed from the candidate. Its compiler phase passed; an attempted Actions-token push was rejected by GitHub because the token lacked workflow-file permission. No permission widening, Codex execution, Issue mutation, or `main` mutation resulted.
+- Research lock Git blob: `03b8dfd957b0fe73a7c40aa6582b4b25ac91662d`
+- Research lock SHA-256: `9809c6568d4c3b021f6cca1e37252d72cb009758a317f43116b94d89f8498eeb`
+- QA lock Git blob: `b5cf34371dc192d81282dec684a8adc5e022bce6`
+- QA lock SHA-256: `e69cad84306d6d257c5f822c8257cb1e9773084480bbf2714015117cc75c2a83`
 
-## SHA / authority model
+The temporary compiler workflow is excluded from the final candidate tree. It did not invoke Codex, read `OPENAI_API_KEY`, edit Issue #53, dispatch a worker, merge, deploy, or release.
 
-Keep four identities separate:
+Because the generated executable bytes differ from the previous PR #54 candidate, **fresh HIGH-risk QA is mandatory**. Prior QA PASS is historical evidence, not execution authority for this installation candidate.
 
-1. **Original PR #54 QA candidate:** `a93c57dc1486c39cf29db39858f04569377003af`.
-2. **Installation PR candidate:** the exact current head of PR #60 after this document commit.
-3. **Installed main SHA:** unknown until a separately Founder-authorized merge/install occurs.
-4. **Fixture input revision:** `stage3c-v0.1-r2`, external Issue #53 state, not a Git SHA.
+Option B is preferred because it isolates installation authority from PR #54's development history, keeps unchanged source identity auditable, binds the executable to current verified compiler output, leaves production application code untouched, and gives Stage 3C a narrow rollback boundary.
 
-Fail closed. A merge commit, squash, rebase, or later commit may create a different installed SHA. Prior QA does not silently authorize that SHA. Before live Attempt #2, independent HIGH-risk QA must bind to the actual executable tree on the actual installed `main` SHA.
+## Intentional r1 binding during installation
 
-Tree/file equivalence can support provenance but does not replace exact installed-state authorization.
+The worker sources remain hard-bound to fixture revision `stage3c-v0.1-r1`. That activation was consumed by Attempt #1.
 
-## Why this installation candidate remains r1-bound
-
-The reviewed Stage 3C worker sources still bind to `stage3c-v0.1-r1`. r1's authorized activation is consumed.
-
-Issue #53 is now prepared as a genuinely new future fixture:
+Issue #53 is now a new future fixture:
 
 - `Fixture revision: stage3c-v0.1-r2`
 - `Eligibility: DORMANT`
 
-Therefore this installation candidate cannot authorize r2 and cannot replay r1. After default-branch installation/registration is proven, a **separate minimal r2 executable revision** must update fixture-bound constants/results, regenerate locks with the verified compiler, pass the complete Stage 3C adversarial suite, and receive fresh exact-state QA before live use.
+The installation executable therefore cannot authorize the current r2 fixture. This is intentional fail-closed installation posture, not reuse of r1.
+
+After installation and default-branch registration are proven, a separate minimal r2 executable revision must update the fixture-bound identity/results required for r2, regenerate hardened locks with the verified official `gh-aw` toolchain, rerun the complete Stage 3C adversarial/security suite, and receive fresh exact-candidate and exact-installed-SHA QA before Attempt #2 can be authorized.
+
+## SHA / authority model
+
+Four identities remain distinct.
+
+### Original PR #54 QA candidate
+
+`a93c57dc1486c39cf29db39858f04569377003af`
+
+This identifies what the prior dual independent QA teams reviewed. Its PASS does not transfer automatically to a different commit or regenerated executable.
+
+### Installation PR candidate
+
+PR #60 has its own exact head SHA. Independent HIGH-risk QA must review that exact head, including current compiler-generated locks and this recovery procedure.
+
+### Installed `main` SHA
+
+A future Founder-authorized merge/install will create the actual installed default-branch state. Merge commit, squash, or rebase strategies can produce an installed SHA different from the PR candidate. Tree/file equality is useful audit evidence but is not a substitute for exact installed authority.
+
+**Fail closed:** before any future live activation, QA must bind to the actual executable at the actual installed `main` SHA/tree. Any executable or installed-SHA movement after QA makes live authorization stale.
+
+### Fixture input revision
+
+`stage3c-v0.1-r2` is external Issue #53 state. It is not a Git SHA and grants no execution authority by itself.
 
 ## Default-branch registration proof
 
-After future installation, but before any r2 activation, prove all of the following from live GitHub state:
+After future installation and before any r2 activation, require all of:
 
-1. Research generated workflow exists on `main`.
-2. QA generated workflow exists on `main`.
-3. Actions registry reports `Stage 3C Research Worker A` active at `.github/workflows/stage3c-research-worker.lock.yml`.
-4. Actions registry reports `Stage 3C QA Worker B` active at `.github/workflows/stage3c-qa-worker.lock.yml`.
-5. Research trigger is `issues` / `edited`.
-6. QA trigger is `workflow_run` / `completed` naming exactly `Stage 3C Research Worker A`, with intended `main` filtering.
-7. Registration is not inferred from stale PR-branch registry history.
+1. direct repository inspection proves both generated worker workflow files exist on `main`;
+2. Actions registry identifies active `Stage 3C Research Worker A` at `.github/workflows/stage3c-research-worker.lock.yml`;
+3. Actions registry identifies active `Stage 3C QA Worker B` at `.github/workflows/stage3c-qa-worker.lock.yml`;
+4. Research executable trigger is `issues` / `edited`;
+5. QA executable trigger is `workflow_run` / `completed`, naming exactly `Stage 3C Research Worker A`, with the intended `main` branch filter;
+6. a stale/non-default-branch registry entry alone is not accepted as proof.
 
-## Installation must not start Codex
+## Installation must not run Codex
 
-Installation is a Git/default-branch change, not an Issue #53 edit. The Research trigger is `issues: edited`; GitHub does not retroactively replay the prior r1 Issue event merely because a workflow is later installed. Do not edit Issue #53 during installation.
+Installing the files is a repository operation, not the required Issue #53 `DORMANT` → `READY` edit. Do not edit Issue #53 during installation.
 
-Additionally, Issue #53 is r2/DORMANT while this executable remains r1-bound. After installation, explicitly verify zero Stage 3C Research/QA Codex executions occurred and no stale r1 event/result acquired authority.
+The current fixture is r2/DORMANT while the installation sources remain r1-bound. Immediately after installation, empirically verify that no Stage 3C Research or QA worker run occurred, no Codex inference was consumed, and Attempt #1 was not retroactively processed.
 
 ## r1 / r2 replay separation
 
-r1 historical identity:
+Historical r1 identity:
 
-`stage3c-v0.1-r1` + its original DORMANT→READY Issue edit = `STAGE3C-LIVE-ATTEMPT-001`.
+`stage3c-v0.1-r1` + DORMANT→READY = `STAGE3C-LIVE-ATTEMPT-001`.
 
-r2 future identity:
+Future r2 posture:
 
-`stage3c-v0.1-r2` + DORMANT now; no activation authorized.
+`stage3c-v0.1-r2` + DORMANT. No r2 activation is authorized in this cycle.
 
-Worker A's activation material includes repository, Issue #53, fixture revision, exact transition, previous/current Issue body hashes, and Issue `updated_at`. A future r2 DORMANT→READY event therefore has distinct activation material from r1. Fresh r2 static/adversarial QA must verify that distinction and prove r1 claims/results cannot authorize or block r2 incorrectly.
+The existing Worker-A activation identity includes repository, Issue #53, fixture revision, exact transition, previous/current body hashes, and Issue `updated_at`. A future r2 DORMANT→READY event therefore has distinct activation material. The future r2 executable QA must prove this statically and rerun replay/adversarial tests.
 
-Attempt #1 produced no Research run, no valid Research result, and therefore no parent execution capable of authorizing Worker B.
+Attempt #1 produced no Research run and no Research result. Its diagnostic comment cannot become a Worker-B parent or substitute for an authoritative Research result.
 
 ## Worker B default-branch checks
 
-Preserve the existing fail-closed correlation contract: repository, Research workflow display name, exact workflow path, `issues` event, `main` branch, successful conclusion, first run attempt, and one durable correlated Research result.
+The existing Worker B source remains unchanged in this installation. Before Worker B Codex is reachable, it checks the triggering Research run's repository, workflow name, exact workflow path, `issues` event, `main` head branch, successful conclusion, first run attempt, and durable correlated Research result.
 
-Fresh QA must attack display-name/path mismatch, wrong branch, failed/cancelled/replayed Research, successful non-authoritative Research, missing/duplicate/malformed result, stale r1 result, and absent parent run. `workflow_run` may wake Worker B, but only the authority gate may make QA Codex reachable.
+Before Attempt #2, adversarial QA must include display-name mismatch, workflow path mismatch, wrong branch, failed Research run, cancelled Research run, replayed Research run, successful but non-authoritative Research run, missing/duplicate/malformed Research result, stale r1 result/revision, and no parent Research run.
+
+A `workflow_run` event may wake Worker B; only the authority contract may grant execution eligibility.
 
 ## Security contract
 
-Preserve least privilege, generated-lock security, bounded concurrency, Worker-A exact-transition/replay/schema gates, Worker-B fresh independent Codex execution and authoritative correlation, safe-output constraints, and native gh-aw/Codex secret isolation.
+Installation and later r2 work must preserve:
 
-No broad PAT, `pull_request_target`, automatic merge, deployment, release, production publishing, Founder-decision automation, or OpenAI secret retrieval/logging/persistence is authorized.
+- least privilege;
+- model-visible worker `contents: read` / `issues: read`;
+- narrowly constrained safe-output comments to Issue #53;
+- no broad PAT;
+- no `pull_request_target`;
+- no automatic branch creation, PR creation, merge, release, deployment, or production publishing;
+- no Founder-decision automation;
+- generated-lock security and deterministic reproduction;
+- Worker-A exact-transition gating, replay protection, schema/version fail-closed behavior, and bounded concurrency;
+- Worker-B fresh independent Codex execution and authoritative Research correlation;
+- `OPENAI_API_KEY` repository-secret/native engine authentication only, without retrieval, logging, prompt/comment/artifact/repository persistence, or use as a GitHub write credential.
 
 ## Rollback
 
-If installation is unsafe before live activation, remove/disable only the Stage 3C proof workflows/source/validation files through a reviewed PR. Do not disturb unrelated production workflows. Preserve Issue #53 and Attempt #1 history.
+If installation is found unsafe before live activation, use a reviewed PR to remove or disable only the Stage 3C proof workflows/source/validation files installed by this boundary. Do not disturb unrelated production or Development Orchestrator workflows. Preserve Issue #53 and Attempt #1 diagnostic history.
 
 ## Required QA before Attempt #2
 
 Independent HIGH-risk QA must verify:
 
-1. exact installation candidate and compiler-generated locks;
-2. after authorized installation, actual installed/default-branch executable identity and exact installed SHA/tree;
-3. both worker workflows are actually registered active on `main`;
-4. r2 is the new fixture revision and remains DORMANT;
-5. r1 cannot replay;
+1. actual installed/default-branch executable identity;
+2. actual default-branch Actions registration of both workers;
+3. fixture revision r2;
+4. clean r2 `Eligibility: DORMANT` state until separate Founder authorization;
+5. r1 cannot replay or authorize r2;
 6. r2 creates a distinct activation identity;
-7. installation itself produced zero Codex executions and no retroactive r1 run;
-8. Worker B `workflow_run` references/correlates the actual installed Worker-A identity;
-9. production/security firewall remains intact;
-10. future r2 sources and regenerated locks pass the complete prior claim/replay/concurrency/schema/Worker-B adversarial suite;
-11. any executable or installed-SHA movement after QA makes authorization stale.
+7. installation produced zero Codex executions and no retroactive run;
+8. Worker B `workflow_run` names/correlates the actual installed Research workflow;
+9. exact installed SHA/tree is what QA reviewed;
+10. production/security firewall remains intact;
+11. future r2 compiler-generated locks and full prior Stage 3C claim/replay/concurrency/schema/Worker-B suites are green;
+12. post-QA executable/SHA movement makes QA stale.
 
-## Future STAGE3C-LIVE-ATTEMPT-002 — NOT AUTHORIZED HERE
+## Future Attempt #2 — not authorized here
 
-1. Founder separately authorizes installation of the reviewed PR #60 candidate.
-2. Install Stage 3C r1-bound proof infrastructure on `main`.
-3. Verify both worker workflows are registered active on `main`; verify zero Codex execution and no retroactive r1 event.
-4. Create a separate minimal r2 executable revision; regenerate both locks with the verified compiler; HIGH-risk QA the exact candidate.
-5. Founder separately authorizes installation of that r2 executable revision.
-6. Install r2 executable on `main`; record actual installed SHA/tree; HIGH-risk QA actual installed executable and registration.
-7. Confirm Issue #53 is still `stage3c-v0.1-r2` + `Eligibility: DORMANT` and no stale r1 authority exists.
-8. Founder separately authorizes `STAGE3C-LIVE-ATTEMPT-002` against that exact installed state.
-9. Founder performs exactly one r2 `DORMANT` → `READY` edit.
+1. Founder separately approves the reviewed installation PR.
+2. Install Stage 3C infrastructure on `main`.
+3. Verify both workers are registered active default-branch workflows and verify installation produced zero Codex executions.
+4. Produce a separate minimal r2 executable revision; regenerate locks with verified official compiler; independently HIGH-risk QA that exact candidate.
+5. Founder separately approves installation of the reviewed r2 executable revision.
+6. Install r2 on `main`; establish actual installed SHA/tree; independently HIGH-risk QA the installed executable and registration.
+7. Verify Issue #53 remains r2/DORMANT and no stale r1 authority exists.
+8. Founder separately authorizes `STAGE3C-LIVE-ATTEMPT-002` on that exact installed state.
+9. Founder performs exactly one r2 DORMANT→READY edit.
 10. Founder performs zero action between workers.
-11. Worker A must start automatically, invoke Codex, and write one durable correlated Research result.
-12. GitHub `workflow_run` must automatically start Worker B without manual rescue.
-13. Worker B must be a fresh Codex execution, independently verify repository truth, and write one durable PASS/FAIL verdict.
+11. Worker A starts automatically, genuinely invokes Codex, and writes one durable correlated Research result.
+12. GitHub `workflow_run` starts Worker B automatically without manual rescue.
+13. Worker B is a fresh Codex execution, independently verifies repository truth, and writes one durable PASS/FAIL verdict.
 14. Confirm no duplicate chain and no production/merge/deploy/release action occurred during the handoff.
 
-No step in this document authorizes merge, r2 activation, or Codex execution.
+No step in this document authorizes installation, r2 installation, Attempt #2 authorization, or r2 activation. Founder approval remains required at each stated gate.
