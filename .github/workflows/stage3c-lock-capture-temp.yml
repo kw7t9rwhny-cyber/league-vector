@@ -1,0 +1,45 @@
+name: Stage 3C Lock Capture TEMP
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/stage3c-lock-capture-temp.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Install verified gh-aw v0.86.2 compiler
+        shell: bash
+        run: |
+          curl --fail --silent --show-error --location https://github.com/github/gh-aw/releases/download/v0.86.2/linux-amd64 --output "$RUNNER_TEMP/gh-aw"
+          echo "b8fd100d1d56a77b842ad28375ff361215a5aa1277db6b9a05d70054cde7260e  $RUNNER_TEMP/gh-aw" | sha256sum --check --strict
+          chmod 0700 "$RUNNER_TEMP/gh-aw"
+      - name: Strict validate and compile
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          "$RUNNER_TEMP/gh-aw" validate stage3c-research-worker --strict
+          "$RUNNER_TEMP/gh-aw" validate stage3c-qa-worker --strict
+          PIN=6aab9e5b5c91c615506061f09bedd81a23babe3c
+          "$RUNNER_TEMP/gh-aw" compile stage3c-research-worker --strict --action-mode action --actions-repo github/gh-aw-actions --action-tag "$PIN"
+          "$RUNNER_TEMP/gh-aw" compile stage3c-qa-worker --strict --action-mode action --actions-repo github/gh-aw-actions --action-tag "$PIN"
+          sha256sum .github/workflows/stage3c-research-worker.lock.yml .github/workflows/stage3c-qa-worker.lock.yml
+      - name: Upload exact compiler output
+        uses: actions/upload-artifact@v4
+        with:
+          name: stage3c-compiler-locks
+          path: |
+            .github/workflows/stage3c-research-worker.lock.yml
+            .github/workflows/stage3c-qa-worker.lock.yml
+          if-no-files-found: error
+          retention-days: 1
+
+# TEMPORARY diagnostic workflow. Read-only. No Codex, no OPENAI_API_KEY, no issue mutation.
