@@ -4,7 +4,7 @@ description: Isolated Stage 3C Research worker for the harmless two-worker auton
 on:
   issues:
     types: [edited]
-if: "github.event.issue.number == 53 && github.event.issue.title == 'AGENT SPIKE TEST — harmless two-worker handoff' && contains(github.event.issue.body, 'Eligibility: READY')"
+if: "github.event.issue.number == 53 && github.event.issue.title == 'AGENT SPIKE TEST — harmless two-worker handoff' && github.event.changes.body.from != null && contains(github.event.issue.body, 'Eligibility: READY') && !contains(github.event.changes.body.from, 'Eligibility: READY')"
 permissions:
   contents: read
   issues: read
@@ -15,7 +15,6 @@ timeout-minutes: 10
 concurrency:
   group: stage3c-research-fixture-53
   cancel-in-progress: true
-  queue: single
 tools:
   github:
     toolsets: [repos, issues]
