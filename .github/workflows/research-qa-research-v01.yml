@@ -1,5 +1,5 @@
 name: Reusable Research Worker v0.1
-run-name: RQA Research issue #${{ inputs.issue_number }}
+run-name: "RQA Research issue #${{ inputs.issue_number }}"
 on:
   workflow_dispatch:
     inputs:
