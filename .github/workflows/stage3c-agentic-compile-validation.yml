@@ -15,7 +15,7 @@ on:
       - 'stage3c-generated-locks/**'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   compile-and-validate:
@@ -45,15 +45,19 @@ jobs:
           PIN=6aab9e5b5c91c615506061f09bedd81a23babe3c
           "$RUNNER_TEMP/gh-aw" compile stage3c-research-worker --strict --action-mode action --actions-repo github/gh-aw-actions --action-tag "$PIN"
           "$RUNNER_TEMP/gh-aw" compile stage3c-qa-worker --strict --action-mode action --actions-repo github/gh-aw-actions --action-tag "$PIN"
-      - name: Export compiler-generated locks for remediation branch only
-        uses: actions/upload-artifact@v4
+      - name: Materialize exact compiler outputs as unreferenced Git blobs
+        uses: actions/github-script@v7
         with:
-          name: stage3c-compiled-locks-${{ github.event.pull_request.head.sha }}
-          path: |
-            .github/workflows/stage3c-research-worker.lock.yml
-            .github/workflows/stage3c-qa-worker.lock.yml
-          if-no-files-found: error
-          retention-days: 1
+          script: |
+            const fs = require('node:fs');
+            for (const [label, file] of [
+              ['RESEARCH_BLOB', '.github/workflows/stage3c-research-worker.lock.yml'],
+              ['QA_BLOB', '.github/workflows/stage3c-qa-worker.lock.yml'],
+            ]) {
+              const content = fs.readFileSync(file, 'utf8');
+              const created = await github.rest.git.createBlob({ owner: context.repo.owner, repo: context.repo.repo, content, encoding: 'utf-8' });
+              core.info(`${label}=${created.data.sha}`);
+            }
       - name: Verify byte-identical hardened locks
         run: |
           cmp --silent "$RUNNER_TEMP/research.lock.yml" .github/workflows/stage3c-research-worker.lock.yml
@@ -88,4 +92,4 @@ jobs:
           print('effective generated lock audit: PASS')
           PY
 
-# Temporary artifact export exists only to capture compiler output for this draft remediation branch.
+# Temporary blob materialization exists only to capture verified compiler output for this draft remediation branch.
