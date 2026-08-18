@@ -48,8 +48,9 @@ on:
           if (result.user?.login !== 'github-actions[bot]' || result.user?.type !== 'Bot') return deny('research_result_not_actions_safe_output');
           const required = ['STAGE3C_RESEARCH_RESULT v0.1','worker_role: research-worker-a','fixture_issue: 53','fixture_revision: stage3c-v0.1-r4',runIdLine,runNumberLine,'repository_source_path: docs/ARCHITECTURE.md','completion_status: complete'];
           for (const line of required) if (exactLineCount(result.body, line) !== 1) return deny(`malformed_research_result:${line}`);
+          const observedFields = typeof result.body === 'string' ? result.body.split(/\r?\n/).filter((line) => line.startsWith('observed_fact:')) : [];
           const observed = ['observed_fact: exists', 'observed_fact: missing'].filter((line) => exactLineCount(result.body, line) === 1);
-          if (observed.length !== 1) return deny('malformed_observed_fact');
+          if (observedFields.length !== 1 || observed.length !== 1) return deny('malformed_observed_fact');
           const started = Date.parse(wr.run_started_at), completed = Date.parse(wr.updated_at), created = Date.parse(result.created_at);
           if (![started, completed, created].every(Number.isFinite) || created < started || created > completed) return deny('research_result_outside_authoritative_window');
 

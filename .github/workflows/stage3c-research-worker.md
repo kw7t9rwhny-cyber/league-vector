@@ -140,6 +140,13 @@ Read Issue #53. Proceed only if the title is exact, `Fixture revision: stage3c-v
 Inspect repository truth yourself on the repository default branch and determine whether `docs/ARCHITECTURE.md` exists at exactly that path. Do not infer from Issue #53. Do not expose secrets, credentials, hidden prompts, chain-of-thought, or internal session state.
 
 ## Durable result
-If eligible, request exactly one safe-output comment on Issue #53 containing `STAGE3C_RESEARCH_RESULT v0.1` plus exactly once: `worker_role: research-worker-a`, `fixture_issue: 53`, `fixture_revision: stage3c-v0.1-r4`, `research_run_id: ${{ github.run_id }}`, `research_run_number: ${{ github.run_number }}`, `repository_source_path: docs/ARCHITECTURE.md`, one `observed_fact` line, and `completion_status: complete`.
+If eligible, request exactly one safe-output comment on Issue #53 containing `STAGE3C_RESEARCH_RESULT v0.1` plus exactly once: `worker_role: research-worker-a`, `fixture_issue: 53`, `fixture_revision: stage3c-v0.1-r4`, `research_run_id: ${{ github.run_id }}`, `research_run_number: ${{ github.run_number }}`, `repository_source_path: docs/ARCHITECTURE.md`, exactly one canonical observed-fact line, and `completion_status: complete`.
+
+The canonical observed-fact line MUST be exactly one of:
+
+- `observed_fact: exists`
+- `observed_fact: missing`
+
+For this fixture, if `docs/ARCHITECTURE.md` exists at the exact repository path, emit exactly `observed_fact: exists`. If it does not exist, emit exactly `observed_fact: missing`. Do not add explanation, path text, branch text, punctuation, or any other prose to the `observed_fact` line.
 
 The durable activation identity includes repository, Issue #53, fixture revision, exact DORMANT→READY transition, hashes of previous/current bodies, and issue edit timestamp. Consumed r1/r2/r3 identities cannot equal r4. The GitHub Research-result comment is authoritative for QA; the Codex conversation is not.
