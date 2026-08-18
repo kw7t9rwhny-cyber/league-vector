@@ -1,0 +1,14 @@
+const test=require("node:test");const assert=require("node:assert/strict");const fs=require("node:fs");const path=require("node:path");
+const root=path.join(__dirname,"..");const read=(p)=>fs.readFileSync(path.join(root,p),"utf8");
+const controller=read(".github/workflows/research-qa-controller-v01.yml");
+const research=read(".github/workflows/research-qa-research-v01.yml");
+const qa=read(".github/workflows/research-qa-qa-v01.yml");
+const helper=read("scripts/research-qa-workflow-helper-v01.js");
+test("transport uses explicit workflow_dispatch, not workflow_run chain",()=>{for(const x of [controller,research,qa])assert.match(x,/workflow_dispatch:/);assert.equal([controller,research,qa].some(x=>/workflow_run:/.test(x)),false)});
+test("model jobs are read-only",()=>{assert.match(research,/permission-profile: ":read-only"/);assert.match(qa,/permission-profile: ":read-only"/);assert.equal(/research:\n[\s\S]*?permissions:\n\s+contents: write/.test(research),false);assert.equal(/qa:\n[\s\S]*?permissions:\n\s+contents: write/.test(qa),false)});
+test("no workflow grants pull request, deployment, package, or environment write authority",()=>{for(const x of [controller,research,qa]){assert.doesNotMatch(x,/pull-requests:\s*write/);assert.doesNotMatch(x,/deployments:\s*write/);assert.doesNotMatch(x,/packages:\s*write/);assert.doesNotMatch(x,/contents:\s*write/)}});
+test("Research wakes Controller, never QA directly",()=>{const start=helper.indexOf("out(\"result_id\"");const segment=helper.slice(start);assert.match(segment,/if\(role==="research"\)/);assert.match(segment,/research-qa-controller-v01\.yml/);assert.doesNotMatch(segment,/dispatchWorkflow\(\"research-qa-qa-v01\.yml\"/)});
+test("QA persist has no actions write and no downstream wake",()=>{assert.doesNotMatch(qa,/persist:[\s\S]*?actions:\s*write/);assert.match(qa,/and STOP/)});
+test("terminal jobs reject partial success",()=>{assert.match(research,/Reject false-green or partial Research completion/);assert.match(qa,/Reject false-green or partial QA completion/);for(const x of [research,qa])assert.match(x,/test "\$\{\{ needs\.persist\.result \}\}" = "success"/)});
+test("controller has no inference action",()=>{assert.doesNotMatch(controller,/openai\/codex-action/);assert.doesNotMatch(controller,/model:/)});
+test("no automatic remediation merge install deploy release path",()=>{for(const x of [controller,research,qa,helper]){assert.doesNotMatch(x,/gh pr merge|merge_pull|createDeployment|deployments\/|releases\/|remediation-worker/i)}});
