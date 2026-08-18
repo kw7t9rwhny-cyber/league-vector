@@ -24,7 +24,7 @@
     "schema_version": { "const": "lv-rqa-work-item/v1" },
     "work_item_id": { "type": "string", "minLength": 1, "maxLength": 128 },
     "objective": { "type": "string", "minLength": 1, "maxLength": 2000 },
-    "role": { "enum": ["research", "qa"] },
+    "role": { "const": "research" },
     "risk": { "enum": ["low", "medium", "high", "live"] },
     "input_identity": {
       "type": "object",
@@ -39,21 +39,18 @@
     "context_refs": { "type": "array", "maxItems": 16, "items": { "type": "string", "minLength": 1, "maxLength": 512 } },
     "allowed_actions": { "type": "array", "maxItems": 16, "items": { "type": "string", "minLength": 1, "maxLength": 128 } },
     "forbidden_actions": { "type": "array", "maxItems": 32, "items": { "type": "string", "minLength": 1, "maxLength": 128 } },
-    "expected_terminal_result": { "type": "string", "minLength": 1, "maxLength": 128 },
-    "qa_requirement": { "enum": ["none", "one", "dual", "installed-state", "security"] },
-    "founder_gate": { "type": "boolean" },
-    "confidentiality": { "enum": ["public", "confidential-engineering", "restricted-rd"] },
+    "expected_terminal_result": { "const": "lv-rqa-terminal-result/v1" },
+    "qa_requirement": { "const": "one" },
+    "founder_gate": { "const": true },
+    "confidentiality": { "const": "public" },
     "budget": {
       "type": "object",
       "additionalProperties": false,
       "required": ["max_worker_runs"],
       "properties": {
-        "max_worker_runs": { "type": "integer", "minimum": 1, "maximum": 20 },
-        "max_ai_credits": { "type": "number", "minimum": 0 },
-        "max_actions_runtime_minutes": { "type": "number", "minimum": 0 }
+        "max_worker_runs": { "type": "integer", "minimum": 1, "maximum": 20 }
       }
     },
-    "replay_identity": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
-    "dependencies": { "type": "array", "maxItems": 16, "items": { "type": "string", "minLength": 1, "maxLength": 128 } }
+    "replay_identity": { "type": "string", "pattern": "^[a-f0-9]{64}$" }
   }
 }
