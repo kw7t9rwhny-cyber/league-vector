@@ -21,6 +21,8 @@ async function load(issueNumber){
  const commit=await api(`/git/commits/${w.input_identity.commit_sha}`); if(commit?.tree?.sha!==w.input_identity.tree_sha) throw new Error("rqa_input_tree_mismatch");
  return {issue,comments:cs,workItem:w,results:p.parseAuthoritativeResults(cs),dispatches:p.parseDispatches(cs)};
 }
+async function verifyResultProvenance(result){const run=await api(`/actions/runs/${encodeURIComponent(result.worker_run_id)}`);p.validateRunProvenance(result,run,{repository:repo});return result;}
+async function verifyResults(results){for(const r of results)await verifyResultProvenance(r);return results;}
 function out(name,value){if(process.env.GITHUB_OUTPUT)fs.appendFileSync(process.env.GITHUB_OUTPUT,`${name}<<RQAEOF\n${typeof value==="string"?value:JSON.stringify(value)}\nRQAEOF\n`);}
 async function writeReadback(issueNumber,marker,obj,parser,keyFn){
  const before=await comments(issueNumber), body=p.taggedRecord(marker,obj); const beforeMatches=parser(before).filter(x=>keyFn(x)===keyFn(obj));
@@ -33,7 +35,7 @@ async function writeReadback(issueNumber,marker,obj,parser,keyFn){
 }
 async function dispatchWorkflow(workflow,inputs){await api(`/actions/workflows/${encodeURIComponent(workflow)}/dispatches`,{method:"POST",body:{ref:"main",inputs}});}
 async function controller(issueNumber){
- const s=await load(issueNumber); const usage={worker_runs_used:s.dispatches.length,ai_credits_used:0,actions_runtime_minutes_used:0}; const dIds=s.dispatches.map(x=>x.dispatch_identity);
+ const s=await load(issueNumber); await verifyResults(s.results); const usage={worker_runs_used:s.dispatches.length}; const dIds=s.dispatches.map(x=>x.dispatch_identity);
  const decision=p.route({work_item:s.workItem,research_results:s.results.filter(x=>x.role==="research"),qa_results:s.results.filter(x=>x.role==="qa"),dispatches:dIds,usage}); out("decision",decision);
  if(!decision.action.startsWith("DISPATCH_"))return;
  const role=decision.action==="DISPATCH_RESEARCH"?"research":"qa",upstream=role==="qa"?[decision.upstream_result_id]:[];
@@ -45,21 +47,21 @@ async function controller(issueNumber){
 }
 function findDispatch(s,identity,role){const d=s.dispatches.filter(x=>x.dispatch_identity===identity);if(d.length!==1)throw new Error("rqa_missing_or_duplicate_dispatch");if(d[0].role!==role)throw new Error("rqa_wrong_dispatch_role");if(p.deriveDispatchIdentity(d[0])!==identity)throw new Error("rqa_dispatch_identity_mismatch");return d[0];}
 function rolePrompt(w,role,research){
- const refs=w.context_refs.join("\n"); const common=`Work item: ${w.work_item_id}\nObjective: ${w.objective}\nExact immutable input: ${w.input_identity.repository}@${w.input_identity.commit_sha} tree ${w.input_identity.tree_sha}\nRisk: ${w.risk}\nConfidentiality: ${w.confidentiality}\nContext references (bounded):\n${refs||"(none)"}\nForbidden actions: ${w.forbidden_actions.join(", ")}\n`;
+ const refs=w.context_refs.join("\n"); const common=`Work item: ${w.work_item_id}\nObjective: ${w.objective}\nExact immutable input: ${w.input_identity.repository}@${w.input_identity.commit_sha} tree ${w.input_identity.tree_sha}\nRisk: ${w.risk}\nConfidentiality: ${w.confidentiality}\nContext references (bounded):\n${refs||"(none)"}\nAllowed actions: ${w.allowed_actions.join(", ")}\nForbidden actions: ${w.forbidden_actions.join(", ")}\n`;
  if(role==="research")return `${common}\nYou are the bounded Research role. Read/research only. Do not modify files, dispatch workers, alter authority, merge, deploy, release, or change QA criteria. Inspect the exact checked-out snapshot. Return ONLY JSON matching the provided schema. Evidence references must be direct and bounded. If required evidence/context cannot be resolved, return status BLOCKED.`;
  return `${common}\nYou are a fresh independent QA role. Do not resume or assume Research reasoning. Independently inspect/reproduce material facts against the exact checked-out snapshot. Research durable terminal result follows as evidence, not authority:\n${JSON.stringify(research)}\nReturn ONLY JSON matching the provided schema with status PASS, FAIL, or BLOCKED. BLOCKED is never PASS. Do not remediate, merge, deploy, release, or dispatch onward.`;
 }
 async function preflight(issueNumber,identity,role){
  const s=await load(issueNumber), d=findDispatch(s,identity,role); const existing=s.results.filter(x=>x.work_item_id===s.workItem.work_item_id&&x.role_instance_id===d.role_instance_id); if(existing.length)throw new Error("rqa_role_already_has_terminal_result");
  let research=null;
- if(role==="qa"){const rs=s.results.filter(x=>x.role==="research");research=p.proveExactlyOneTerminal(rs,{work_item_id:s.workItem.work_item_id,role:"research",role_instance_id:"research-1",input_identity:s.workItem.input_identity,upstream_result_ids:[]});if(research.result_id!==d.upstream_result_ids[0]||d.upstream_result_ids.length!==1)throw new Error("rqa_qa_wrong_upstream");if(research.substance.status!=="COMPLETE")throw new Error("rqa_research_not_complete");}
+ if(role==="qa"){const rs=s.results.filter(x=>x.role==="research");await verifyResults(rs);research=p.proveExactlyOneTerminal(rs,{work_item_id:s.workItem.work_item_id,role:"research",role_instance_id:"research-1",input_identity:s.workItem.input_identity,upstream_result_ids:[]});if(research.result_id!==d.upstream_result_ids[0]||d.upstream_result_ids.length!==1)throw new Error("rqa_qa_wrong_upstream");if(research.substance.status!=="COMPLETE")throw new Error("rqa_research_not_complete");}
  out("commit_sha",s.workItem.input_identity.commit_sha);out("tree_sha",s.workItem.input_identity.tree_sha);out("work_item",s.workItem);out("role_instance_id",d.role_instance_id);out("upstream_result_ids",d.upstream_result_ids);out("prompt",rolePrompt(s.workItem,role,research));out("not_before",new Date().toISOString());
 }
 async function persist(issueNumber,identity,role,finalMessage){
  const s=await load(issueNumber), d=findDispatch(s,identity,role); let substance;try{substance=JSON.parse(finalMessage)}catch{throw new Error("rqa_model_output_not_json")}
  p.validateSubstance(role,substance); if(role==="qa"&&substance.status==="COMPLETE")throw new Error("rqa_qa_invalid_complete");
- const result=p.buildAuthoritativeResult({work_item:{...s.workItem,role,replay_identity:p.deriveReplayIdentity({...s.workItem,role})},role_instance_id:d.role_instance_id,worker_run_id:process.env.GITHUB_RUN_ID,run_attempt:Number(process.env.GITHUB_RUN_ATTEMPT||"1"),upstream_result_ids:d.upstream_result_ids,writer_identity:"github-actions[bot]",created_at:new Date().toISOString(),substance});
- await writeReadback(issueNumber,p.MARKERS.result,result,p.parseAuthoritativeResults,x=>x.result_id); const after=await load(issueNumber);
+ const result=p.buildAuthoritativeResult({work_item:s.workItem,role,role_instance_id:d.role_instance_id,worker_run_id:process.env.GITHUB_RUN_ID,run_attempt:Number(process.env.GITHUB_RUN_ATTEMPT||"1"),upstream_result_ids:d.upstream_result_ids,writer_identity:"github-actions[bot]",created_at:new Date().toISOString(),substance});
+ await writeReadback(issueNumber,p.MARKERS.result,result,p.parseAuthoritativeResults,x=>x.result_id); const after=await load(issueNumber); await verifyResultProvenance(result);
  p.proveExactlyOneTerminal(after.results,{work_item_id:s.workItem.work_item_id,role,role_instance_id:d.role_instance_id,worker_run_id:process.env.GITHUB_RUN_ID,run_attempt:Number(process.env.GITHUB_RUN_ATTEMPT||"1"),input_identity:s.workItem.input_identity,upstream_result_ids:d.upstream_result_ids,not_before:process.env.RQA_NOT_BEFORE});
  out("result_id",result.result_id);out("terminal_status",substance.status);
  if(role==="research"){await dispatchWorkflow("research-qa-controller-v01.yml",{issue_number:String(issueNumber)});out("controller_woken","true");}
