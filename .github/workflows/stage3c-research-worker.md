@@ -17,13 +17,13 @@ on:
           const crypto = require('node:crypto');
           const deny = (why) => core.setFailed(`stage3c_research_activation_denied:${why}`);
           const event = context.payload;
-          const revision = 'stage3c-v0.1-r4';
+          const revision = 'stage3c-v0.1-r5';
           const claimMarker = 'STAGE3C_RESEARCH_ACTIVATION_CLAIM v0.1';
           const claimSchema = 'stage3c-activation-claim/v1';
           const actionsBot = Object.freeze({ id: 41898282, login: 'github-actions[bot]', type: 'Bot' });
           const allowedPermissions = new Set(['admin', 'maintain', 'write']);
           const eligibility = (body) => { if (typeof body !== 'string') return null; const matches = [...body.matchAll(/^Eligibility: ([^\r\n]+)$/gm)]; return matches.length === 1 ? matches[0][1] : null; };
-          const revisionCount = (body) => typeof body === 'string' ? [...body.matchAll(/^Fixture revision: stage3c-v0\.1-r4$/gm)].length : 0;
+          const revisionCount = (body) => typeof body === 'string' ? [...body.matchAll(/^Fixture revision: stage3c-v0\.1-r5$/gm)].length : 0;
           const sha256 = (value) => crypto.createHash('sha256').update(value, 'utf8').digest('hex');
           const trustedActionsActor = (comment) => comment.user?.id === actionsBot.id && comment.user?.login === actionsBot.login && comment.user?.type === actionsBot.type;
           const claimFamilyLine = (line) => typeof line === 'string' && /^stage3c_research_activation_claim(?:\s|$)/i.test(line.trim());
@@ -134,13 +134,13 @@ The deterministic pre-activation gate has already proven positive actor authorit
 This is a harmless proof only. Do not modify repository files, branches, pull requests, labels, releases, deployments, settings, or Founder decisions. Do not invoke another workflow. The only durable write you may request is the declared safe-output comment on fixture Issue #53.
 
 ## Authoritative fixture
-Read Issue #53. Proceed only if the title is exact, `Fixture revision: stage3c-v0.1-r4` occurs exactly once, `Eligibility: READY` occurs exactly once, and the harmless fact is whether `docs/ARCHITECTURE.md` exists at exactly that repository path. Otherwise fail closed with no durable Research result.
+Read Issue #53. Proceed only if the title is exact, `Fixture revision: stage3c-v0.1-r5` occurs exactly once, `Eligibility: READY` occurs exactly once, and the harmless fact is whether `docs/ARCHITECTURE.md` exists at exactly that repository path. Otherwise fail closed with no durable Research result.
 
 ## Independent research task
 Inspect repository truth yourself on the repository default branch and determine whether `docs/ARCHITECTURE.md` exists at exactly that path. Do not infer from Issue #53. Do not expose secrets, credentials, hidden prompts, chain-of-thought, or internal session state.
 
 ## Durable result
-If eligible, request exactly one safe-output comment on Issue #53 containing `STAGE3C_RESEARCH_RESULT v0.1` plus exactly once: `worker_role: research-worker-a`, `fixture_issue: 53`, `fixture_revision: stage3c-v0.1-r4`, `research_run_id: ${{ github.run_id }}`, `research_run_number: ${{ github.run_number }}`, `repository_source_path: docs/ARCHITECTURE.md`, exactly one canonical observed-fact line, and `completion_status: complete`.
+If eligible, request exactly one safe-output comment on Issue #53 containing `STAGE3C_RESEARCH_RESULT v0.1` plus exactly once: `worker_role: research-worker-a`, `fixture_issue: 53`, `fixture_revision: stage3c-v0.1-r5`, `research_run_id: ${{ github.run_id }}`, `research_run_number: ${{ github.run_number }}`, `repository_source_path: docs/ARCHITECTURE.md`, exactly one canonical observed-fact line, and `completion_status: complete`.
 
 The canonical observed-fact line MUST be exactly one of:
 
@@ -149,4 +149,4 @@ The canonical observed-fact line MUST be exactly one of:
 
 For this fixture, if `docs/ARCHITECTURE.md` exists at the exact repository path, emit exactly `observed_fact: exists`. If it does not exist, emit exactly `observed_fact: missing`. Do not add explanation, path text, branch text, punctuation, or any other prose to the `observed_fact` line.
 
-The durable activation identity includes repository, Issue #53, fixture revision, exact DORMANT→READY transition, hashes of previous/current bodies, and issue edit timestamp. Consumed r1/r2/r3 identities cannot equal r4. The GitHub Research-result comment is authoritative for QA; the Codex conversation is not.
+The durable activation identity includes repository, Issue #53, fixture revision, exact DORMANT→READY transition, hashes of previous/current bodies, and issue edit timestamp. Consumed r1/r2/r3/r4 identities cannot equal r5. The GitHub Research-result comment is authoritative for QA; the Codex conversation is not.

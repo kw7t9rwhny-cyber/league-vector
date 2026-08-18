@@ -33,7 +33,7 @@ on:
           if (issue.number !== 53 || issue.title !== 'AGENT SPIKE TEST — harmless two-worker handoff') return deny('wrong_fixture');
           const body = issue.body;
           if (typeof body !== 'string') return deny('missing_fixture_body');
-          const revisionMatches = [...body.matchAll(/^Fixture revision: stage3c-v0\.1-r4$/gm)];
+          const revisionMatches = [...body.matchAll(/^Fixture revision: stage3c-v0\.1-r5$/gm)];
           const eligibilityMatches = [...body.matchAll(/^Eligibility: ([^\r\n]+)$/gm)];
           if (revisionMatches.length !== 1) return deny('wrong_fixture_revision');
           if (eligibilityMatches.length !== 1 || eligibilityMatches[0][1] !== 'READY') return deny('fixture_not_ready');
@@ -46,7 +46,7 @@ on:
           if (researchForRun.length !== 1) return deny('missing_or_duplicate_research_result');
           const result = researchForRun[0];
           if (result.user?.login !== 'github-actions[bot]' || result.user?.type !== 'Bot') return deny('research_result_not_actions_safe_output');
-          const required = ['STAGE3C_RESEARCH_RESULT v0.1','worker_role: research-worker-a','fixture_issue: 53','fixture_revision: stage3c-v0.1-r4',runIdLine,runNumberLine,'repository_source_path: docs/ARCHITECTURE.md','completion_status: complete'];
+          const required = ['STAGE3C_RESEARCH_RESULT v0.1','worker_role: research-worker-a','fixture_issue: 53','fixture_revision: stage3c-v0.1-r5',runIdLine,runNumberLine,'repository_source_path: docs/ARCHITECTURE.md','completion_status: complete'];
           for (const line of required) if (exactLineCount(result.body, line) !== 1) return deny(`malformed_research_result:${line}`);
           const observedFields = typeof result.body === 'string' ? result.body.split(/\r?\n/).filter((line) => line.startsWith('observed_fact:')) : [];
           const observed = ['observed_fact: exists', 'observed_fact: missing'].filter((line) => exactLineCount(result.body, line) === 1);
@@ -107,7 +107,7 @@ The authoritative Research completion that triggered this run is:
 
 ## Durable handoff verification
 
-Read Issue #53 and its comments using GitHub read tools. Reconfirm the single Worker A durable comment containing `STAGE3C_RESEARCH_RESULT v0.1`, `worker_role: research-worker-a`, `fixture_issue: 53`, `fixture_revision: stage3c-v0.1-r4`, the triggering Research run id/number, `repository_source_path: docs/ARCHITECTURE.md`, and `completion_status: complete` exactly once. If the correlation or current fixture state no longer matches, return FAIL. Do not substitute an older r1/r2/r3 Research result.
+Read Issue #53 and its comments using GitHub read tools. Reconfirm the single Worker A durable comment containing `STAGE3C_RESEARCH_RESULT v0.1`, `worker_role: research-worker-a`, `fixture_issue: 53`, `fixture_revision: stage3c-v0.1-r5`, the triggering Research run id/number, `repository_source_path: docs/ARCHITECTURE.md`, and `completion_status: complete` exactly once. If the correlation or current fixture state no longer matches, return FAIL. Do not substitute an older r1/r2/r3/r4 Research result.
 
 ## Independent repository verification
 
@@ -119,4 +119,4 @@ Compare the independently observed fact with Worker A's `observed_fact`. Do not 
 
 Request exactly one safe-output comment on Issue #53. Begin with `STAGE3C_QA_RESULT v0.1 — PASS` only if every correlation, freshness, and repository-truth check passes; otherwise use `STAGE3C_QA_RESULT v0.1 — FAIL`.
 
-Include exactly once: `worker_role: qa-worker-b`, `fixture_issue: 53`, `fixture_revision: stage3c-v0.1-r4`, QA run id/number, Research run id/number/head SHA, `repository_source_path: docs/ARCHITECTURE.md`, one independent observed fact, and matching verdict. Give a short evidence summary without model-internal reasoning.
+Include exactly once: `worker_role: qa-worker-b`, `fixture_issue: 53`, `fixture_revision: stage3c-v0.1-r5`, QA run id/number, Research run id/number/head SHA, `repository_source_path: docs/ARCHITECTURE.md`, one independent observed fact, and matching verdict. Give a short evidence summary without model-internal reasoning.
