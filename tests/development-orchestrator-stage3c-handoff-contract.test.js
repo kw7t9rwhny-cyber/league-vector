@@ -178,6 +178,23 @@ test("noncanonical observed_fact values fail closed through Worker B production 
   }
 });
 
+test("mixed canonical and unsupported observed_fact fields fail closed through Worker B production validation", async () => {
+  for (const [canonical, extra] of [
+    ["exists", "observed_fact: present"],
+    ["missing", "observed_fact: present"],
+    ["exists", "observed_fact: unknown"],
+    ["exists", "observed_fact:present"],
+  ]) {
+    const fixture = baseFixture();
+    fixture.comments[0].body = `${canonicalResearchBody({
+      runId: fixture.workflowRun.id,
+      runNumber: fixture.workflowRun.run_number,
+      observed: canonical,
+    })}\n${extra}`;
+    await expectDenied(fixture, "malformed_observed_fact");
+  }
+});
+
 test("missing duplicate and contradictory observed_fact fields fail closed through Worker B production validation", async () => {
   const missing = baseFixture();
   missing.comments[0].body = missing.comments[0].body.split("\n").filter((line) => !line.startsWith("observed_fact: ")).join("\n");
