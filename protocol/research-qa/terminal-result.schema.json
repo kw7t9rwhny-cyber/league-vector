@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "lv-rqa-terminal-result/v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "result_id", "work_item_id", "role", "role_instance_id", "worker_run_id", "run_attempt", "input_identity", "upstream_result_ids", "writer_identity", "created_at", "terminal_state", "substance"],
+  "properties": {
+    "schema_version": { "const": "lv-rqa-terminal-result/v1" },
+    "result_id": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "work_item_id": { "type": "string" },
+    "role": { "enum": ["research", "qa"] },
+    "role_instance_id": { "type": "string" },
+    "worker_run_id": { "type": "string", "pattern": "^[1-9][0-9]*$" },
+    "run_attempt": { "type": "integer", "minimum": 1 },
+    "input_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repository", "commit_sha", "tree_sha"],
+      "properties": {
+        "repository": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "commit_sha": { "type": "string", "pattern": "^[a-f0-9]{40}$" },
+        "tree_sha": { "type": "string", "pattern": "^[a-f0-9]{40}$" }
+      }
+    },
+    "upstream_result_ids": { "type": "array", "maxItems": 16, "items": { "type": "string", "pattern": "^[a-f0-9]{64}$" } },
+    "writer_identity": { "const": "github-actions[bot]" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "terminal_state": { "const": "terminal" },
+    "substance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "claims_or_findings", "evidence_refs", "artifact_refs", "limitations", "recommended_next_action"],
+      "properties": {
+        "status": { "enum": ["COMPLETE", "PASS", "FAIL", "BLOCKED"] },
+        "claims_or_findings": { "type": "array", "maxItems": 64, "items": { "type": "string", "minLength": 1, "maxLength": 2000 } },
+        "evidence_refs": { "type": "array", "maxItems": 64, "items": { "type": "string", "minLength": 1, "maxLength": 512 } },
+        "artifact_refs": { "type": "array", "maxItems": 32, "items": { "type": "string", "minLength": 1, "maxLength": 512 } },
+        "limitations": { "type": "string", "maxLength": 4000 },
+        "recommended_next_action": { "type": "string", "maxLength": 2000 }
+      }
+    }
+  }
+}

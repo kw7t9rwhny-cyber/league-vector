@@ -1,0 +1,34 @@
+name: Reusable Research QA Controller v0.1
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Durable work-item issue number (wake-up pointer only)
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: lv-rqa-controller-${{ inputs.issue_number }}
+  cancel-in-progress: false
+
+jobs:
+  route:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+      actions: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Re-read durable state, validate authority, claim one dispatch, and wake one worker
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/research-qa-workflow-helper-v01.js controller "${{ inputs.issue_number }}"
