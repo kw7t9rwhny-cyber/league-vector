@@ -21,8 +21,8 @@ async function load(issueNumber){
  const commit=await api(`/git/commits/${w.input_identity.commit_sha}`); if(commit?.tree?.sha!==w.input_identity.tree_sha) throw new Error("rqa_input_tree_mismatch");
  return {issue,comments:cs,workItem:w,results:p.parseAuthoritativeResults(cs),dispatches:p.parseDispatches(cs)};
 }
-async function verifyResultProvenance(result,{requireArtifact=true}={}){
- const run=await api(`/actions/runs/${encodeURIComponent(result.worker_run_id)}`);p.validateRunProvenance(result,run,{repository:repo});
+async function verifyResultProvenance(result,{requireArtifact=true,requireCompleted=true}={}){
+ const run=await api(`/actions/runs/${encodeURIComponent(result.worker_run_id)}`);p.validateRunProvenance(result,run,{repository:repo,requireCompleted});
  if(requireArtifact){const data=await api(`/actions/runs/${encodeURIComponent(result.worker_run_id)}/artifacts?per_page=100`);p.validateRunProofArtifact(result,data?.artifacts);}
  return result;
 }
@@ -41,7 +41,6 @@ async function dispatchWorkflow(workflow,inputs){await api(`/actions/workflows/$
 async function controller(issueNumber){
  const s=await load(issueNumber);
  try { await verifyResults(s.results); } catch(e) {
-   // An early Research wake is only a hint. Do not claim QA while the parent workflow is still non-terminal.
    if(e.code==="worker_run_not_completed"){out("decision",{action:"WAIT",reason:"research_parent_not_completed"});return;}
    throw e;
  }
@@ -71,7 +70,7 @@ async function persist(issueNumber,identity,role,finalMessage){
  const s=await load(issueNumber), d=findDispatch(s,identity,role); let substance;try{substance=JSON.parse(finalMessage)}catch{throw new Error("rqa_model_output_not_json")}
  p.validateSubstance(role,substance); if(role==="qa"&&substance.status==="COMPLETE")throw new Error("rqa_qa_invalid_complete");
  const result=p.buildAuthoritativeResult({work_item:s.workItem,role,role_instance_id:d.role_instance_id,worker_run_id:process.env.GITHUB_RUN_ID,run_attempt:Number(process.env.GITHUB_RUN_ATTEMPT||"1"),upstream_result_ids:d.upstream_result_ids,writer_identity:"github-actions[bot]",created_at:new Date().toISOString(),substance});
- await writeReadback(issueNumber,p.MARKERS.result,result,p.parseAuthoritativeResults,x=>x.result_id); const after=await load(issueNumber); await verifyResultProvenance(result,{requireArtifact:false});
+ await writeReadback(issueNumber,p.MARKERS.result,result,p.parseAuthoritativeResults,x=>x.result_id); const after=await load(issueNumber); await verifyResultProvenance(result,{requireArtifact:false,requireCompleted:false});
  p.proveExactlyOneTerminal(after.results,{work_item_id:s.workItem.work_item_id,role,role_instance_id:d.role_instance_id,worker_run_id:process.env.GITHUB_RUN_ID,run_attempt:Number(process.env.GITHUB_RUN_ATTEMPT||"1"),input_identity:s.workItem.input_identity,upstream_result_ids:d.upstream_result_ids,not_before:process.env.RQA_NOT_BEFORE});
  const proofFile="rqa-terminal-proof.json";fs.writeFileSync(proofFile,`${p.canonical(result)}\n`,`utf8`);
  out("result_id",result.result_id);out("terminal_status",substance.status);out("proof_artifact_name",p.proofArtifactName(result));out("proof_file",proofFile);
