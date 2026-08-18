@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "research-qa-protocol/v1",
+  "title": "League Vector Reusable Research Work Item v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version","work_item_id","objective","role","risk","input_identity","context_refs","allowed_actions","forbidden_actions","expected_terminal_result","qa_requirement","founder_gate","confidentiality","budget","replay_identity"],
+  "properties": {
+    "schema_version": {"const":"research-qa-protocol/v1"},
+    "work_item_id": {"type":"string","pattern":"^[a-z0-9][a-z0-9._-]{5,95}$"},
+    "objective": {"type":"string","minLength":10,"maxLength":1500},
+    "role": {"const":"research"},
+    "risk": {"enum":["low","medium","high","live"]},
+    "input_identity": {"type":"object","additionalProperties":false,"required":["repository","commit_sha","tree_sha"],"properties":{"repository":{"type":"string"},"commit_sha":{"type":"string","pattern":"^[a-f0-9]{40}$"},"tree_sha":{"type":"string","pattern":"^[a-f0-9]{40}$"}}},
+    "context_refs": {"type":"array","maxItems":12,"items":{"type":"object","additionalProperties":false,"required":["kind","ref"],"properties":{"kind":{"enum":["public_file","evidence","private_handoff"]},"ref":{"type":"string","minLength":1,"maxLength":500},"immutable_identity":{"type":"string","maxLength":200},"required":{"type":"boolean"}}}},
+    "allowed_actions": {"const":["read_repository","read_work_item","write_terminal_result"]},
+    "forbidden_actions": {"type":"array","items":{"type":"string"},"minItems":9},
+    "expected_terminal_result": {"const":"research-terminal-result/v1"},
+    "qa_requirement": {"const":"one"},
+    "founder_gate": {"const":"founder-lead-stop-after-qa"},
+    "confidentiality": {"enum":["public","confidential-engineering","restricted-rd"]},
+    "budget": {"type":"object","additionalProperties":false,"required":["max_worker_runs","max_actions_runtime_minutes"],"properties":{"max_worker_runs":{"type":"integer","minimum":1,"maximum":4},"max_actions_runtime_minutes":{"type":"integer","minimum":1,"maximum":10},"max_ai_cost_or_credits":{"type":["number","null"],"minimum":0}}},
+    "replay_identity": {"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "dependencies": {"type":"array","maxItems":0}
+  }
+}
