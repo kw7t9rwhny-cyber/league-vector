@@ -80,12 +80,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Infrastructure-author authoritative QA result, read back, prove terminal durability, and STOP
+      - id: persist
+        name: Infrastructure-author authoritative QA result and prove local terminal durability
         env:
           GH_TOKEN: ${{ github.token }}
           RQA_FINAL_MESSAGE: ${{ needs.qa.outputs.final_message }}
           RQA_NOT_BEFORE: ${{ needs.preflight.outputs.not_before }}
         run: node scripts/research-qa-workflow-helper-v01.js persist "${{ inputs.issue_number }}" "${{ inputs.dispatch_identity }}" qa
+      - name: Publish exact run-scoped QA result proof
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.persist.outputs.proof_artifact_name }}
+          path: ${{ steps.persist.outputs.proof_file }}
+          retention-days: 1
+          if-no-files-found: error
 
   terminal:
     needs: [preflight, qa, persist]
