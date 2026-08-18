@@ -39,7 +39,13 @@ async function writeReadback(issueNumber,marker,obj,parser,keyFn){
 }
 async function dispatchWorkflow(workflow,inputs){await api(`/actions/workflows/${encodeURIComponent(workflow)}/dispatches`,{method:"POST",body:{ref:"main",inputs}});}
 async function controller(issueNumber){
- const s=await load(issueNumber); await verifyResults(s.results); const usage={worker_runs_used:s.dispatches.length}; const dIds=s.dispatches.map(x=>x.dispatch_identity);
+ const s=await load(issueNumber);
+ try { await verifyResults(s.results); } catch(e) {
+   // An early Research wake is only a hint. Do not claim QA while the parent workflow is still non-terminal.
+   if(e.code==="worker_run_not_completed"){out("decision",{action:"WAIT",reason:"research_parent_not_completed"});return;}
+   throw e;
+ }
+ const usage={worker_runs_used:s.dispatches.length}; const dIds=s.dispatches.map(x=>x.dispatch_identity);
  const decision=p.route({work_item:s.workItem,research_results:s.results.filter(x=>x.role==="research"),qa_results:s.results.filter(x=>x.role==="qa"),dispatches:dIds,usage}); out("decision",decision);
  if(!decision.action.startsWith("DISPATCH_"))return;
  const role=decision.action==="DISPATCH_RESEARCH"?"research":"qa",upstream=role==="qa"?[decision.upstream_result_id]:[];
@@ -71,4 +77,10 @@ async function persist(issueNumber,identity,role,finalMessage){
  out("result_id",result.result_id);out("terminal_status",substance.status);out("proof_artifact_name",p.proofArtifactName(result));out("proof_file",proofFile);
 }
 async function wakeController(issueNumber){await dispatchWorkflow("research-qa-controller-v01.yml",{issue_number:String(issueNumber)});out("controller_woken","true");}
-(async()=>{const [mode,issue,identity,arg4]=process.argv.slice(2);if(!mode||!issue)throw new Error("usage");if(mode==="controller")return controller(Number(issue));if(mode==="preflight")return preflight(Number(issue),identity,arg4);if(mode==="persist"){const role=arg4,final=process.env.RQA_FINAL_MESSAGE;if(!final)throw new Error("rqa_missing_final_message");return persist(Number(issue),identity,role,final)}if(mode==="wake-controller")return wakeController(Number(issue));throw new Error("unknown_mode");})().catch(e=>{console.error(e.stack||e);process.exit(1)});
+async function reconcileResearchCompletion(eventPath){
+ const event=JSON.parse(fs.readFileSync(eventPath,"utf8"));
+ const issueNumber=p.validateResearchCompletionWake(event);
+ await wakeController(issueNumber);
+ out("reconciled_issue_number",String(issueNumber));
+}
+(async()=>{const [mode,issue,identity,arg4]=process.argv.slice(2);if(!mode)throw new Error("usage");if(mode==="reconcile-research-completion"){if(!issue)throw new Error("usage");return reconcileResearchCompletion(issue)}if(!issue)throw new Error("usage");if(mode==="controller")return controller(Number(issue));if(mode==="preflight")return preflight(Number(issue),identity,arg4);if(mode==="persist"){const role=arg4,final=process.env.RQA_FINAL_MESSAGE;if(!final)throw new Error("rqa_missing_final_message");return persist(Number(issue),identity,role,final)}if(mode==="wake-controller")return wakeController(Number(issue));throw new Error("unknown_mode");})().catch(e=>{console.error(e.stack||e);process.exit(1)});
