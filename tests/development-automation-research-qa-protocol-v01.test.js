@@ -15,7 +15,7 @@ function item(role='research') {
     budget:{max_worker_runs:1,max_actions_runtime_minutes:10,max_ai_cost_or_credits:null}, replay_identity:'c'.repeat(64), dependencies:role==='qa'?['research-primary']:undefined,
   };
 }
-const actor={login:'github-actions[bot]',type:'Bot'};
+const actor={id:41898282,login:'github-actions[bot]',type:'Bot'};
 const issuerIssue={user:{login:'founder',id:7,type:'User'}};
 const permission={user:{login:'founder',id:7},permission:'admin'};
 const substance=(role,status)=>({status,claims_or_findings:['finding'],evidence_refs:['repo:file'],artifact_refs:[],limitations:'',recommended_next_action:'Founder/Lead review.'});
