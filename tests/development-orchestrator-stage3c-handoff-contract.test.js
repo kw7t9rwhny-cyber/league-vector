@@ -13,7 +13,7 @@ const qaSource = read(".github/workflows/stage3c-qa-worker.md");
 const REPO = "kw7t9rwhny-cyber/league-vector";
 const ISSUE = 53;
 const TITLE = "AGENT SPIKE TEST — harmless two-worker handoff";
-const REVISION = "stage3c-v0.1-r4";
+const REVISION = "stage3c-v0.1-r5";
 const SOURCE_PATH = "docs/ARCHITECTURE.md";
 const MARKER = "STAGE3C_RESEARCH_RESULT v0.1";
 const WORKFLOW_NAME = "Stage 3C Research Worker A";
@@ -220,7 +220,7 @@ test("wrong producer correlation fields fail closed through Worker B production 
 
   for (const [key, value, required] of [
     ["fixtureIssue", 54, "fixture_issue: 53"],
-    ["revision", "stage3c-v0.1-r3", "fixture_revision: stage3c-v0.1-r4"],
+    ["revision", "stage3c-v0.1-r4", "fixture_revision: stage3c-v0.1-r5"],
     ["sourcePath", "README.md", "repository_source_path: docs/ARCHITECTURE.md"],
   ]) {
     const fixture = baseFixture();
