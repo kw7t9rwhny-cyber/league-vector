@@ -22,7 +22,7 @@ async function load(issueNumber){
  return {issue,comments:cs,workItem:w,results:p.parseAuthoritativeResults(cs),dispatches:p.parseDispatches(cs)};
 }
 async function verifyResultProvenance(result,{requireArtifact=true,requireCompleted=true}={}){
- const run=await api(`/actions/runs/${encodeURIComponent(result.worker_run_id)}`);p.validateRunProvenance(result,run,{repository:repo,requireCompleted});
+ const run=await api(`/actions/runs/${encodeURIComponent(result.worker_run_id)}/attempts/${result.run_attempt}`);p.validateRunProvenance(result,run,{repository:repo,requireCompleted});
  if(requireArtifact){const data=await api(`/actions/runs/${encodeURIComponent(result.worker_run_id)}/artifacts?per_page=100`);p.validateRunProofArtifact(result,data?.artifacts);}
  return result;
 }
