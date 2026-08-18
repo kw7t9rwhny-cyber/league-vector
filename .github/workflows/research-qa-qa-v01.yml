@@ -24,6 +24,7 @@ jobs:
     permissions:
       contents: read
       issues: read
+      actions: read
     outputs:
       commit_sha: ${{ steps.pre.outputs.commit_sha }}
       prompt: ${{ steps.pre.outputs.prompt }}
@@ -71,6 +72,7 @@ jobs:
     permissions:
       contents: read
       issues: write
+      actions: read
     steps:
       - uses: actions/checkout@v5
         with:
