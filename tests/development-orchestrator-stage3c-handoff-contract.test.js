@@ -19,13 +19,38 @@ const MARKER = "STAGE3C_RESEARCH_RESULT v0.1";
 const WORKFLOW_NAME = "Stage 3C Research Worker A";
 const WORKFLOW_PATH = ".github/workflows/stage3c-research-worker.lock.yml";
 const ACTIONS_BOT = Object.freeze({ login: "github-actions[bot]", type: "Bot" });
-const OBSERVED_FACT_LINES = Object.freeze(["observed_fact: exists", "observed_fact: missing"]);
+const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 
-const exactLineCount = (text, line) => typeof text === "string"
-  ? text.split(/\r?\n/).filter((value) => value === line).length
-  : 0;
+function extractProductionConsumerScript() {
+  const startMarker = "    - name: Prove authoritative Research completion and durable handoff";
+  const stepStart = qaSource.indexOf(startMarker);
+  assert.notEqual(stepStart, -1, "Worker B production handoff-validation step must exist");
 
-function canonicalResearchBody({ runId = 32082361085, runNumber = 8, observed = "exists", fixtureIssue = ISSUE, revision = REVISION, sourcePath = SOURCE_PATH } = {}) {
+  const scriptMarker = "        script: |\n";
+  const scriptStart = qaSource.indexOf(scriptMarker, stepStart);
+  assert.notEqual(scriptStart, -1, "Worker B production validator script must exist");
+
+  const bodyStart = scriptStart + scriptMarker.length;
+  const bodyEnd = qaSource.indexOf("\nif: needs.pre_activation.outputs.research_authority_result", bodyStart);
+  assert.notEqual(bodyEnd, -1, "Worker B production validator script boundary must remain mechanically identifiable");
+
+  const indented = qaSource.slice(bodyStart, bodyEnd);
+  const lines = indented.split("\n");
+  assert.ok(lines.every((line) => line === "" || line.startsWith("          ")), "Worker B production validator indentation changed");
+  return lines.map((line) => line.startsWith("          ") ? line.slice(10) : line).join("\n");
+}
+
+const productionConsumerScript = extractProductionConsumerScript();
+const productionConsumer = new AsyncFunction("core", "context", "github", "process", productionConsumerScript);
+
+function canonicalResearchBody({
+  runId = 32082361085,
+  runNumber = 8,
+  observed = "exists",
+  fixtureIssue = ISSUE,
+  revision = REVISION,
+  sourcePath = SOURCE_PATH,
+} = {}) {
   return [
     MARKER,
     "worker_role: research-worker-a",
@@ -39,63 +64,8 @@ function canonicalResearchBody({ runId = 32082361085, runNumber = 8, observed = 
   ].join("\n");
 }
 
-function validateResearchHandoff({
-  workflowRun = {},
-  issue = {},
-  comments = [],
-} = {}) {
-  const wr = workflowRun;
-  const deny = (reason) => ({ accepted: false, reason });
-  if (!wr) return deny("missing_workflow_run");
-  if (wr.repository?.full_name !== REPO || wr.repository?.fork) return deny("wrong_research_repository");
-  if (wr.name !== WORKFLOW_NAME) return deny("wrong_workflow_name");
-  if (wr.path !== WORKFLOW_PATH) return deny("wrong_workflow_path");
-  if (wr.event !== "issues") return deny("wrong_research_event");
-  if (wr.head_branch !== "main") return deny("wrong_research_branch");
-  if (wr.conclusion !== "success") return deny("research_not_success");
-  if (wr.run_attempt !== 1) return deny("replayed_research_run");
-  if (!Number.isInteger(wr.id) || !Number.isInteger(wr.run_number)) return deny("malformed_research_identity");
-
-  if (issue.number !== ISSUE || issue.title !== TITLE) return deny("wrong_fixture");
-  if (typeof issue.body !== "string") return deny("missing_fixture_body");
-  const revisionMatches = [...issue.body.matchAll(/^Fixture revision: stage3c-v0\.1-r4$/gm)];
-  const eligibilityMatches = [...issue.body.matchAll(/^Eligibility: ([^\r\n]+)$/gm)];
-  if (revisionMatches.length !== 1) return deny("wrong_fixture_revision");
-  if (eligibilityMatches.length !== 1 || eligibilityMatches[0][1] !== "READY") return deny("fixture_not_ready");
-
-  const runIdLine = `research_run_id: ${wr.id}`;
-  const runNumberLine = `research_run_number: ${wr.run_number}`;
-  const researchForRun = comments.filter((comment) => typeof comment.body === "string" && exactLineCount(comment.body, MARKER) > 0 && exactLineCount(comment.body, runIdLine) > 0);
-  if (researchForRun.length !== 1) return deny("missing_or_duplicate_research_result");
-  const result = researchForRun[0];
-  if (result.user?.login !== ACTIONS_BOT.login || result.user?.type !== ACTIONS_BOT.type) return deny("research_result_not_actions_safe_output");
-
-  const required = [
-    MARKER,
-    "worker_role: research-worker-a",
-    "fixture_issue: 53",
-    "fixture_revision: stage3c-v0.1-r4",
-    runIdLine,
-    runNumberLine,
-    "repository_source_path: docs/ARCHITECTURE.md",
-    "completion_status: complete",
-  ];
-  for (const line of required) if (exactLineCount(result.body, line) !== 1) return deny(`malformed_research_result:${line}`);
-  const observed = OBSERVED_FACT_LINES.filter((line) => exactLineCount(result.body, line) === 1);
-  if (observed.length !== 1) return deny("malformed_observed_fact");
-
-  const started = Date.parse(wr.run_started_at);
-  const completed = Date.parse(wr.updated_at);
-  const created = Date.parse(result.created_at);
-  if (![started, completed, created].every(Number.isFinite) || created < started || created > completed) return deny("research_result_outside_authoritative_window");
-
-  const priorQa = comments.filter((comment) => typeof comment.body === "string" && /^STAGE3C_QA_RESULT v0\.1 — (PASS|FAIL)$/m.test(comment.body) && exactLineCount(comment.body, runIdLine) === 1);
-  if (priorQa.length !== 0) return deny("prior_authoritative_qa_result");
-  return { accepted: true, reason: "authorized", observedFact: observed[0].slice("observed_fact: ".length) };
-}
-
 function baseFixture(overrides = {}) {
-  const wr = {
+  const workflowRun = {
     id: 9001,
     run_number: 12,
     run_attempt: 1,
@@ -118,92 +88,157 @@ function baseFixture(overrides = {}) {
   const result = {
     user: ACTIONS_BOT,
     created_at: "2026-08-18T00:02:00Z",
-    body: canonicalResearchBody({ runId: wr.id, runNumber: wr.run_number }),
+    body: canonicalResearchBody({ runId: workflowRun.id, runNumber: workflowRun.run_number }),
     ...overrides.result,
   };
-  return { workflowRun: wr, issue, comments: overrides.comments || [result], result };
+  return {
+    workflowRun,
+    issue,
+    comments: overrides.comments || [result],
+    result,
+    repositoryContext: overrides.repositoryContext || { owner: "kw7t9rwhny-cyber", repo: "league-vector" },
+  };
 }
 
-function expectDenied(fixture, reason) {
-  const outcome = validateResearchHandoff(fixture);
+async function executeProductionConsumer(fixture) {
+  let failure = null;
+  const infos = [];
+  const core = {
+    setFailed(message) {
+      failure = String(message);
+    },
+    info(message) {
+      infos.push(String(message));
+    },
+  };
+  const context = {
+    repo: fixture.repositoryContext,
+    payload: { workflow_run: fixture.workflowRun },
+  };
+  const github = {
+    rest: {
+      issues: {
+        async get() {
+          return { data: fixture.issue };
+        },
+        async listComments() {
+          throw new Error("production validator should call listComments through github.paginate");
+        },
+      },
+    },
+    async paginate() {
+      return fixture.comments;
+    },
+  };
+  const processMock = { env: { EXPECTED_REPOSITORY: REPO } };
+
+  await productionConsumer(core, context, github, processMock);
+  if (failure) {
+    const prefix = "stage3c_qa_activation_denied:";
+    assert.ok(failure.startsWith(prefix), `unexpected production denial: ${failure}`);
+    return { accepted: false, reason: failure.slice(prefix.length) };
+  }
+
+  assert.equal(infos.length, 1, "production validator must emit exactly one authorization info record");
+  assert.equal(infos[0], `stage3c_qa_activation_authorized:research_run_id=${fixture.workflowRun.id}`);
+  return { accepted: true, reason: "authorized" };
+}
+
+async function expectDenied(fixture, reason) {
+  const outcome = await executeProductionConsumer(fixture);
   assert.equal(outcome.accepted, false);
   if (reason) assert.equal(outcome.reason, reason);
 }
 
-test("producer source requires the exact observed_fact enum consumed by Worker B", () => {
-  for (const line of OBSERVED_FACT_LINES) {
-    assert.ok(researchSource.includes(`\`${line}\``), `Research producer contract must name ${line}`);
-    assert.ok(qaSource.includes(`'${line}'`) || qaSource.includes(`\"${line}\"`), `QA consumer must accept ${line}`);
-  }
+test("Worker A canonical producer contract is exercised by Worker B's actual production validator", async () => {
+  const producerValues = [...researchSource.matchAll(/^- `observed_fact: ([^`\r\n]+)`$/gm)].map((match) => match[1]);
+  assert.deepEqual(producerValues, ["exists", "missing"]);
   assert.ok(researchSource.includes("Do not add explanation, path text, branch text, punctuation, or any other prose to the `observed_fact` line."));
-});
 
-test("canonical producer result is accepted by Worker B contract semantics", () => {
-  const outcome = validateResearchHandoff(baseFixture());
-  assert.deepEqual(outcome, { accepted: true, reason: "authorized", observedFact: "exists" });
-});
-
-test("noncanonical observed_fact values fail closed", () => {
-  for (const observed of ["docs/ARCHITECTURE.md exists on the default branch", "present"]) {
-    const f = baseFixture();
-    f.comments[0].body = canonicalResearchBody({ runId: f.workflowRun.id, runNumber: f.workflowRun.run_number, observed });
-    expectDenied(f, "malformed_observed_fact");
+  for (const observed of producerValues) {
+    const fixture = baseFixture();
+    fixture.comments[0].body = canonicalResearchBody({
+      runId: fixture.workflowRun.id,
+      runNumber: fixture.workflowRun.run_number,
+      observed,
+    });
+    assert.deepEqual(await executeProductionConsumer(fixture), { accepted: true, reason: "authorized" });
   }
 });
 
-test("missing duplicate and contradictory observed_fact fields fail closed", () => {
+test("noncanonical observed_fact values fail closed through Worker B production validation", async () => {
+  for (const observed of ["docs/ARCHITECTURE.md exists on the default branch", "present"]) {
+    const fixture = baseFixture();
+    fixture.comments[0].body = canonicalResearchBody({
+      runId: fixture.workflowRun.id,
+      runNumber: fixture.workflowRun.run_number,
+      observed,
+    });
+    await expectDenied(fixture, "malformed_observed_fact");
+  }
+});
+
+test("missing duplicate and contradictory observed_fact fields fail closed through Worker B production validation", async () => {
   const missing = baseFixture();
   missing.comments[0].body = missing.comments[0].body.split("\n").filter((line) => !line.startsWith("observed_fact: ")).join("\n");
-  expectDenied(missing, "malformed_observed_fact");
+  await expectDenied(missing, "malformed_observed_fact");
 
   const duplicate = baseFixture();
   duplicate.comments[0].body += "\nobserved_fact: exists";
-  expectDenied(duplicate, "malformed_observed_fact");
+  await expectDenied(duplicate, "malformed_observed_fact");
 
   const both = baseFixture();
   both.comments[0].body += "\nobserved_fact: missing";
-  expectDenied(both, "malformed_observed_fact");
+  await expectDenied(both, "malformed_observed_fact");
 });
 
-test("wrong producer correlation fields fail closed", () => {
+test("wrong producer correlation fields fail closed through Worker B production validation", async () => {
   const wrongRunId = baseFixture();
   wrongRunId.comments[0].body = canonicalResearchBody({ runId: 9999, runNumber: wrongRunId.workflowRun.run_number });
-  expectDenied(wrongRunId, "missing_or_duplicate_research_result");
+  await expectDenied(wrongRunId, "missing_or_duplicate_research_result");
 
   const wrongRunNumber = baseFixture();
   wrongRunNumber.comments[0].body = canonicalResearchBody({ runId: wrongRunNumber.workflowRun.id, runNumber: 9999 });
-  expectDenied(wrongRunNumber, `malformed_research_result:research_run_number: ${wrongRunNumber.workflowRun.run_number}`);
+  await expectDenied(wrongRunNumber, `malformed_research_result:research_run_number: ${wrongRunNumber.workflowRun.run_number}`);
 
   for (const [key, value, required] of [
     ["fixtureIssue", 54, "fixture_issue: 53"],
     ["revision", "stage3c-v0.1-r3", "fixture_revision: stage3c-v0.1-r4"],
     ["sourcePath", "README.md", "repository_source_path: docs/ARCHITECTURE.md"],
   ]) {
-    const f = baseFixture();
-    f.comments[0].body = canonicalResearchBody({ runId: f.workflowRun.id, runNumber: f.workflowRun.run_number, [key]: value });
-    expectDenied(f, `malformed_research_result:${required}`);
+    const fixture = baseFixture();
+    fixture.comments[0].body = canonicalResearchBody({
+      runId: fixture.workflowRun.id,
+      runNumber: fixture.workflowRun.run_number,
+      [key]: value,
+    });
+    await expectDenied(fixture, `malformed_research_result:${required}`);
   }
 });
 
-test("duplicate Research result and untrusted author fail closed", () => {
+test("duplicate Research result and untrusted author fail closed through Worker B production validation", async () => {
   const duplicate = baseFixture();
   duplicate.comments.push({ ...duplicate.comments[0] });
-  expectDenied(duplicate, "missing_or_duplicate_research_result");
+  await expectDenied(duplicate, "missing_or_duplicate_research_result");
 
   const untrusted = baseFixture();
   untrusted.comments[0].user = { login: "founder", type: "User" };
-  expectDenied(untrusted, "research_result_not_actions_safe_output");
+  await expectDenied(untrusted, "research_result_not_actions_safe_output");
 });
 
-test("stale or wrong Research parent identity fails closed", () => {
+test("wrong repository/workflow/path/event/branch/conclusion and replayed parent fail closed through Worker B production validation", async () => {
   const attacks = [
+    [{ repository: { full_name: "other/repo", fork: false } }, "wrong_research_repository"],
     [{ name: "Other Research" }, "wrong_workflow_name"],
     [{ path: ".github/workflows/other.yml" }, "wrong_workflow_path"],
     [{ event: "push" }, "wrong_research_event"],
     [{ head_branch: "feature" }, "wrong_research_branch"],
     [{ conclusion: "failure" }, "research_not_success"],
     [{ run_attempt: 2 }, "replayed_research_run"],
-    [{ repository: { full_name: "other/repo", fork: false } }, "wrong_research_repository"],
   ];
-  for (const [workflowRun, reason] of attacks) expectDenied(baseFixture({ workflowRun }), reason);
+  for (const [workflowRun, reason] of attacks) {
+    await expectDenied(baseFixture({ workflowRun }), reason);
+  }
+
+  await expectDenied(baseFixture({ repositoryContext: { owner: "other", repo: "repo" } }), "wrong_repository_context");
 });
