@@ -1,0 +1,99 @@
+name: Reusable QA Worker v0.1
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Durable work-item issue number (wake-up pointer only)
+        required: true
+        type: string
+      dispatch_identity:
+        description: Deterministic dispatch identity (wake-up correlation only)
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: lv-rqa-${{ inputs.issue_number }}-qa
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: read
+    outputs:
+      commit_sha: ${{ steps.pre.outputs.commit_sha }}
+      prompt: ${{ steps.pre.outputs.prompt }}
+      not_before: ${{ steps.pre.outputs.not_before }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - id: pre
+        name: Re-read durable authority and prove fresh QA eligibility
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/research-qa-workflow-helper-v01.js preflight "${{ inputs.issue_number }}" "${{ inputs.dispatch_identity }}" qa
+
+  qa:
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    outputs:
+      final_message: ${{ steps.codex.outputs.final-message }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.preflight.outputs.commit_sha }}
+          persist-credentials: false
+      - name: Run fresh independent read-only QA worker
+        id: codex
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ":read-only"
+          prompt: ${{ needs.preflight.outputs.prompt }}
+          output-schema-file: protocol/research-qa/worker-substance.schema.json
+
+  persist:
+    needs: [preflight, qa]
+    if: ${{ needs.qa.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Infrastructure-author authoritative QA result, read back, prove terminal durability, and STOP
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RQA_FINAL_MESSAGE: ${{ needs.qa.outputs.final_message }}
+          RQA_NOT_BEFORE: ${{ needs.preflight.outputs.not_before }}
+        run: node scripts/research-qa-workflow-helper-v01.js persist "${{ inputs.issue_number }}" "${{ inputs.dispatch_identity }}" qa
+
+  terminal:
+    needs: [preflight, qa, persist]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Reject false-green or partial QA completion
+        shell: bash
+        run: |
+          test "${{ needs.preflight.result }}" = "success"
+          test "${{ needs.qa.result }}" = "success"
+          test "${{ needs.persist.result }}" = "success"
