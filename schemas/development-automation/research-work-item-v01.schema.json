@@ -19,7 +19,7 @@
     "qa_requirement": {"const":"one"},
     "founder_gate": {"const":"founder-lead-stop-after-qa"},
     "confidentiality": {"enum":["public","confidential-engineering","restricted-rd"]},
-    "budget": {"type":"object","additionalProperties":false,"required":["max_worker_runs","max_actions_runtime_minutes"],"properties":{"max_worker_runs":{"type":"integer","minimum":1,"maximum":4},"max_actions_runtime_minutes":{"type":"integer","minimum":1,"maximum":10},"max_ai_cost_or_credits":{"type":["number","null"],"minimum":0}}},
+    "budget": {"type":"object","additionalProperties":false,"required":["max_worker_runs","max_actions_runtime_minutes"],"properties":{"max_worker_runs":{"const":1},"max_actions_runtime_minutes":{"const":10},"max_ai_cost_or_credits":{"const":null}}},
     "replay_identity": {"type":"string","pattern":"^[a-f0-9]{64}$"},
     "dependencies": {"type":"array","maxItems":0}
   }
