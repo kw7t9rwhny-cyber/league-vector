@@ -39,7 +39,7 @@ Codex receives a read-only checkout and returns only `worker-substance.schema.js
 
 The deterministic persistence job constructs that provenance, validates substance, writes the terminal result, reads it back, and exercises the same production validator to prove exactly one current-run result before the workflow's terminal job can be green.
 
-Before a durable result can grant downstream eligibility, deterministic infrastructure independently fetches the asserted GitHub Actions run and verifies the asserted run ID and run attempt, repository, exact Research-versus-QA workflow path, `workflow_dispatch` event, installed `main` ref, and result/run chronology. Generic Actions-bot authorship plus self-consistent envelope fields is not sufficient.
+Persistence also emits a short-lived GitHub Actions artifact whose name is the SHA-256 of the **full canonical terminal result**. Before a durable result can grant downstream eligibility, deterministic infrastructure independently fetches the asserted GitHub Actions run and its artifacts, then verifies the asserted run ID and run attempt, repository, exact Research-versus-QA workflow path, `workflow_dispatch` event, installed `main` ref, result/run chronology, and the exact non-expired result-proof artifact. Generic Actions-bot authorship plus self-consistent envelope fields is not sufficient, and a different workflow run cannot create an artifact inside the asserted worker run.
 
 Research status is `COMPLETE` or `BLOCKED`. QA is a fresh independent execution and may return only `PASS`, `FAIL`, or `BLOCKED`. All QA dispositions stop at the Founder/Lead gate. `BLOCKED` is never PASS.
 
@@ -65,7 +65,7 @@ A worker that cannot resolve required evidence/context is required to return `BL
 
 ## Permissions
 
-Model-facing Research and QA jobs remain `contents: read` with Codex `:read-only`. Deterministic infrastructure receives only the additional repository permissions needed for durable Issue state, workflow dispatch, and authenticated Actions metadata reads. No v0.1 job receives `contents: write`, pull-request write, deployment write, or package write.
+Model-facing Research and QA jobs remain `contents: read` with Codex `:read-only`. Deterministic infrastructure receives only the additional repository permissions needed for durable Issue state, workflow dispatch, and authenticated Actions metadata/artifact reads. No v0.1 job receives `contents: write`, pull-request write, deployment write, or package write.
 
 ## Workflow registry preflight
 
