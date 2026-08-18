@@ -33,7 +33,7 @@ on:
           if (issue.number !== 53 || issue.title !== 'AGENT SPIKE TEST — harmless two-worker handoff') return deny('wrong_fixture');
           const body = issue.body;
           if (typeof body !== 'string') return deny('missing_fixture_body');
-          const revisionMatches = [...body.matchAll(/^Fixture revision: stage3c-v0\.1-r5$/gm)];
+          const revisionMatches = [...body.matchAll(/^Fixture revision: stage3c-v0\.1-r6$/gm)];
           const eligibilityMatches = [...body.matchAll(/^Eligibility: ([^\r\n]+)$/gm)];
           if (revisionMatches.length !== 1) return deny('wrong_fixture_revision');
           if (eligibilityMatches.length !== 1 || eligibilityMatches[0][1] !== 'READY') return deny('fixture_not_ready');
@@ -46,7 +46,7 @@ on:
           if (researchForRun.length !== 1) return deny('missing_or_duplicate_research_result');
           const result = researchForRun[0];
           if (result.user?.login !== 'github-actions[bot]' || result.user?.type !== 'Bot') return deny('research_result_not_actions_safe_output');
-          const required = ['STAGE3C_RESEARCH_RESULT v0.1','worker_role: research-worker-a','fixture_issue: 53','fixture_revision: stage3c-v0.1-r5',runIdLine,runNumberLine,'repository_source_path: docs/ARCHITECTURE.md','completion_status: complete'];
+          const required = ['STAGE3C_RESEARCH_RESULT v0.1','worker_role: research-worker-a','fixture_issue: 53','fixture_revision: stage3c-v0.1-r6',runIdLine,runNumberLine,'repository_source_path: docs/ARCHITECTURE.md','completion_status: complete'];
           for (const line of required) if (exactLineCount(result.body, line) !== 1) return deny(`malformed_research_result:${line}`);
           const observedFields = typeof result.body === 'string' ? result.body.split(/\r?\n/).filter((line) => line.startsWith('observed_fact:')) : [];
           const observed = ['observed_fact: exists', 'observed_fact: missing'].filter((line) => exactLineCount(result.body, line) === 1);
@@ -57,6 +57,50 @@ on:
           const priorQa = comments.filter((comment) => typeof comment.body === 'string' && /^STAGE3C_QA_RESULT v0\.1 — (PASS|FAIL)$/m.test(comment.body) && exactLineCount(comment.body, runIdLine) === 1);
           if (priorQa.length !== 0) return deny('prior_authoritative_qa_result');
           core.info(`stage3c_qa_activation_authorized:research_run_id=${wr.id}`);
+jobs:
+  conclusion:
+    pre-steps:
+      - name: Prove durable authoritative QA result
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const deny = (why) => core.setFailed(`stage3c_qa_completion_denied:${why}`);
+            if (process.env.GITHUB_RUN_ATTEMPT !== '1') return deny('replayed_run');
+            const wr = context.payload.workflow_run;
+            if (!wr || !Number.isInteger(wr.id) || !Number.isInteger(wr.run_number) || typeof wr.head_sha !== 'string' || !/^[a-f0-9]{40}$/.test(wr.head_sha)) return deny('malformed_research_identity');
+            const issue = (await github.rest.issues.get({ owner: context.repo.owner, repo: context.repo.repo, issue_number: 53 })).data;
+            if (issue.number !== 53 || issue.title !== 'AGENT SPIKE TEST — harmless two-worker handoff') return deny('wrong_fixture');
+            const body = issue.body;
+            if (typeof body !== 'string') return deny('missing_fixture_body');
+            const revisionMatches = [...body.matchAll(/^Fixture revision: stage3c-v0\.1-r6$/gm)];
+            const eligibilityMatches = [...body.matchAll(/^Eligibility: ([^\r\n]+)$/gm)];
+            if (revisionMatches.length !== 1) return deny('wrong_fixture_revision');
+            if (eligibilityMatches.length !== 1 || eligibilityMatches[0][1] !== 'READY') return deny('fixture_not_ready');
+            const comments = await github.paginate(github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: 53, per_page: 100 });
+            const exactLineCount = (text, line) => typeof text === 'string' ? text.split(/\r?\n/).filter((value) => value === line).length : 0;
+            const qaRunIdLine = `qa_run_id: ${context.runId}`;
+            const qaRunNumberLine = `qa_run_number: ${context.runNumber}`;
+            const researchRunIdLine = `research_run_id: ${wr.id}`;
+            const researchRunNumberLine = `research_run_number: ${wr.run_number}`;
+            const researchHeadShaLine = `research_head_sha: ${wr.head_sha}`;
+            const qaFamilyLine = (line) => typeof line === 'string' && /^STAGE3C_QA_RESULT(?:\s|$)/.test(line);
+            const qaForRun = comments.filter((comment) => typeof comment.body === 'string' && comment.body.split(/\r?\n/).some((line) => qaFamilyLine(line)) && exactLineCount(comment.body, qaRunIdLine) > 0);
+            if (qaForRun.length !== 1) return deny('missing_or_duplicate_qa_result');
+            const result = qaForRun[0];
+            if (result.user?.login !== 'github-actions[bot]' || result.user?.type !== 'Bot') return deny('qa_result_not_actions_safe_output');
+            const lines = result.body.split(/\r?\n/);
+            const familyLines = lines.filter((line) => qaFamilyLine(line));
+            const markerMatches = familyLines.map((line) => line.match(/^STAGE3C_QA_RESULT v0\.1 — (PASS|FAIL)$/)).filter(Boolean);
+            if (familyLines.length !== 1 || markerMatches.length !== 1) return deny('malformed_qa_result_marker');
+            const disposition = markerMatches[0][1];
+            const required = ['worker_role: qa-worker-b','fixture_issue: 53','fixture_revision: stage3c-v0.1-r6',qaRunIdLine,qaRunNumberLine,researchRunIdLine,researchRunNumberLine,researchHeadShaLine,'repository_source_path: docs/ARCHITECTURE.md'];
+            for (const line of required) if (exactLineCount(result.body, line) !== 1) return deny(`malformed_qa_result:${line}`);
+            const observedFields = lines.filter((line) => line.startsWith('independent_observed_fact:'));
+            const observed = ['independent_observed_fact: exists', 'independent_observed_fact: missing'].filter((line) => exactLineCount(result.body, line) === 1);
+            if (observedFields.length !== 1 || observed.length !== 1) return deny('malformed_independent_observed_fact');
+            const verdictFields = lines.filter((line) => line.startsWith('verdict:'));
+            if (verdictFields.length !== 1 || exactLineCount(result.body, `verdict: ${disposition}`) !== 1) return deny('malformed_or_contradictory_verdict');
+            core.info(`stage3c_qa_completion_verified:qa_run_id=${context.runId}:verdict=${disposition}`);
 if: needs.pre_activation.outputs.research_authority_result == 'success'
 permissions:
   contents: read
@@ -107,7 +151,7 @@ The authoritative Research completion that triggered this run is:
 
 ## Durable handoff verification
 
-Read Issue #53 and its comments using GitHub read tools. Reconfirm the single Worker A durable comment containing `STAGE3C_RESEARCH_RESULT v0.1`, `worker_role: research-worker-a`, `fixture_issue: 53`, `fixture_revision: stage3c-v0.1-r5`, the triggering Research run id/number, `repository_source_path: docs/ARCHITECTURE.md`, and `completion_status: complete` exactly once. If the correlation or current fixture state no longer matches, return FAIL. Do not substitute an older r1/r2/r3/r4 Research result.
+Read Issue #53 and its comments using GitHub read tools. Reconfirm the single Worker A durable comment containing `STAGE3C_RESEARCH_RESULT v0.1`, `worker_role: research-worker-a`, `fixture_issue: 53`, `fixture_revision: stage3c-v0.1-r6`, the triggering Research run id/number, `repository_source_path: docs/ARCHITECTURE.md`, and `completion_status: complete` exactly once. If the correlation or current fixture state no longer matches, return FAIL. Do not substitute an older r1/r2/r3/r4/r5 Research result.
 
 ## Independent repository verification
 
@@ -119,4 +163,4 @@ Compare the independently observed fact with Worker A's `observed_fact`. Do not 
 
 Request exactly one safe-output comment on Issue #53. Begin with `STAGE3C_QA_RESULT v0.1 — PASS` only if every correlation, freshness, and repository-truth check passes; otherwise use `STAGE3C_QA_RESULT v0.1 — FAIL`.
 
-Include exactly once: `worker_role: qa-worker-b`, `fixture_issue: 53`, `fixture_revision: stage3c-v0.1-r5`, QA run id/number, Research run id/number/head SHA, `repository_source_path: docs/ARCHITECTURE.md`, one independent observed fact, and matching verdict. Give a short evidence summary without model-internal reasoning.
+Include exactly once: `worker_role: qa-worker-b`, `fixture_issue: 53`, `fixture_revision: stage3c-v0.1-r6`, `qa_run_id: ${{ github.run_id }}`, `qa_run_number: ${{ github.run_number }}`, `research_run_id: ${{ github.event.workflow_run.id }}`, `research_run_number: ${{ github.event.workflow_run.run_number }}`, `research_head_sha: ${{ github.event.workflow_run.head_sha }}`, `repository_source_path: docs/ARCHITECTURE.md`, exactly one `independent_observed_fact: exists` or `independent_observed_fact: missing`, and exactly one `verdict: PASS` or `verdict: FAIL` matching the marker disposition. Give a short evidence summary without model-internal reasoning.
