@@ -8,7 +8,7 @@ function work(overrides={}) {
 const substanceR={status:"COMPLETE",claims_or_findings:["found workflows"],evidence_refs:["repo://.github/workflows"],artifact_refs:[],limitations:"",recommended_next_action:"QA"};
 const substanceQ=(status="PASS")=>({status,claims_or_findings:["independently checked"],evidence_refs:["repo://.github/workflows"],artifact_refs:[],limitations:"",recommended_next_action:"Founder review"});
 function result(w,role,run,up=[],sub,ri,created_at="2026-08-18T15:00:00Z"){return p.buildAuthoritativeResult({work_item:w,role,role_instance_id:ri||`${role}-1`,worker_run_id:run,run_attempt:1,upstream_result_ids:up,writer_identity:"github-actions[bot]",created_at,substance:sub});}
-function runMeta(role,id,{path,status="in_progress",conclusion=null,run_attempt=1,event="workflow_dispatch",repository=input.repository,head_branch="main",started="2026-08-18T14:59:00Z"}={}){return {id,run_attempt,event,path:path||p.WORKFLOW_PATHS[role],status,conclusion,repository:{full_name:repository},head_branch,run_started_at:started,created_at:started};}
+function runMeta(role,id,{path,status="completed",conclusion="success",run_attempt=1,event="workflow_dispatch",repository=input.repository,head_branch="main",started="2026-08-18T14:59:00Z"}={}){return {id,run_attempt,event,path:path||p.WORKFLOW_PATHS[role],status,conclusion,repository:{full_name:repository},head_branch,run_started_at:started,created_at:started};}
 const usage={worker_runs_used:0};
 
 test("valid narrow v0.1 work item",()=>assert.equal(p.validateWorkItem(work()),true));
