@@ -8,6 +8,8 @@ Codex is an engineering execution tool within that system. Codex does not indepe
 
 The specific assignment given for a task controls the task. This file supplies repository-wide defaults and safety constraints. If an assignment is narrower than this file, the narrower assignment wins.
 
+A specific Founder-authorized assignment may expand a default restriction only when it does so explicitly. Otherwise, the narrower instruction controls.
+
 1. Founder authority
 
 The Founder/Lead determines what work is authorized.
@@ -84,7 +86,7 @@ When Codex is invoked as an assigned VectorOS Research or QA worker, the role co
 
 A Research or QA worker must not expand itself into Implementation, remediation, another Research worker, another QA worker, Controller, persistence infrastructure, or Founder/Lead.
 
-Research must not self-launch QA unless the installed protocol explicitly assigns that action to deterministic infrastructure.
+Research must never self-launch QA. Only deterministic infrastructure may dispatch QA when authorized by the installed protocol.
 
 QA must remain independent of the Research execution it evaluates.
 
@@ -149,7 +151,7 @@ Prefer capability-preserving compatibility fixes over authority expansion.
 
 12. Secrets
 
-Never print secrets, commit secrets, write secrets into tests or logs, move secrets into public persistence, or create replacement credentials without explicit authority.
+Never print secrets, commit secrets, write secrets into tests or logs, or move secrets into public persistence. Do not create or replace credentials without explicit authority, and keep them within the authorized secret boundary.
 
 Use existing secret boundaries only as authorized by the assignment.
 
