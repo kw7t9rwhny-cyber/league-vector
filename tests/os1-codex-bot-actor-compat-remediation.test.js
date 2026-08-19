@@ -6,7 +6,8 @@ const path = require('node:path');
 const test = require('node:test');
 const protocol = require('../lib/research-qa-protocol-v01.js');
 
-const researchPath = '.github/workflows/research-qa-research-v01.yml';
+const researchPath = process.env.OS1_RESEARCH_WORKFLOW_PATH
+  || '.github/workflows/research-qa-research-v01.yml';
 const controllerPath = '.github/workflows/research-qa-controller-v01.yml';
 const helperPath = 'scripts/research-qa-workflow-helper-v01.js';
 
@@ -152,6 +153,141 @@ function extractJob(workflow, jobName) {
   return lines.slice(start, end).join('\n');
 }
 
+function extractStepBlocks(job) {
+  const lines = job.split('\n');
+  const starts = [];
+  for (let index = 0; index < lines.length; index += 1) {
+    if (/^      - /.test(lines[index])) starts.push(index);
+  }
+  return starts.map((start, index) => {
+    const end = index + 1 < starts.length ? starts[index + 1] : lines.length;
+    return lines.slice(start, end).join('\n');
+  });
+}
+
+function extractCodexStep(workflow) {
+  const steps = extractStepBlocks(extractJob(workflow, 'research')).filter(
+    (step) => /^        uses:\s*openai\/codex-action@v1\s*$/m.test(step),
+  );
+  assert.equal(steps.length, 1, 'Research must contain exactly one Codex action step');
+  return steps[0];
+}
+
+function extractStepInputs(step) {
+  const lines = step.split('\n');
+  const withIndex = lines.findIndex((line) => /^        with:\s*$/.test(line));
+  assert.notEqual(withIndex, -1, 'Codex action step must contain a with mapping');
+  return lines.slice(withIndex + 1).flatMap((line) => {
+    const match = line.match(/^          ([A-Za-z0-9_-]+):\s*(.*?)\s*$/);
+    return match ? [{ key: match[1], value: match[2] }] : [];
+  });
+}
+
+function replaceResearchJob(workflow, transform) {
+  const researchJob = extractJob(workflow, 'research');
+  const mutatedResearchJob = transform(researchJob);
+  assert.notEqual(mutatedResearchJob, researchJob, 'mutation must alter Research job');
+  return workflow.replace(researchJob, mutatedResearchJob);
+}
+
+function addCodexInput(workflow, key, value) {
+  return replaceResearchJob(workflow, (researchJob) => {
+    const codexStep = extractCodexStep(workflow);
+    const marker = '          allow-bots: true';
+    assert.match(codexStep, /^          allow-bots:\s*true\s*$/m);
+    const mutatedCodexStep = codexStep.replace(marker, `${marker}\n          ${key}: ${value}`);
+    return researchJob.replace(codexStep, mutatedCodexStep);
+  });
+}
+
+function addResearchRunStep(workflow, { name, env = {}, run }) {
+  return replaceResearchJob(workflow, (researchJob) => {
+    const envEntries = Object.entries(env);
+    const envBlock = envEntries.length === 0
+      ? ''
+      : `\n        env:\n${envEntries.map(([key, value]) => `          ${key}: ${value}`).join('\n')}`;
+    const trimmedJob = researchJob.replace(/\s+$/, '');
+    return `${trimmedJob}\n      - name: ${name}${envBlock}\n        run: ${run}\n\n`;
+  });
+}
+
+function extractRunScripts(workflow) {
+  return extractStepBlocks(extractJob(workflow, 'research')).flatMap((step) => {
+    const lines = step.split('\n');
+    const runIndex = lines.findIndex((line) => /^        run:/.test(line));
+    if (runIndex === -1) return [];
+
+    const scalar = lines[runIndex].replace(/^        run:\s*/, '').trim();
+    if (!/^[|>][+-]?$/.test(scalar)) return [scalar];
+    return [lines.slice(runIndex + 1).map((line) => line.replace(/^          /, '')).join('\n')];
+  });
+}
+
+function classifyGhApiMethods(script) {
+  const normalized = script.replace(/\\\r?\n\s*/g, ' ');
+  const methods = [];
+  const apiCommands = normalized.matchAll(/\bgh\s+api\b([^;\n&|]*)/gi);
+  for (const command of apiCommands) {
+    const args = command[1];
+    const hasMethodFlag = /(?:^|\s)(?:--method(?:\s|=)|-X)/i.test(args);
+    if (!hasMethodFlag) {
+      const hasRequestBody = /(?:^|\s)(?:-f|-F|--raw-field|--field|--input)(?:\s|=)/.test(args);
+      methods.push(hasRequestBody ? 'POST' : 'GET');
+      continue;
+    }
+    const literal = args.match(
+      /(?:^|\s)(?:--method(?:\s+|=)|-X(?:\s*=?\s*))(["']?)([A-Za-z]+)\1/i,
+    );
+    methods.push(literal ? literal[2].toUpperCase() : 'UNKNOWN');
+  }
+  return methods;
+}
+
+function assertApprovedActorAdmission(workflow) {
+  const allowInputs = extractStepInputs(extractCodexStep(workflow)).filter(
+    ({ key }) => key.startsWith('allow-'),
+  );
+  assert.deepEqual(
+    allowInputs,
+    [{ key: 'allow-bots', value: 'true' }],
+    'allow-bots: true must be the sole Research actor-admission expansion',
+  );
+}
+
+function assertResearchCredentialAuthority(workflow) {
+  const researchJob = extractJob(workflow, 'research');
+  const codexStep = extractCodexStep(workflow);
+  const approvedOpenAiKey = /^          openai-api-key:\s*\$\{\{\s*secrets\.OPENAI_API_KEY\s*\}\}\s*$/m;
+  assert.match(codexStep, approvedOpenAiKey, 'Codex must receive only its approved OpenAI credential');
+
+  const withoutApprovedOpenAiKey = researchJob.replace(
+    approvedOpenAiKey,
+    '          openai-api-key: [approved-openai-credential]',
+  );
+  assert.doesNotMatch(
+    withoutApprovedOpenAiKey,
+    /\bsecrets\s*(?:\.|\[)/,
+    'Research must not receive any alternate secret-sourced credential',
+  );
+}
+
+function assertResearchPublicMutationBoundary(workflow) {
+  for (const script of extractRunScripts(workflow)) {
+    const normalized = script.replace(/\\\r?\n\s*/g, ' ');
+    assert.doesNotMatch(
+      normalized,
+      /\bgit\s+push\b|\bgh\s+(?:pr|issue|release)\s+(?:create|edit|close|reopen|merge|delete)\b/i,
+      'Research must not execute a public repository mutation command',
+    );
+    for (const method of classifyGhApiMethods(script)) {
+      assert.ok(
+        method === 'GET' || method === 'HEAD',
+        `Research gh api method must be read-only, received ${method}`,
+      );
+    }
+  }
+}
+
 function assertResearchModelAuthority(workflow) {
   const researchJob = extractJob(workflow, 'research');
   assert.match(
@@ -164,6 +300,13 @@ function assertResearchModelAuthority(workflow) {
     /\n      (?:contents|actions|issues|pull-requests|deployments|packages|administration): write(?:\n|$)/,
     'Research model-execution job must not gain repository write authority',
   );
+}
+
+function assertResearchAuthorityBoundary(workflow) {
+  assertResearchModelAuthority(workflow);
+  assertApprovedActorAdmission(workflow);
+  assertResearchCredentialAuthority(workflow);
+  assertResearchPublicMutationBoundary(workflow);
 }
 
 test('allow-bots true is scoped to Research Codex invocation', () => {
@@ -182,6 +325,10 @@ test('permission profile remains read-only', () => {
 
 test('Research model-execution job authority remains read-only', () => {
   assertResearchModelAuthority(research);
+});
+
+test('Research composite authority boundary remains capability-bounded', () => {
+  assertResearchAuthorityBoundary(research);
 });
 
 test('negative mutation: Research model contents write is detected', () => {
@@ -222,19 +369,45 @@ test('Research checkout remains bound to validated immutable commit_sha', () => 
   );
 });
 
-test('no allow-users wildcard is introduced', () => {
-  assert.doesNotMatch(extractJob(research, 'research'), /allow-users:\s*["']?\*/);
+test('allow-bots true remains the sole actor-admission expansion', () => {
+  assertApprovedActorAdmission(research);
 });
 
-test('no broad arbitrary allow-bot-users override is introduced', () => {
-  assert.doesNotMatch(extractJob(research, 'research'), /allow-bot-users:/);
+test('negative mutation: named allow-users actor admission is detected', () => {
+  const mutatedWorkflow = addCodexInput(research, 'allow-users', 'untrusted-outsider');
+  assert.throws(() => assertApprovedActorAdmission(mutatedWorkflow), assert.AssertionError);
 });
 
-test('no PAT or alternate write-token input is introduced', () => {
-  assert.doesNotMatch(
+test('negative mutation: arbitrary allow-bot-users admission is detected', () => {
+  const mutatedWorkflow = addCodexInput(research, 'allow-bot-users', 'untrusted-outsider[bot]');
+  assert.throws(() => assertApprovedActorAdmission(mutatedWorkflow), assert.AssertionError);
+});
+
+test('negative mutation: equivalent arbitrary actor-admission input is detected', () => {
+  const mutatedWorkflow = addCodexInput(research, 'allow-actors', 'untrusted-outsider');
+  assert.throws(() => assertApprovedActorAdmission(mutatedWorkflow), assert.AssertionError);
+});
+
+test('Research receives no alternate secret-sourced repository credential', () => {
+  assertResearchCredentialAuthority(research);
+});
+
+test('negative mutation: alternate privileged GH_TOKEN exposure is detected', () => {
+  const mutatedWorkflow = addResearchRunStep(research, {
+    name: 'Read with alternate credential',
+    env: { GH_TOKEN: '${{ secrets.REPOSITORY_ADMIN_TOKEN }}' },
+    run: 'gh api --method GET repos/${{ github.repository }}',
+  });
+  assert.throws(() => assertResearchCredentialAuthority(mutatedWorkflow), assert.AssertionError);
+});
+
+test('negative mutation: alternate privileged credential on Research model step is detected', () => {
+  const mutatedWorkflow = addCodexInput(
     research,
-    /\bPAT\b|personal[_ -]?access[_ -]?token|write[_ -]?token/i,
+    'repository-credential',
+    '${{ secrets.REPOSITORY_ADMIN_TOKEN }}',
   );
+  assert.throws(() => assertResearchCredentialAuthority(mutatedWorkflow), assert.AssertionError);
 });
 
 test('Research remains workflow_dispatch worker', () => {
@@ -262,7 +435,43 @@ test('Research workflow does not dispatch QA directly', () => {
 });
 
 test('Research workflow contains no public mutation CLI', () => {
-  assert.doesNotMatch(research, /\b(?:git push|gh pr create|gh issue create|gh release create)\b/);
+  assertResearchPublicMutationBoundary(research);
+});
+
+test('read-only GitHub API GET remains permitted by command classification', () => {
+  const mutatedWorkflow = addResearchRunStep(research, {
+    name: 'Read public repository metadata',
+    run: 'gh api --method GET repos/${{ github.repository }}',
+  });
+  assert.doesNotThrow(() => assertResearchPublicMutationBoundary(mutatedWorkflow));
+});
+
+for (const method of ['POST', 'PUT', 'PATCH', 'DELETE']) {
+  test(`negative mutation: Research gh api --method ${method} is detected`, () => {
+    const mutatedWorkflow = addResearchRunStep(research, {
+      name: `Attempt generic ${method} mutation`,
+      run: `gh api --method ${method} repos/\${{ github.repository }}/issues`,
+    });
+    assert.throws(() => assertResearchPublicMutationBoundary(mutatedWorkflow), assert.AssertionError);
+  });
+}
+
+test('negative mutation: implicit Research gh api POST via request fields is detected', () => {
+  const mutatedWorkflow = addResearchRunStep(research, {
+    name: 'Attempt implicit generic POST mutation',
+    run: 'gh api repos/${{ github.repository }}/issues -f title=unauthorized',
+  });
+  assert.throws(() => assertResearchPublicMutationBoundary(mutatedWorkflow), assert.AssertionError);
+});
+
+test('negative composite mutation: actor, credential, and generic POST escape is detected', () => {
+  let mutatedWorkflow = addCodexInput(research, 'allow-users', 'untrusted-outsider');
+  mutatedWorkflow = addResearchRunStep(mutatedWorkflow, {
+    name: 'Attempt composite Research authority escape',
+    env: { GH_TOKEN: '${{ secrets.REPOSITORY_ADMIN_TOKEN }}' },
+    run: 'gh api --method POST repos/${{ github.repository }}/issues',
+  });
+  assert.throws(() => assertResearchAuthorityBoundary(mutatedWorkflow), assert.AssertionError);
 });
 
 test('Controller executable path dispatches the intended Research workflow', (t) => {
