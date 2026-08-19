@@ -65,6 +65,19 @@ test('negative mutation: Research model contents write is detected', () => {
   assert.throws(() => assertResearchModelAuthority(mutatedWorkflow), assert.AssertionError);
 });
 
+for (const permission of ['actions', 'issues', 'pull-requests', 'deployments', 'packages', 'administration']) {
+  test(`negative mutation: Research model ${permission} write is detected`, () => {
+    const researchJob = extractJob(research, 'research');
+    const mutatedResearchJob = researchJob.replace(
+      '      contents: read',
+      `      contents: read\n      ${permission}: write`,
+    );
+    assert.notEqual(mutatedResearchJob, researchJob, 'mutation must alter Research model permissions');
+    const mutatedWorkflow = research.replace(researchJob, mutatedResearchJob);
+    assert.throws(() => assertResearchModelAuthority(mutatedWorkflow), assert.AssertionError);
+  });
+}
+
 test('authorized persistence job scoped writes remain permitted', () => {
   const persistJob = extractJob(research, 'persist');
   assert.match(persistJob, /\n    permissions:\n      contents: read\n      issues: write\n      actions: write(?:\n|$)/);
@@ -91,7 +104,10 @@ test('no broad arbitrary allow-bot-users override is introduced', () => {
 });
 
 test('no PAT or alternate write-token input is introduced', () => {
-  assert.doesNotMatch(research, /PAT|personal[_ -]?access[_ -]?token|write[_ -]?token/i);
+  assert.doesNotMatch(
+    research,
+    /\bPAT\b|personal[_ -]?access[_ -]?token|write[_ -]?token/i,
+  );
 });
 
 test('Research remains workflow_dispatch worker', () => {
