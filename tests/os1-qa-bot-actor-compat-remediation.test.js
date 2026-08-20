@@ -20,7 +20,7 @@ const helper = fs.readFileSync(helperPath, 'utf8');
 
 const repository = 'kw7t9rwhny-cyber/league-vector';
 const currentMainQaBlob = '4509aec39a5d0381899336db75c20358bf895ed5';
-const currentMainResearchBlob = 'e1c2d758bb21107df1da2791a75ad9f2feb6ab1a';
+const qaClearedPr71ResearchBlob = 'cfb1580a3e9fb35b44ec9a9759f7c58e5719d2e9';
 const inputIdentity = {
   repository,
   commit_sha: 'a'.repeat(40),
@@ -705,6 +705,6 @@ test('routing remains Research=1, QA=1, third worker=0 under max_worker_runs=2',
   );
 });
 
-test('QA candidate leaves current-main Research workflow byte-identical', () => {
-  assert.equal(gitBlobSha(research), currentMainResearchBlob);
+test('combined installation requires exact QA-cleared PR #71 Research workflow', () => {
+  assert.equal(gitBlobSha(research), qaClearedPr71ResearchBlob);
 });
