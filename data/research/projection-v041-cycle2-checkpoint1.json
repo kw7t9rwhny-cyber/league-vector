@@ -1,0 +1,49 @@
+{
+  "version": "lv-projection-v041-cycle2-checkpoint1",
+  "source_head": "a436bc6246aff698e6b3d9122182bb5fc2207bbc",
+  "source_workflow_run": 31765523259,
+  "control_head": "6d931abadbcb06e910bf953d941902c7c2cd1638",
+  "snapshot_sha256": "d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188",
+  "selection_scope": [2020, 2021, 2022, 2023, 2024],
+  "retrospective_observed": 2025,
+  "deterministic": true,
+  "te_specialized_model_result": {
+    "age_direct": {"wins":2,"losses":2,"mean_mae_gain_pct":-1.6608469652},
+    "age_experience_direct": {"wins":2,"losses":2,"mean_mae_gain_pct":-1.8488575443},
+    "opportunity_direct": {"wins":0,"losses":4,"mean_mae_gain_pct":-3.1807707318},
+    "age_opportunity_direct": {"wins":2,"losses":2,"mean_mae_gain_pct":-1.9942016733},
+    "role_growth_direct": {"wins":2,"losses":2,"mean_mae_gain_pct":-2.2215119557},
+    "decision": "reject all tested direct TE replacements; validated v0.4 remains control"
+  },
+  "rookie_draft_capital_vs_bucket_prior": {
+    "QB": {"n":62,"folds":7,"wins":3,"losses":4,"mean_mae_gain_pct":-6.8929729108},
+    "RB": {"n":217,"folds":7,"wins":4,"losses":3,"mean_mae_gain_pct":0.8522272464},
+    "WR": {"n":289,"folds":7,"wins":3,"losses":4,"mean_mae_gain_pct":-0.9426708833},
+    "TE": {"n":126,"folds":7,"wins":5,"losses":2,"mean_mae_gain_pct":7.0295831126},
+    "decision": "TE rookie draft-capital signal merits deeper ablation and uncertainty work; RB directional only; QB/WR rejected at this stage"
+  },
+  "whole_player_uncertainty_80pct": {
+    "finding": "history-depth matters materially; several one/two-year groups under-cover nominal 80% intervals while established groups are closer to calibration",
+    "QB_h1_mean_coverage": 0.6326,
+    "QB_h2_mean_coverage": 0.5833,
+    "QB_h3plus_mean_coverage": 0.7874,
+    "RB_h1_mean_coverage": 0.6415,
+    "RB_h2_mean_coverage": 0.8427,
+    "RB_h3plus_mean_coverage": 0.8411,
+    "WR_h1_mean_coverage": 0.7807,
+    "WR_h2_mean_coverage": 0.7253,
+    "WR_h3plus_mean_coverage": 0.8385,
+    "TE_h1_mean_coverage": 0.7257,
+    "TE_h2_mean_coverage": 0.8203,
+    "TE_h3plus_mean_coverage": 0.7963,
+    "valuation_ready": false
+  },
+  "outlier_concentration": {
+    "finding": "top 10% of absolute misses contribute roughly 30-33% of total absolute error by position",
+    "QB": 0.3210,
+    "RB": 0.3327,
+    "WR": 0.3006,
+    "TE": 0.3212
+  },
+  "readiness": "CONTINUE TESTING"
+}
