@@ -219,13 +219,21 @@ expected deliverable/path → search relevant branches/refs → identify exact a
 
 A default-branch commit search alone is not sufficient evidence that an expected agent report is absent. Before declaring a durable deliverable missing, search the relevant non-main branches/refs and expected report filename/path to the maximum authenticated access available.
 
+Durable report discoverability is part of the handoff contract. Unless an assignment explicitly requires a different branch name, an agent that persists a durable report must use a deterministic, descriptive remote branch name derived from the assignment/report identity; push that branch; verify the remote branch/ref resolves to the exact report commit; directly read the report back from that exact immutable commit; and leave the remote report branch/ref intact until Founder/Command reconciliation has consumed the deliverable. Do not delete the only discoverable remote ref immediately after readback.
+
+A report commit that exists in Git object storage but is not reachable from a discoverable retained remote ref is durable bytes but an incomplete inter-agent handoff. Search/index APIs may lag or omit an unreferenced commit, so downstream discovery must not depend on commit-message indexing alone.
+
+When preparing future multi-agent prompts, include the expected report path and a deterministic expected remote branch name in the assignment whenever practical. This lets downstream Command retrieve the report directly by known ref without relying on GitHub search indexing.
+
+If an immutable commit SHA is already known from durable evidence, direct immutable fetch by SHA takes precedence over search/index results. A failed search does not invalidate a commit that can be directly fetched and verified by SHA.
+
 If an expected report still cannot be found after cross-ref retrieval, report exactly what was searched and what is missing rather than asking the Founder to relay the report from another chat.
 
 Chat output is not authoritative project state when the assignment requires durable persistence. A result that exists only in an agent chat has not satisfied the durable handoff contract. The repository copy is what downstream work consumes.
 
 The normal handoff path is:
 
-agent → designated GitHub persistence on an authorized ref → commit/push → direct remote readback → downstream agent/Command direct cross-ref retrieval.
+agent → designated GitHub persistence on an authorized retained ref → commit/push → verify remote ref → direct immutable remote readback → downstream agent/Command direct cross-ref retrieval.
 
 Do not substitute:
 
