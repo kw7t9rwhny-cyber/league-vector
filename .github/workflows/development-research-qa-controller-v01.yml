@@ -1,0 +1,99 @@
+name: Reusable Research QA Controller v0.1
+run-name: Controller ${{ inputs.issue_number }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Durable work-item issue number. Wake-up only; not authority.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  issues: write
+  actions: write
+
+concurrency:
+  group: reusable-research-qa-controller-${{ inputs.issue_number }}
+  cancel-in-progress: false
+
+jobs:
+  route:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Re-read durable work item and route deterministically
+        uses: actions/github-script@v9
+        env:
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+        with:
+          script: |
+            const p = require(`${process.env.GITHUB_WORKSPACE}/lib/development-automation/research-qa-protocol-v01.js`);
+            const issueNumber = Number(process.env.ISSUE_NUMBER);
+            if (!Number.isInteger(issueNumber) || issueNumber < 1) return core.setFailed('protocol_controller:invalid_issue_number');
+            const issue = (await github.rest.issues.get({ owner: context.repo.owner, repo: context.repo.repo, issue_number: issueNumber })).data;
+            const parsed = p.parseWorkItemIssue(issue);
+            if (!parsed.ok) return core.setFailed(`protocol_controller:work_item:${parsed.reason}`);
+            const workItem = parsed.workItem;
+            if (workItem.role !== 'research') return core.setFailed('protocol_controller:root_work_item_must_be_research');
+            if (workItem.input_identity.repository !== `${context.repo.owner}/${context.repo.repo}`) return core.setFailed('protocol_controller:wrong_repository');
+            const permission = (await github.rest.repos.getCollaboratorPermissionLevel({ owner: context.repo.owner, repo: context.repo.repo, username: issue.user.login })).data;
+            const issuer = p.validateTrustedIssuer(issue, permission);
+            if (!issuer.ok) return core.setFailed(`protocol_controller:${issuer.reason}`);
+            if (workItem.context_refs.some((ref) => ref.required && ref.kind === 'private_handoff')) return core.setFailed('protocol_controller:required_private_context_unavailable_in_public_runtime');
+            const commit = (await github.rest.repos.getCommit({ owner: context.repo.owner, repo: context.repo.repo, ref: workItem.input_identity.commit_sha })).data;
+            if (commit.sha !== workItem.input_identity.commit_sha || commit.commit?.tree?.sha !== workItem.input_identity.tree_sha) return core.setFailed('protocol_controller:immutable_input_mismatch');
+            const comments = await github.paginate(github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: issueNumber, per_page: 100 });
+            const qaWorkItem = p.deriveQaWorkItem(workItem);
+            const state = p.assessControllerState({ researchWorkItem: workItem, qaWorkItem, comments });
+            if (!state.ok) return core.setFailed(`protocol_controller:${state.reason}`);
+
+            const verifyCompletedRun = async (result, role) => {
+              const run = (await github.rest.actions.getWorkflowRun({ owner: context.repo.owner, repo: context.repo.repo, run_id: result.worker_run_id })).data;
+              const check = p.validateWorkerRunMetadata(run, { role, expectedRunId: result.worker_run_id });
+              if (!check.ok) throw new Error(`${role}_run:${check.reason}`);
+            };
+            if (state.researchResult) { try { await verifyCompletedRun(state.researchResult, 'research'); } catch (e) { return core.setFailed(`protocol_controller:${e.message}`); } }
+            if (state.qaResult) { try { await verifyCompletedRun(state.qaResult, 'qa'); } catch (e) { return core.setFailed(`protocol_controller:${e.message}`); } }
+
+            if (state.state === 'FOUNDER_STOP') {
+              core.info(`protocol_controller:founder_stop:${state.terminalDisposition}`);
+              return;
+            }
+            if (state.state === 'RESEARCH_DISPATCHED' || state.state === 'QA_DISPATCHED') {
+              core.info(`protocol_controller:dedupe:${state.state}`);
+              return;
+            }
+
+            const role = state.state === 'RESEARCH_ELIGIBLE' ? 'research' : state.state === 'QA_ELIGIBLE' ? 'qa' : null;
+            if (!role) return core.setFailed(`protocol_controller:unexpected_state:${state.state}`);
+            const roleItem = role === 'research' ? workItem : qaWorkItem;
+            const roleInstanceId = `${role}-primary`;
+            const upstreamResultIds = role === 'qa' ? [state.researchResult.result_id] : [];
+            const budget = p.enforceRunBudget({ workItem: roleItem, comments, roleInstanceId });
+            if (!budget.ok) return core.setFailed(`protocol_controller:${budget.reason}`);
+            const claim = p.buildDispatchClaim({ workItem: roleItem, role, roleInstanceId, upstreamResultIds, createdAt: new Date().toISOString() });
+            const claimBody = p.serializeMarkedJson(p.DISPATCH_MARKER, claim);
+            await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: issueNumber, body: claimBody });
+            const readback = await github.paginate(github.rest.issues.listComments, { owner: context.repo.owner, repo: context.repo.repo, issue_number: issueNumber, per_page: 100 });
+            const matching = readback.filter((comment) => comment.body === claimBody && comment.user?.login === 'github-actions[bot]' && comment.user?.type === 'Bot');
+            if (matching.length !== 1) return core.setFailed('protocol_controller:dispatch_claim_readback_ambiguity');
+
+            const workflow = role === 'research' ? 'development-research-worker-v01.yml' : 'development-qa-worker-v01.yml';
+            let dispatchError = null;
+            try {
+              await github.rest.actions.createWorkflowDispatch({ owner: context.repo.owner, repo: context.repo.repo, workflow_id: workflow, ref: 'main', inputs: { issue_number: String(issueNumber), dispatch_identity: claim.dispatch_identity } });
+            } catch (error) { dispatchError = error; }
+            const expectedTitle = `${role === 'research' ? 'Research' : 'QA'} ${claim.dispatch_identity}`;
+            let observed = false;
+            for (let attempt = 0; attempt < 3 && !observed; attempt += 1) {
+              await new Promise((resolve) => setTimeout(resolve, 1000));
+              const runs = (await github.rest.actions.listWorkflowRunsForRepo({ owner: context.repo.owner, repo: context.repo.repo, event: 'workflow_dispatch', per_page: 100 })).data.workflow_runs || [];
+              observed = runs.some((run) => run.path === `.github/workflows/${workflow}` && run.display_title === expectedTitle);
+            }
+            if (!observed) return core.setFailed(`protocol_controller:dispatch_unreconciled:${dispatchError ? Number(dispatchError.status) || 'transport' : 'not_observed'}`);
+            core.info(`protocol_controller:dispatched:${role}:${claim.dispatch_identity}`);
