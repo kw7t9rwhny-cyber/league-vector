@@ -211,13 +211,21 @@ GitHub is the authoritative inter-agent communication layer for League Vector an
 
 When an agent assignment requires durable persistence, subsequent agents and the Founder/Command chat must retrieve the persisted deliverable directly from the designated GitHub repository. Do not ask the Founder to copy/paste, summarize, transcribe, screenshot, or manually transfer an agent report when authenticated repository retrieval is available.
 
-When the Founder says that one or more agents are done, treat that statement as an instruction to inspect durable repository state: locate the expected reports, verify their commits and direct-readback evidence, read the reports, reconcile them, and identify any missing or incomplete deliverable. If an expected report is not durably present, report exactly what is missing rather than asking the Founder to relay the report from another chat.
+When Cody says that one or more agents are done, treat that statement as an instruction to search the expected durable deliverable paths across all relevant repository branches and refs, not only the default branch or main. Identify the agent's exact durable commit/ref, fetch and verify the expected report bytes and direct-readback evidence, reconcile the report with the other relevant durable outputs, and identify any missing or incomplete deliverable. Never assume an agent deliverable was committed to main. Independent agents may correctly persist reports on isolated working branches while leaving private or public main unchanged.
+
+The retrieval sequence is:
+
+expected deliverable/path → search relevant branches/refs → identify exact agent commit/ref → fetch exact report bytes → verify persistence/direct-readback evidence → reconcile.
+
+A default-branch commit search alone is not sufficient evidence that an expected agent report is absent. Before declaring a durable deliverable missing, search the relevant non-main branches/refs and expected report filename/path to the maximum authenticated access available.
+
+If an expected report still cannot be found after cross-ref retrieval, report exactly what was searched and what is missing rather than asking the Founder to relay the report from another chat.
 
 Chat output is not authoritative project state when the assignment requires durable persistence. A result that exists only in an agent chat has not satisfied the durable handoff contract. The repository copy is what downstream work consumes.
 
 The normal handoff path is:
 
-agent → designated GitHub persistence → commit/push → direct remote readback → downstream agent/Command direct retrieval.
+agent → designated GitHub persistence on an authorized ref → commit/push → direct remote readback → downstream agent/Command direct cross-ref retrieval.
 
 Do not substitute:
 
