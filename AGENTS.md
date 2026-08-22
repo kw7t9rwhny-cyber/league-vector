@@ -204,3 +204,25 @@ inspect → verify → report → stop
 rather than:
 
 assume → modify → continue.
+
+18. Durable inter-agent handoff and Founder burden
+
+GitHub is the authoritative inter-agent communication layer for League Vector and VectorOS work that requires a durable deliverable.
+
+When an agent assignment requires durable persistence, subsequent agents and the Founder/Command chat must retrieve the persisted deliverable directly from the designated GitHub repository. Do not ask the Founder to copy/paste, summarize, transcribe, screenshot, or manually transfer an agent report when authenticated repository retrieval is available.
+
+When the Founder says that one or more agents are done, treat that statement as an instruction to inspect durable repository state: locate the expected reports, verify their commits and direct-readback evidence, read the reports, reconcile them, and identify any missing or incomplete deliverable. If an expected report is not durably present, report exactly what is missing rather than asking the Founder to relay the report from another chat.
+
+Chat output is not authoritative project state when the assignment requires durable persistence. A result that exists only in an agent chat has not satisfied the durable handoff contract. The repository copy is what downstream work consumes.
+
+The normal handoff path is:
+
+agent → designated GitHub persistence → commit/push → direct remote readback → downstream agent/Command direct retrieval.
+
+Do not substitute:
+
+agent → Founder copy/paste or screenshot → downstream agent/Command.
+
+Founder-provided screenshots, photos, or manual transcription should be requested only when the required information is genuinely outside agent/tool access, or when the Founder must answer an interactive Codex allow/deny authorization question that cannot be resolved from durable repository state. Do not make the Founder act as a transport layer for information agents can retrieve themselves.
+
+If authenticated direct retrieval actually fails or required evidence exists only in an inaccessible interface, state the exact access limitation and request only the minimum Founder-supplied information necessary to proceed.
