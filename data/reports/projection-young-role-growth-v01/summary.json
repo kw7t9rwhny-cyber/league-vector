@@ -1,0 +1,66 @@
+{
+  "version": "young-player-development-role-growth-v0.1",
+  "validated_control_sha": "6d931abadbcb06e910bf953d941902c7c2cd1638",
+  "input_snapshot_sha256": "d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188",
+  "canonical_workflow_run": 31825417416,
+  "point_output_sha256": "fab2d81bdb5ee47e4fc1895a5b2c2704df523a0d16200b78e8813b84afd9487a",
+  "two_stage_output_sha256": "1198fc284e8182281273018c241c6572218fbecebb5fdb5ebee0786cb26196dd",
+  "selection_evidence": [2020, 2021, 2022, 2023, 2024],
+  "retrospective_observed": 2025,
+  "selected_point_candidates": 0,
+  "selected_subgroups": {
+    "QB_Y2": null, "QB_Y3": null, "QB_Y4": null,
+    "RB_Y2": null, "RB_Y3": null, "RB_Y4": null,
+    "WR_Y2": null, "WR_Y3": null, "WR_Y4": null,
+    "TE_Y2": null, "TE_Y3": null, "TE_Y4": null
+  },
+  "control_bias_pre2025": {
+    "QB_Y2": {"n": 37, "bias": -32.33, "mae": 66.64},
+    "QB_Y3": {"n": 35, "bias": 24.75, "mae": 55.85},
+    "QB_Y4": {"n": 36, "bias": 10.30, "mae": 61.33},
+    "RB_Y2": {"n": 117, "bias": -9.61, "mae": 47.69},
+    "RB_Y3": {"n": 118, "bias": 7.17, "mae": 38.95},
+    "RB_Y4": {"n": 110, "bias": 13.18, "mae": 45.39},
+    "WR_Y2": {"n": 155, "bias": -9.14, "mae": 36.59},
+    "WR_Y3": {"n": 168, "bias": -1.71, "mae": 37.58},
+    "WR_Y4": {"n": 144, "bias": 5.40, "mae": 41.19},
+    "TE_Y2": {"n": 76, "bias": -4.40, "mae": 28.24},
+    "TE_Y3": {"n": 84, "bias": -6.30, "mae": 22.92},
+    "TE_Y4": {"n": 85, "bias": -3.07, "mae": 29.35}
+  },
+  "role_transition_pre2025": {
+    "QB_backup_to_role": {"n": 6, "control_bias": -153.5, "mae": 153.5},
+    "RB_backup_to_role": {"n": 22, "control_bias": -105.8, "mae": 105.8},
+    "WR_backup_to_role": {"n": 24, "control_bias": -85.1, "mae": 85.6},
+    "TE_backup_to_role": {"n": 13, "control_bias": -68.7, "mae": 68.7},
+    "QB_role_to_backup": {"n": 8, "control_bias": 110.3, "mae": 110.3},
+    "RB_role_to_backup": {"n": 22, "control_bias": 67.3, "mae": 67.3},
+    "WR_role_to_backup": {"n": 23, "control_bias": 81.4, "mae": 81.4},
+    "TE_role_to_backup": {"n": 7, "control_bias": 42.3, "mae": 46.1}
+  },
+  "role_expansion_auc": {
+    "QB_historical": 0.825, "QB_rich": 0.905,
+    "RB_historical": 0.730, "RB_rich": 0.834,
+    "WR_historical": 0.838, "WR_rich": 0.830,
+    "TE_historical": 0.881, "TE_rich": 0.799
+  },
+  "feature_family_mean_mae_gain_pct_vs_v04": {
+    "elastic_growth": -10.44,
+    "residual_growth": -10.81,
+    "ridge_growth": -11.09,
+    "elastic_opportunity": -11.17,
+    "residual_draft": -11.25,
+    "residual_opportunity": -11.33,
+    "residual_age_experience": -11.60,
+    "ridge_opportunity": -11.63,
+    "elastic_age_experience": -12.21,
+    "ridge_age_experience": -12.48,
+    "elastic_draft": -12.71,
+    "ridge_draft": -12.76,
+    "ridge_full": -13.54,
+    "residual_full": -14.21,
+    "elastic_full": -15.97
+  },
+  "decision": "MORE YOUNG-PLAYER PROJECTION RESEARCH REQUIRED",
+  "flags": {"experimental": true, "production_projection_eligible": false, "dynasty_value_eligible": false}
+}
