@@ -12,6 +12,7 @@ const presentationFiles = [
 ];
 const presentation = presentationFiles.map((file) => fs.readFileSync(file, "utf8")).join("\n");
 const shell = fs.readFileSync("premium-shell.js", "utf8");
+const motion = fs.readFileSync("premium-homepage.js", "utf8");
 const stylesheetFiles = [
   "premium-homepage.css",
   "premium-homepage-base.css",
@@ -60,5 +61,15 @@ test("premium art and motion are local, optional and versioned", () => {
   assert.match(html, /premium-shell-hero\.js\?v=0\.1\.2/);
   assert.match(html, /premium-shell-sections\.js\?v=0\.1\.2/);
   assert.match(html, /premium-shell\.js\?v=0\.1\.2/);
-  assert.match(html, /premium-homepage\.js\?v=0\.1\.2/);
+  assert.match(html, /premium-homepage\.js\?v=0\.1\.3/);
+});
+
+test("hero particle network is brighter and cursor energized", () => {
+  assert.match(motion, /radius:\s*randomBetween\(0\.82,\s*2\.08\)/);
+  assert.match(motion, /baseOpacity[\s\S]*?\*\s*0\.31/);
+  assert.match(motion, /lineWidth\s*=\s*0\.78\s*\+\s*lineEnergy\s*\*\s*0\.42/);
+  assert.match(motion, /createRadialGradient/);
+  assert.match(motion, /pointer\.lastMove\s*=\s*performance\.now\(\)/);
+  assert.match(motion, /pointer\.energy\s*\+=/);
+  assert.match(motion, /glowRadius/);
 });
