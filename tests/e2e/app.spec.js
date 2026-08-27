@@ -106,7 +106,7 @@ async function analyze(page) {
   await page.goto("/");
   await page.getByLabel("Sleeper league ID or URL").fill(`https://sleeper.com/leagues/${LEAGUE_ID}`);
   await page.getByRole("button", { name: "Analyze League" }).click();
-  await expect(page.locator("#status")).toHaveText(/League Vector v0\.8 foundation calculated/, { timeout: 15_000 });
+  await expect(page.locator("#status")).toHaveText(/League Vector v0\.8 foundation calculated — paid value eligible/, { timeout: 15_000 });
 }
 
 test("renders a complete 1QB analysis without unsafe markup or numeric display errors", async ({ page }) => {
@@ -115,12 +115,15 @@ test("renders a complete 1QB analysis without unsafe markup or numeric display e
   await expect(page.locator("#marketFormat")).toHaveText("1QB");
   await expect(page.locator("#identityStatus")).toContainText("2 offensive players valued");
   await expect(page.locator("#identityStatus")).toContainText("1 ambiguous");
-  await expect(page.locator("#scoringCoverage")).toContainText("bonus_pass_yd_400");
+  await expect(page.locator("#scoringCoverage")).toContainText("Not applied to paid value");
+  await expect(page.locator("#paidValueEligibility")).toHaveAttribute("data-state", "PAID_VALUE_ELIGIBLE");
+  await expect(page.locator("#paidValueEligibility")).toHaveAttribute("data-projection-policy", "CONTEXT_ONLY_NOT_IN_VALUATION");
+  await expect(page.locator("#paidValueEligibility")).toContainText("No missing projection was replaced with zero");
   await expect(page.locator("#teamAnalysis")).toContainText("IDP value unavailable: 1 defensive players excluded");
   await expect(page.locator("#teamAnalysis img, #teamAnalysis script")).toHaveCount(0);
   await expect(page.locator("body")).not.toContainText(/NaN|Infinity/);
   expect(counts.players).toBe(1);
-  expect(counts.projections).toBe(18);
+  expect(counts.projections).toBe(0);
   expect(counts.transactions).toBe(18);
 });
 
@@ -144,15 +147,15 @@ test("shows League Vector v0.3 experimental projections with truthful scoring co
   await expect(page.locator("#playerValues")).toContainText("Test Quarterback Jr.");
 });
 
-test("shows a visible partial-data state when the projection adapter fails", async ({ page }) => {
-  await mockData(page, { superflex: true, projectionFailure: true });
+test("does not request or use the legacy projection adapter even when it would fail", async ({ page }) => {
+  const counts = await mockData(page, { superflex: true, projectionFailure: true });
   await analyze(page);
   await expect(page.locator("#marketFormat")).toHaveText("Superflex / 2QB");
-  await expect(page.locator("#analysisWarnings")).toBeVisible();
-  await expect(page.locator("#warningList")).toContainText("Projection source is unavailable");
-  await expect(page.locator("#projectionStatus")).toContainText("unavailable");
-  await expect(page.locator("#dataQuality")).toContainText("Partial model—projection gaps disclosed");
-  await expect(page.locator("#playerValues")).toContainText("Projection unavailable");
+  await expect(page.locator("#projectionStatus")).toContainText("CONTEXT_ONLY_NOT_IN_VALUATION");
+  await expect(page.locator("#projectionStatus")).toContainText("not requested");
+  await expect(page.locator("#paidValueEligibility")).toContainText("PAID_VALUE_ELIGIBLE");
+  await expect(page.locator("#playerValues")).toContainText("Weekly projections excluded from paid value");
+  expect(counts.projections).toBe(0);
 });
 
 test("remains usable at a mobile viewport and submits from the keyboard", async ({ page }) => {

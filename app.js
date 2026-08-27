@@ -70,15 +70,24 @@
     return `<article class="value-card"><h3>${escapeHtml(position)}</h3><div class="value-number">${data.score}</div><div class="value-label">${label}</div><div class="value-bar" aria-hidden="true"><div class="value-fill" style="width:${width}%"></div></div><div class="value-note"><span class="demand">${data.demand}</span> estimated league-wide starter opportunities.<br>Structural pressure ${data.structuralScore}; scoring contribution ${data.scoringScore}.</div></article>`;
   }
 
+  function isPaidValueEligible(value) {
+    const eligibility = value?.components?.paidValueEligibility;
+    return eligibility?.state === "PAID_VALUE_ELIGIBLE"
+      && eligibility?.numeric_offensive_paid_value_available === true
+      && eligibility?.projection_policy === "CONTEXT_ONLY_NOT_IN_VALUATION";
+  }
+
   function valuationCard(value, rank) {
+    if (!isPaidValueEligible(value)) {
+      return `<article class="player-card" data-paid-value-state="PAID_VALUE_INELIGIBLE"><div class="rank">—</div><div><div class="pv-name">${escapeHtml(value.name)}</div><div class="availability-warning">Paid value unavailable because its eligibility contract is unsatisfied. No numeric value was emitted.</div></div></article>`;
+    }
     const components = value.components;
-    const projectionAvailable = value.projectionAvailable;
-    return `<article class="player-card"><div class="rank">#${rank}</div><div><div class="pv-name">${escapeHtml(value.name)}</div><div class="pv-meta">${escapeHtml(value.pos)} • ${escapeHtml(value.team)}${value.age ? ` • Age ${value.age}` : ""} • ${components.marketFormat.toUpperCase()} baseline</div><div class="signal-row"><span class="signal">Market ${components.marketBaseline.toLocaleString()}</span><span class="${components.ageAdjustment < 0 ? "signal bad" : "signal good"}">Age ${percent(components.ageAdjustment)}</span><span class="${components.leagueAdjustment < 0 ? "signal bad" : "signal good"}">League structure ${percent(components.leagueAdjustment)}</span><span class="${projectionAvailable ? (components.projectionAdjustment < 0 ? "signal bad" : "signal good") : "signal warning"}">Projection ${projectionAvailable ? percent(components.projectionAdjustment) : "unavailable"}</span>${components.rookieApplied ? `<span class="signal good">Rookie floor ${components.rookieFloor.toLocaleString()}</span>` : ""}${projectionAvailable ? `<span class="signal">League VORP ${components.leagueVorp > 0 ? "+" : ""}${components.leagueVorp}</span>` : ""}${components.tradeActivity.count ? `<span class="signal">${components.tradeActivity.count} local trade${components.tradeActivity.count === 1 ? "" : "s"} • informational</span>` : ""}</div></div><div class="pv-values"><div class="lv-value">${components.finalValue.toLocaleString()}</div><div class="market-value">Net ${percent(components.totalAdjustment)}</div><div class="confidence">${escapeHtml(components.confidence.label)}</div></div></article>`;
+    return `<article class="player-card" data-paid-value-state="${components.paidValueEligibility.state}"><div class="rank">#${rank}</div><div><div class="pv-name">${escapeHtml(value.name)}</div><div class="pv-meta">${escapeHtml(value.pos)} • ${escapeHtml(value.team)}${value.age ? ` • Age ${value.age}` : ""} • ${components.marketFormat.toUpperCase()} baseline</div><div class="signal-row"><span class="signal">Market ${components.marketBaseline.toLocaleString()}</span><span class="${components.ageAdjustment < 0 ? "signal bad" : "signal good"}">Age ${percent(components.ageAdjustment)}</span><span class="${components.leagueAdjustment < 0 ? "signal bad" : "signal good"}">League structure ${percent(components.leagueAdjustment)}</span><span class="signal warning">Weekly projections excluded from paid value</span>${components.rookieApplied ? `<span class="signal good">Rookie floor ${components.rookieFloor.toLocaleString()}</span>` : ""}${components.tradeActivity.count ? `<span class="signal">${components.tradeActivity.count} local trade${components.tradeActivity.count === 1 ? "" : "s"} • informational</span>` : ""}</div></div><div class="pv-values"><div class="lv-value">${components.finalValue.toLocaleString()}</div><div class="market-value">Net ${percent(components.totalAdjustment)}</div><div class="confidence">${escapeHtml(components.confidence.label)}</div></div></article>`;
   }
 
   function playerRow(id, players, slot, valuation) {
     const player = players[id];
-    return `<div class="player">${slot ? `<span class="slot">${escapeHtml(cleanSlot(slot))}</span>` : ""}<span class="pos">${escapeHtml(Core.positionOf(player))}</span><span class="player-name">${escapeHtml(playerName(player, id))}</span>${valuation ? `<span class="roster-value">LV ${valuation.components.finalValue.toLocaleString()}</span>` : `<span class="nfl-team">${escapeHtml(player?.team || "FA")}</span>`}</div>`;
+    return `<div class="player">${slot ? `<span class="slot">${escapeHtml(cleanSlot(slot))}</span>` : ""}<span class="pos">${escapeHtml(Core.positionOf(player))}</span><span class="player-name">${escapeHtml(playerName(player, id))}</span>${isPaidValueEligible(valuation) ? `<span class="roster-value">LV ${valuation.components.finalValue.toLocaleString()}</span>` : `<span class="nfl-team">${escapeHtml(player?.team || "FA")}</span>`}</div>`;
   }
 
   function tradeCounts(transactions) {
@@ -97,7 +106,7 @@
       const starterIds = new Set((roster.starters || []).filter((id) => id && id !== "0"));
       const offensiveIds = (roster.players || []).filter((id) => Core.isOffense(Core.positionOf(players[id])));
       const idpIds = (roster.players || []).filter((id) => Core.isIdp(Core.positionOf(players[id])));
-      const matched = offensiveIds.filter((id) => valuationsById[id]);
+      const matched = offensiveIds.filter((id) => isPaidValueEligible(valuationsById[id]));
       const sum = (ids, selector) => ids.reduce((total, id) => total + Core.number(selector(valuationsById[id])), 0);
       const positional = {};
       for (const pos of Core.OFFENSE) {
@@ -174,22 +183,13 @@
       const season = Number(league.season) || Number(state?.league_season) || new Date().getFullYear();
       const maxRound = Math.max(18, Core.number(state?.leg), Core.number(league?.settings?.playoff_week_start) + 3);
 
-      setStatus("Calculating projections and scanning explicit transaction rounds…");
-      const [projectionResult, transactionResult] = await Promise.all([
-        Data.seasonProjections(season, signal, (done, total) => setStatus(`Loading projections ${done}/${total}…`)),
-        Data.transactionHistory(leagueId, maxRound, signal),
-      ]);
+      setStatus("Calculating paid values and scanning explicit transaction rounds…");
+      const transactionResult = await Data.transactionHistory(leagueId, maxRound, signal);
       if (sequence !== analysisSequence) return;
-      if (projectionResult.status !== "complete") warning(`Projection source is ${projectionResult.status}. ${projectionResult.failures.length} of 18 weekly requests failed. Values are explicitly marked partial.`);
       if (transactionResult.failures.length) warning(`${transactionResult.failures.length} transaction rounds failed and local trade counts may be incomplete.`);
 
       const marketRows = Core.parseMarketRows(Core.parseCsv(marketResult.value), format);
       const identityIndex = Core.buildIdentityIndex(marketRows);
-      const projectionMap = Core.aggregateSeasonProjections(projectionResult.rows);
-      const projectionBuild = Core.buildProjectionScores(players, projectionMap, league);
-      const projectionsById = Object.fromEntries(projectionBuild.rows.map((row) => [row.id, row]));
-      const neutralReplacement = Core.replacementLevels(projectionBuild.rows, league, true);
-      const leagueReplacement = Core.replacementLevels(projectionBuild.rows, league, false);
       const localTradeCounts = tradeCounts(transactionResult.transactions);
       const rosteredIds = [...new Set(rosters.flatMap((roster) => roster.players || []))];
       const identityReport = { crosswalk: 0, exact: 0, verified: 0, manual: 0, unmatched: 0, ambiguous: 0 };
@@ -200,8 +200,9 @@
         const match = Core.matchPlayerIdentity(id, player, identityIndex, overrides, crosswalk);
         identityReport[match.status] = (identityReport[match.status] || 0) + 1;
         if (!match.market) continue;
-        const components = Core.calculateValuation({ player, market: match.market, context, projection: projectionsById[id], neutralReplacement, leagueReplacement, tradeCount: localTradeCounts[id] });
-        valuations.push({ id, name: playerName(player, id), pos: Core.positionOf(player), team: player?.team || match.market.team || "FA", age: match.market.age, matchStatus: match.status, projectionAvailable: Boolean(projectionsById[id]), components });
+        const components = Core.calculateValuation({ player, market: match.market, context, tradeCount: localTradeCounts[id] });
+        const valuation = { id, name: playerName(player, id), pos: Core.positionOf(player), team: player?.team || match.market.team || "FA", age: match.market.age, matchStatus: match.status, components };
+        if (isPaidValueEligible(valuation)) valuations.push(valuation);
       }
       valuations.sort((a, b) => b.components.finalValue - a.components.finalValue);
       const valuationsById = Object.fromEntries(valuations.map((value) => [value.id, value]));
@@ -219,19 +220,28 @@
       $("lineupChips").innerHTML = Object.entries(Core.countSlots(league.roster_positions || [])).map(([slot, count]) => `<span class="chip ${slot.includes("FLEX") ? "hot" : ""}">${count}× ${escapeHtml(cleanSlot(slot))}</span>`).join("");
       $("lineupNote").textContent = `${starterSlots.length} starters per team across ${rosters.length} teams. Market format selected automatically: ${format.toUpperCase()}.`;
       $("scoringChips").innerHTML = scoringProfile(league.scoring_settings).map((chip) => `<span class="chip hot">${escapeHtml(chip)}</span>`).join("");
-      $("scoringNote").textContent = `${Object.keys(league.scoring_settings || {}).length} total settings imported; scoring coverage is reported below.`;
+      $("scoringNote").textContent = `${Object.keys(league.scoring_settings || {}).length} total settings imported for league context and separately labeled experimental projections.`;
       $("valueGrid").innerHTML = ["QB", "RB", "WR", "TE", "DL", "LB", "DB"].map((pos) => valueCard(pos, context.values[pos])).join("");
-      $("valueExplanation").textContent = "Structural league pressure is the direct league adjustment. League-scored projections and replacement levels are calculated separately, preventing scoring rules from being counted twice.";
+      $("valueExplanation").textContent = "Paid offensive value uses the market baseline, applicable rookie floor, age and structural league pressure. The legacy weekly projection adjustment is intentionally excluded from paid-beta valuation.";
       $("identityStatus").textContent = `${valuations.length} offensive players valued • ${identityReport.crosswalk} stable-ID crosswalk • ${identityReport.exact} exact • ${identityReport.verified} team-verified • ${identityReport.manual} manual • ${identityReport.unmatched} unmatched • ${identityReport.ambiguous} ambiguous.`;
-      $("scoringCoverage").innerHTML = `<b>Applied keys:</b> ${escapeHtml(projectionBuild.coverage.used.join(", ") || "none")}<br><b>Unsupported/non-matching keys:</b> ${escapeHtml(projectionBuild.coverage.unsupported.join(", ") || "none detected")}`;
-      $("projectionStatus").textContent = `${projectionResult.status} • ${projectionResult.rows.length} weekly player rows • source is undocumented and replaceable`;
+      $("scoringCoverage").textContent = "Not applied to paid value. League scoring may be inspected here and with separately labeled experimental projections, but no weekly projection score changes an ordinary paid dynasty value.";
+      $("projectionStatus").textContent = "CONTEXT_ONLY_NOT_IN_VALUATION • The undocumented legacy Sleeper weekly projection source is excluded and is not requested during paid-value analysis.";
       $("transactionStatus").textContent = `Rounds ${transactionResult.roundsScanned[0]}–${transactionResult.roundsScanned.at(-1)} scanned • ${transactionResult.transactions.filter((transaction) => transaction?.type === "trade" && transaction?.status === "complete").length} completed trades • picks shown without fabricated numeric values.`;
       $("playerValues").innerHTML = valuations.length ? valuations.slice(0, 60).map((value, index) => valuationCard(value, index + 1)).join("") : `<p class="availability-warning">No offensive market-value matches were found.</p>`;
       renderTeamAnalysis(analyses, userMap);
       renderRosters(rosters, players, valuationsById, userMap, starterSlots);
-      $("dataQuality").textContent = `${projectionResult.status === "complete" ? "Full offensive projection component available" : "Partial model—projection gaps disclosed"}. IDP numeric valuation remains unavailable by design. Player cache: ${bundle.cacheSources.players}. Market cache: ${marketResult.source}.`;
+      const eligibility = Core.paidValueEligibility();
+      const eligibilityElement = $("paidValueEligibility");
+      eligibilityElement.dataset.state = eligibility.state;
+      eligibilityElement.dataset.contractVersion = eligibility.contract_version;
+      eligibilityElement.dataset.projectionPolicy = eligibility.projection_policy;
+      eligibilityElement.textContent = `${eligibility.state} — Offensive paid values remain available because the legacy weekly projection adjustment is intentionally excluded. You may safely inspect league/scoring inputs and the separately labeled experimental projection board. No missing projection was replaced with zero and no projection coverage was fabricated.`;
+      $("results").dataset.paidValueState = eligibility.state;
+      $("results").dataset.projectionPolicy = eligibility.projection_policy;
+      window.__leagueVectorPaidValueEligibility = eligibility;
+      $("dataQuality").textContent = `Weekly projections are context only and cannot alter paid value. IDP numeric valuation remains unavailable by design. Player cache: ${bundle.cacheSources.players}. Market cache: ${marketResult.source}.`;
       $("results").hidden = false;
-      setStatus(`✓ League Vector v0.8 foundation calculated${projectionResult.status === "complete" ? "" : " with disclosed partial data"}.`, "success");
+      setStatus("✓ League Vector v0.8 foundation calculated — paid value eligible.", "success");
     } catch (error) {
       if (error?.name === "AbortError") return;
       console.error(error);

@@ -1,5 +1,12 @@
 # Changelog
 
+## Paid-beta partial-data fail-closed remediation
+
+- Removed the undocumented Sleeper weekly projection request and adjustment from paid-beta valuation.
+- Added explicit `PAID_VALUE_ELIGIBLE` and `CONTEXT_ONLY_NOT_IN_VALUATION` runtime states.
+- Ensured player values, team totals, roster cards, sorting and rankings use no weekly projection rows, coverage fallbacks, cache entries or replacement levels.
+- Preserved the numeric IDP Dynasty Value firewall.
+
 ## v0.8 foundation — SportsDataIO evaluation
 
 - Added a secret-safe SportsDataIO trial evaluator for player profiles, offensive projections and IDP projections.

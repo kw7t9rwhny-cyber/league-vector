@@ -1,14 +1,14 @@
 # League Vector
 
-League Vector is a static Sleeper league analyzer that explains how dynasty market value changes inside a specific league. The v0.8 foundation separates market baseline, age, league structure, projection/VORP and rookie-floor signals. It discloses missing data rather than manufacturing a complete-looking result.
+League Vector is a static Sleeper league analyzer that explains how dynasty market value changes inside a specific league. The paid-beta v0.8 contract uses market baseline, age, league structure and the rookie floor. Legacy weekly projections are excluded from paid value instead of allowing partial data to change an ordinary numeric result.
 
 ## Current scope
 
 - Imports Sleeper league settings, users, rosters, players, transactions and traded picks.
 - Selects DynastyProcess 1QB or 2QB market data from lineup structure.
-- Audits scoring keys used by the projection calculation.
+- Keeps scoring inputs available as league context and for separately labeled experimental projections.
 - Uses explicit stable-ID crosswalks, exact identity matching with team verification and manual overrides; no fuzzy matches.
-- Calculates offensive player and team values with completeness reporting.
+- Calculates offensive player and team values under an explicit machine-readable paid-value eligibility contract.
 - Shows IDP context, but deliberately does not invent numeric IDP values.
 - Caches stable data in IndexedDB and cancels stale analyses.
 
@@ -34,14 +34,14 @@ npm run validate
 
 The validation command checks whitespace/style, parses all JavaScript and runs the Node test suite. GitHub Actions runs the same command for pull requests and pushes to `main`.
 
-Browser tests use Playwright with deterministic Sleeper, market and projection fixtures:
+Browser tests use Playwright with deterministic Sleeper, market and contextual-projection fixtures:
 
 ```bash
 npx playwright install chromium
 npm run test:e2e
 ```
 
-They cover successful one-QB analysis, superflex projection failure, unsupported scoring disclosure, ambiguous identities, IDP completeness warnings, imported-text escaping and mobile keyboard/layout behavior.
+They cover paid-value eligibility, legacy weekly projection exclusion, one-QB and superflex analysis, ambiguous identities, IDP completeness warnings, imported-text escaping and mobile keyboard/layout behavior.
 
 To evaluate a SportsDataIO trial safely in Codex Cloud, keep the key in the environment's Secrets section and run `npm run evaluate:sportsdataio` from the setup script. The command writes only a sanitized access/schema report to `/tmp/league-vector-sportsdataio-evaluation.json`; see `docs/DATA_SOURCES.md` for details.
 

@@ -25,28 +25,26 @@ test("uses one-QB and two-QB market columns independently", () => {
   assert.equal(two.ecr, 8);
 });
 
-test("separates league structure from projection adjustment", () => {
+test("paid valuation excludes legacy projection inputs", () => {
   const context = Core.leagueContext(superflex);
   const market = Core.parseMarketRows(marketCsvRows, "2qb")[0];
-  const result = Core.calculateValuation({
+  const input = {
     player: { full_name: "Test Quarterback Jr.", position: "QB", years_exp: 2 },
     market,
     context,
     projection: { points: 400, pos: "QB" },
     neutralReplacement: { levels: { QB: 250 } },
     leagueReplacement: { levels: { QB: 330 } },
-  });
-  assert.notEqual(result.leagueAdjustment, result.projectionAdjustment);
-  assert.equal(result.neutralVorp, 150);
-  assert.equal(result.leagueVorp, 70);
+  };
+  const result = Core.calculateValuation(input);
+  const withoutProjection = Core.calculateValuation({ player: input.player, market, context });
+  assert.deepEqual(result, withoutProjection);
+  assert.equal(result.paidValueEligibility.projection_policy, "CONTEXT_ONLY_NOT_IN_VALUATION");
+  assert.equal("projectionAdjustment" in result, false);
+  assert.equal("projectedPoints" in result, false);
+  assert.equal("leagueVorp" in result, false);
   assert.ok(Number.isFinite(result.finalValue));
   assert.ok(result.finalValue >= 0);
-});
-
-test("reports unsupported scoring keys", () => {
-  const scored = Core.scoreStatLine({ pass_yd: 300, pass_td: 2 }, { pass_yd: 0.04, pass_td: 6, bonus_pass_yd_400: 3 }, "QB");
-  assert.deepEqual(scored.used.sort(), ["pass_td", "pass_yd"]);
-  assert.deepEqual(scored.unsupported, ["bonus_pass_yd_400"]);
 });
 
 test("normalizes suffixes but never silently resolves ambiguity", () => {

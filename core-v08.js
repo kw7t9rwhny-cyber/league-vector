@@ -13,6 +13,27 @@
     WR: { rate: 0.002, up: 0.1, down: 0.06 },
     TE: { rate: 0.0022, up: 0.1, down: 0.06 },
   };
+  const PAID_VALUE_ELIGIBILITY_CONTRACT = Object.freeze({
+    contract_version: "lv-paid-value-eligibility-v1",
+    state: "PAID_VALUE_ELIGIBLE",
+    numeric_offensive_paid_value_available: true,
+    projection_policy: "CONTEXT_ONLY_NOT_IN_VALUATION",
+    legacy_weekly_projection_requested_during_paid_value_analysis: false,
+    legacy_weekly_projection_adjustment_applied: false,
+    projection_data_can_affect_paid_value: false,
+    projection_data_can_affect_player_values: false,
+    projection_data_can_affect_team_totals: false,
+    projection_data_can_affect_sorting_or_ranking: false,
+    projection_data_can_appear_inside_paid_value_components: false,
+    missing_projection_substituted_with_zero: false,
+    projection_coverage_fabricated: false,
+    safe_context_surfaces: [
+      "league_and_scoring_inputs",
+      "separately_labeled_experimental_projection_board",
+    ],
+    idp_dynasty_value_available: false,
+    offense_idp_combined_dynasty_rankings_available: false,
+  });
 
   const number = (value) => {
     const result = Number(value);
@@ -235,6 +256,13 @@
     return clamp(pressure * rule.rate, -rule.down, rule.up);
   }
 
+  function paidValueEligibility() {
+    return {
+      ...PAID_VALUE_ELIGIBILITY_CONTRACT,
+      safe_context_surfaces: [...PAID_VALUE_ELIGIBILITY_CONTRACT.safe_context_surfaces],
+    };
+  }
+
   function compactAgeDelta(pos, age) {
     if (!Number.isFinite(age)) return 0;
     if (pos === "QB") {
@@ -263,105 +291,6 @@
       return -0.08;
     }
     return 0;
-  }
-
-  function starterDemandByPosition(league, neutral = false) {
-    if (neutral) return { QB: 12, RB: 24, WR: 36, TE: 12 };
-    const teams = number(league?.total_rosters) || 12;
-    const counts = { QB: 0, RB: 0, WR: 0, TE: 0 };
-    for (const slot of league?.roster_positions || []) {
-      if (OFFENSE.includes(slot)) counts[slot] += 1;
-      if (slot === "SUPER_FLEX") counts.QB += 0.85;
-      if (["FLEX", "REC_FLEX", "WRRB_FLEX"].includes(slot)) {
-        counts.RB += 0.34;
-        counts.WR += 0.5;
-        counts.TE += 0.16;
-      }
-    }
-    return Object.fromEntries(
-      Object.entries(counts).map(([pos, count]) => [pos, Math.max(1, Math.round(count * teams))]),
-    );
-  }
-
-  function scoreStatLine(stats, scoring, position) {
-    let points = 0;
-    const used = [];
-    const unsupported = [];
-    for (const [key, rawRate] of Object.entries(scoring || {})) {
-      const rate = number(rawRate);
-      if (!rate) continue;
-      if (["bonus_rec_te", "bonus_rec_rb", "bonus_rec_wr"].includes(key)) {
-        const target = key.slice(-2).toUpperCase();
-        if (position === target && stats?.rec != null) {
-          points += number(stats.rec) * rate;
-          used.push(key);
-        } else if (position === target) unsupported.push(key);
-        continue;
-      }
-      if (Object.prototype.hasOwnProperty.call(stats || {}, key)) {
-        points += number(stats[key]) * rate;
-        used.push(key);
-      } else {
-        unsupported.push(key);
-      }
-    }
-    return { points, used: [...new Set(used)], unsupported: [...new Set(unsupported)] };
-  }
-
-  function aggregateSeasonProjections(rows) {
-    const result = {};
-    for (const row of rows || []) {
-      const id = String(row?.player_id || "");
-      if (!id) continue;
-      result[id] ||= { player_id: id, stats: {}, weeks: 0 };
-      result[id].weeks += 1;
-      for (const [key, value] of Object.entries(row?.stats || {})) {
-        if (Number.isFinite(value)) result[id].stats[key] = number(result[id].stats[key]) + value;
-      }
-    }
-    return result;
-  }
-
-  function buildProjectionScores(players, projectionMap, league) {
-    const rows = [];
-    const coverage = { used: new Set(), unsupported: new Set() };
-    for (const [id, player] of Object.entries(players || {})) {
-      const pos = positionOf(player);
-      if (!isOffense(pos) || !projectionMap[id]) continue;
-      const scored = scoreStatLine(projectionMap[id].stats, league?.scoring_settings || {}, pos);
-      scored.used.forEach((key) => coverage.used.add(key));
-      scored.unsupported.forEach((key) => coverage.unsupported.add(key));
-      rows.push({ id, pos, points: scored.points, weeks: projectionMap[id].weeks });
-    }
-    return {
-      rows,
-      coverage: {
-        used: [...coverage.used].sort(),
-        unsupported: [...coverage.unsupported]
-          .filter((key) => !coverage.used.has(key))
-          .sort(),
-      },
-    };
-  }
-
-  function replacementLevels(projectionScores, league, neutral = false) {
-    const demand = starterDemandByPosition(league, neutral);
-    const levels = {};
-    for (const pos of OFFENSE) {
-      const values = (projectionScores || [])
-        .filter((row) => row.pos === pos)
-        .map((row) => number(row.points))
-        .sort((a, b) => b - a);
-      const index = clamp((demand[pos] || 1) - 1, 0, Math.max(0, values.length - 1));
-      levels[pos] = values.length ? values[index] : 0;
-    }
-    return { levels, demand, basis: neutral ? "neutral-12-team-1qb" : "league" };
-  }
-
-  function projectionDelta(vorp, points, pos) {
-    if (!Number.isFinite(vorp) || !Number.isFinite(points) || points <= 0) return 0;
-    const cap = pos === "TE" ? 0.2 : pos === "QB" ? 0.16 : 0.14;
-    return clamp((vorp / Math.max(1, points)) * 0.5, -0.1, cap);
   }
 
   function rookieFloorFromEcr(ecr, pos) {
@@ -402,18 +331,12 @@
   }
 
   function calculateValuation(input) {
-    const { player, market, context, projection, neutralReplacement, leagueReplacement, tradeCount = 0 } = input;
+    const { player, market, context, tradeCount = 0 } = input;
     const pos = positionOf(player);
     const rookie = applyRookieFloor(number(market?.base), player, market);
     const age = compactAgeDelta(pos, market?.age);
     const league = structuralLeagueDelta(pos, context);
-    const projectedPoints = number(projection?.points);
-    const neutralReplacementPoints = number(neutralReplacement?.levels?.[pos]);
-    const leagueReplacementPoints = number(leagueReplacement?.levels?.[pos]);
-    const neutralVorp = projection ? projectedPoints - neutralReplacementPoints : 0;
-    const leagueVorp = projection ? projectedPoints - leagueReplacementPoints : 0;
-    const projectionAdjustment = projectionDelta(neutralVorp, projectedPoints, pos);
-    const totalAdjustment = clamp(age + league + projectionAdjustment, -0.25, 0.35);
+    const totalAdjustment = clamp(age + league, -0.25, 0.35);
     const finalValue = Math.max(0, Math.round(rookie.value * (1 + totalAdjustment)));
     return {
       marketBaseline: number(market?.base),
@@ -423,14 +346,9 @@
       adjustedBaseline: rookie.value,
       ageAdjustment: round(age, 4),
       leagueAdjustment: round(league, 4),
-      projectionAdjustment: round(projectionAdjustment, 4),
       totalAdjustment: round(totalAdjustment, 4),
-      projectedPoints: round(projectedPoints, 1),
-      neutralReplacementPoints: round(neutralReplacementPoints, 1),
-      leagueReplacementPoints: round(leagueReplacementPoints, 1),
-      neutralVorp: round(neutralVorp, 1),
-      leagueVorp: round(leagueVorp, 1),
       finalValue,
+      paidValueEligibility: paidValueEligibility(),
       confidence: heuristicConfidence(number(market?.base), market?.ecr),
       tradeActivity: { count: number(tradeCount), appliedToValue: false },
     };
@@ -481,13 +399,8 @@
     countSlots,
     leagueContext,
     structuralLeagueDelta,
+    paidValueEligibility,
     compactAgeDelta,
-    starterDemandByPosition,
-    scoreStatLine,
-    aggregateSeasonProjections,
-    buildProjectionScores,
-    replacementLevels,
-    projectionDelta,
     rookieFloorFromEcr,
     rookieDraftCapitalFloor,
     applyRookieFloor,

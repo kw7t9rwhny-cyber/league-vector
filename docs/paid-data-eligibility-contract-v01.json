@@ -1,0 +1,23 @@
+{
+  "schema_version": "lv-paid-data-eligibility-contract-v1",
+  "contract_id": "league-vector-paid-beta-projection-exclusion-v1",
+  "selected_assignment_option": "OPTION_2_ADJUSTMENT_EXCLUDED_FROM_PAID_BETA_VALUATION",
+  "paid_value_state": "PAID_VALUE_ELIGIBLE",
+  "numeric_offensive_paid_value_available": true,
+  "projection_policy": "CONTEXT_ONLY_NOT_IN_VALUATION",
+  "legacy_weekly_projection_source": "Sleeper undocumented projections endpoint",
+  "legacy_weekly_projection_requested_during_paid_value_analysis": false,
+  "legacy_weekly_projection_adjustment_applied": false,
+  "projection_data_can_affect_player_values": false,
+  "projection_data_can_affect_team_totals": false,
+  "projection_data_can_affect_sorting_or_ranking": false,
+  "projection_data_can_appear_inside_paid_value_components": false,
+  "missing_projection_substituted_with_zero": false,
+  "projection_coverage_fabricated": false,
+  "safe_context_surfaces": [
+    "league_and_scoring_inputs",
+    "separately_labeled_experimental_projection_board"
+  ],
+  "idp_dynasty_value_available": false,
+  "offense_idp_combined_dynasty_rankings_available": false
+}
