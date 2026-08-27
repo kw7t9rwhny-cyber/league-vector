@@ -77,7 +77,7 @@
   let active = true;
   let visible = true;
   let lastTime = 0;
-  const pointer = { x: 0, y: 0, active: false };
+  const pointer = { x: 0, y: 0, active: false, energy: 0, lastMove: 0 };
 
   const randomBetween = (minimum, maximum) => minimum + Math.random() * (maximum - minimum);
 
@@ -88,7 +88,7 @@
       y: Math.random() * height,
       vx: randomBetween(-0.055, 0.055),
       vy: randomBetween(-0.035, 0.035),
-      radius: randomBetween(0.7, 1.8),
+      radius: randomBetween(0.82, 2.08),
       phase: Math.random() * Math.PI * 2,
     }));
   };
@@ -112,6 +112,13 @@
     lastTime = time;
     context.clearRect(0, 0, width, height);
 
+    const recentPointerMotion = pointer.active && time - pointer.lastMove < 900;
+    const energyTarget = recentPointerMotion ? 1 : 0;
+    const energyResponse = energyTarget > pointer.energy ? 0.018 : 0.0065;
+    pointer.energy += (energyTarget - pointer.energy) * (1 - Math.exp(-delta * energyResponse));
+    if (!energyTarget && pointer.energy < 0.001) pointer.energy = 0;
+    const energyRadius = Math.min(220, Math.max(150, width * 0.18));
+
     for (const node of nodes) {
       node.x += node.vx * delta;
       node.y += node.vy * delta;
@@ -132,6 +139,26 @@
           node.y += dy * pull;
         }
       }
+
+      if (pointer.energy > 0) {
+        const energyDx = pointer.x - node.x;
+        const energyDy = pointer.y - node.y;
+        const energyDistance = Math.hypot(energyDx, energyDy);
+        const proximity = Math.max(0, 1 - energyDistance / energyRadius);
+        node.energy = pointer.energy * proximity * proximity;
+      } else {
+        node.energy = 0;
+      }
+    }
+
+    if (pointer.energy > 0.01) {
+      const haloRadius = energyRadius * 1.05;
+      const halo = context.createRadialGradient(pointer.x, pointer.y, 0, pointer.x, pointer.y, haloRadius);
+      halo.addColorStop(0, `rgba(255, 224, 157, ${(pointer.energy * 0.09).toFixed(3)})`);
+      halo.addColorStop(0.45, `rgba(238, 185, 81, ${(pointer.energy * 0.035).toFixed(3)})`);
+      halo.addColorStop(1, "rgba(238, 185, 81, 0)");
+      context.fillStyle = halo;
+      context.fillRect(pointer.x - haloRadius, pointer.y - haloRadius, haloRadius * 2, haloRadius * 2);
     }
 
     const connectionDistance = Math.min(155, Math.max(105, width * 0.12));
@@ -144,21 +171,40 @@
         const dy = a.y - b.y;
         const distanceSquared = dx * dx + dy * dy;
         if (distanceSquared >= connectionDistanceSquared) continue;
-        const opacity = (1 - distanceSquared / connectionDistanceSquared) * 0.22;
+        const lineEnergy = Math.max(a.energy || 0, b.energy || 0);
+        const baseOpacity = (1 - distanceSquared / connectionDistanceSquared) * 0.31;
+        const opacity = Math.min(0.74, baseOpacity * (1 + lineEnergy * 1.35) + lineEnergy * 0.08);
+        const red = Math.round(227 + lineEnergy * 28);
+        const green = Math.round(174 + lineEnergy * 51);
+        const blue = Math.round(67 + lineEnergy * 75);
         context.beginPath();
         context.moveTo(a.x, a.y);
         context.lineTo(b.x, b.y);
-        context.strokeStyle = `rgba(227, 174, 67, ${opacity.toFixed(3)})`;
-        context.lineWidth = 0.65;
+        context.strokeStyle = `rgba(${red}, ${green}, ${blue}, ${opacity.toFixed(3)})`;
+        context.lineWidth = 0.78 + lineEnergy * 0.42;
         context.stroke();
       }
     }
 
     for (const node of nodes) {
       const pulse = 0.65 + Math.sin(node.phase) * 0.25;
+      const nodeEnergy = node.energy || 0;
+      const coreRadius = node.radius * pulse * (1 + nodeEnergy * 0.22);
+      const glowRadius = Math.max(1.8, coreRadius * (2.4 + nodeEnergy * 1.2));
+      const glowAlpha = 0.1 + pulse * 0.06 + nodeEnergy * 0.22;
+
       context.beginPath();
-      context.arc(node.x, node.y, node.radius * pulse, 0, Math.PI * 2);
-      context.fillStyle = `rgba(247, 205, 112, ${(0.32 + pulse * 0.28).toFixed(3)})`;
+      context.arc(node.x, node.y, glowRadius, 0, Math.PI * 2);
+      context.fillStyle = `rgba(245, 190, 78, ${Math.min(0.42, glowAlpha).toFixed(3)})`;
+      context.fill();
+
+      const red = Math.round(247 + nodeEnergy * 8);
+      const green = Math.round(205 + nodeEnergy * 25);
+      const blue = Math.round(112 + nodeEnergy * 45);
+      const coreAlpha = Math.min(0.98, 0.44 + pulse * 0.32 + nodeEnergy * 0.2);
+      context.beginPath();
+      context.arc(node.x, node.y, coreRadius, 0, Math.PI * 2);
+      context.fillStyle = `rgba(${red}, ${green}, ${blue}, ${coreAlpha.toFixed(3)})`;
       context.fill();
     }
 
@@ -182,6 +228,7 @@
     pointer.x = event.clientX - bounds.left;
     pointer.y = event.clientY - bounds.top;
     pointer.active = true;
+    pointer.lastMove = performance.now();
   }, { passive: true });
   canvas.addEventListener("pointerleave", () => { pointer.active = false; }, { passive: true });
 
@@ -209,6 +256,8 @@
     stop();
     revealAll();
     pointer.active = false;
+    pointer.energy = 0;
+    pointer.lastMove = 0;
     root.style.setProperty("--hero-scroll", "0");
   };
   if (typeof motionQuery.addEventListener === "function") motionQuery.addEventListener("change", disableMotion);
