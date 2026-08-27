@@ -33,8 +33,9 @@
     document.body.insertBefore(header, main);
 
     eyebrow.textContent = "Dynasty + IDP Fantasy Football • Foundation v0.8";
-    title.innerHTML = '<span class="hero-line">Win today.</span><br><span class="hero-line accent-line">Build forever.</span>';
-    subtitle.textContent = "League Vector turns your Sleeper league into league-aware fantasy intelligence. See structure, values, draft capital, experimental projections and data-quality limits in one place.";
+    title.classList.add("hero-slogan");
+    title.innerHTML = '<span class="hero-line hero-line-primary">Every League</span><br><span class="hero-line hero-line-secondary">Has an Edge.</span><br><span class="hero-line accent-line">Find Yours.</span>';
+    subtitle.textContent = "League Vector reveals the structural, positional and market edge hidden inside your Sleeper league—then gives you the evidence to use it.";
     subtitle.classList.add("hero-sub");
     form.classList.add("hero-form");
     importButton.classList.add("hero-import-button");
