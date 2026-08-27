@@ -4,7 +4,6 @@ on:
   push:
     branches: [codex/premium-homepage-shell-v1]
     paths:
-      - ".lv-v2-payload/**"
       - ".github/workflows/apply-premium-v2.yml"
 
 permissions:
@@ -29,49 +28,47 @@ jobs:
           unzip -o /tmp/league-vector-v2.zip -d .
           python3 - <<'PY'
           from pathlib import Path
+          import base64
+          import shutil
 
-          path = Path('.github/workflows/ci.yml')
-          text = path.read_text()
-          replacements = {
-              "premium-homepage.css?v=0.1": "premium-homepage.css?v=0.2",
-              "premium-homepage.js?v=0.1": "premium-homepage.js?v=0.2",
-              "premium-shell.js?v=0.1": "premium-shell.js?v=0.2",
-          }
-          for old, new in replacements.items():
-              if old not in text:
-                  raise SystemExit(f"Expected CI reference missing: {old}")
-              text = text.replace(old, new)
+          base_css = Path("premium-homepage-base.css")
+          css = base_css.read_text()
+          artwork = Path("assets/league-vector-runner.webp")
+          if not artwork.is_file():
+              raise SystemExit("Expected cinematic hero artwork is missing")
+          encoded = base64.b64encode(artwork.read_bytes()).decode("ascii")
+          old_art = 'url("assets/league-vector-runner.webp?v=0.2")'
+          if old_art not in css:
+              raise SystemExit("Expected cinematic hero artwork reference is missing")
+          css = css.replace(old_art, f'url("data:image/webp;base64,{encoded}")', 1)
+          base_css.write_text(css)
+          shutil.rmtree("assets")
 
-          old_mkdir = "          mkdir -p site-preview/data/experimental\n"
-          new_mkdir = "          mkdir -p site-preview/data/experimental site-preview/assets\n"
-          if old_mkdir not in text:
-              raise SystemExit("Expected preview mkdir line missing")
-          text = text.replace(old_mkdir, new_mkdir, 1)
+          index = Path("index.html")
+          html = index.read_text()
+          for name in (
+              "premium-homepage.css",
+              "premium-shell-hero.js",
+              "premium-shell-sections.js",
+              "premium-shell.js",
+              "premium-homepage.js",
+          ):
+              old = f"{name}?v=0.2"
+              new = f"{name}?v=0.1.2"
+              if old not in html:
+                  raise SystemExit(f"Expected V2 cache key missing: {old}")
+              html = html.replace(old, new, 1)
+          index.write_text(html)
 
-          projection_copy = "          cp data/experimental/2026-projections.json site-preview/data/experimental/\n"
-          asset_copy = projection_copy + "          cp assets/league-vector-runner.webp site-preview/assets/\n"
-          if projection_copy not in text:
-              raise SystemExit("Expected projection copy line missing")
-          text = text.replace(projection_copy, asset_copy, 1)
-
-          test_anchor = "          test -s site-preview/premium-homepage.js\n"
-          test_lines = test_anchor + "          test -s site-preview/assets/league-vector-runner.webp\n"
-          if test_anchor not in text:
-              raise SystemExit("Expected premium asset test anchor missing")
-          text = text.replace(test_anchor, test_lines, 1)
-
-          grep_anchor = "          grep -q 'premium-shell.js?v=0.2' site-preview/index.html\n"
-          grep_lines = grep_anchor + "          grep -q 'premium-shell-hero.js?v=0.2' site-preview/index.html\n          grep -q 'premium-shell-sections.js?v=0.2' site-preview/index.html\n          grep -q 'assets/league-vector-runner.webp?v=0.2' site-preview/premium-homepage-base.css\n"
-          if grep_anchor not in text:
-              raise SystemExit("Expected premium grep anchor missing")
-          text = text.replace(grep_anchor, grep_lines, 1)
-
-          curl_anchor = "          curl --fail --silent --show-error http://127.0.0.1:4174/premium-homepage.js?v=0.2 >/dev/null\n"
-          curl_lines = curl_anchor + "          curl --fail --silent --show-error http://127.0.0.1:4174/premium-shell-hero.js?v=0.2 >/dev/null\n          curl --fail --silent --show-error http://127.0.0.1:4174/premium-shell-sections.js?v=0.2 >/dev/null\n          curl --fail --silent --show-error http://127.0.0.1:4174/assets/league-vector-runner.webp?v=0.2 >/dev/null\n"
-          if curl_anchor not in text:
-              raise SystemExit("Expected premium curl anchor missing")
-          text = text.replace(curl_anchor, curl_lines, 1)
-          path.write_text(text)
+          test = Path("tests/premium-homepage-assets.test.js")
+          source = test.read_text()
+          old_checks = '''  assert.match(styles, /assets\\/league-vector-runner\\.webp\\?v=0\\.2/);\n  assert.equal(fs.existsSync("assets/league-vector-runner.webp"), true, "Missing local hero artwork");'''
+          new_checks = '''  assert.match(styles, /data:image\\/webp;base64,/);\n  assert.doesNotMatch(styles, /assets\\/league-vector-runner\\.webp/);'''
+          if old_checks not in source:
+              raise SystemExit("Expected hero-art test block is missing")
+          source = source.replace(old_checks, new_checks, 1)
+          source = source.replace("?v=0\\.2/", "?v=0\\.1\\.2/")
+          test.write_text(source)
           PY
       - name: Validate before committing
         run: |
@@ -83,7 +80,7 @@ jobs:
           npm run validate
       - name: Commit the final V2 implementation
         run: |
-          rm -rf .lv-v2-payload .github/workflows/apply-premium-v2.yml
+          rm -rf .lv-v2-payload
           git config user.name "league-vector-implementation-bot"
           git config user.email "actions@users.noreply.github.com"
           git add -A
