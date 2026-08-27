@@ -47,12 +47,17 @@ test("presentation layer is isolated from analyzer behavior and network access",
   assert.match(presentation, /results\?\.id !== "results"/);
   assert.match(presentation, /classList\.add\("premium-homepage"\)/);
   assert.match(presentation, /Built to Win/);
-  assert.match(presentation, /Build forever\./);
+  assert.match(presentation, /Every League/);
+  assert.match(presentation, /Has an Edge\./);
+  assert.match(presentation, /Find Yours\./);
+  assert.doesNotMatch(presentation, /Win today\./);
+  assert.doesNotMatch(presentation, /Build forever\./);
 });
 
 test("premium motion is optional, reduced-motion aware and locally hosted", () => {
   for (const file of [...presentationFiles, ...stylesheetFiles]) assert.equal(fs.existsSync(file), true, `Missing ${file}`);
   assert.match(styles, /prefers-reduced-motion:\s*reduce/);
+  assert.match(styles, /hero-slogan/);
   assert.doesNotMatch(styles, /url\s*\(\s*["']?https?:/);
   assert.match(html, /premium-homepage\.css\?v=0\.1/);
   assert.match(html, /premium-homepage\.js\?v=0\.1/);
