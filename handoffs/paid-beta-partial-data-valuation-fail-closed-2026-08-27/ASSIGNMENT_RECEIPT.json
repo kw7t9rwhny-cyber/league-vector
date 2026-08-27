@@ -1,0 +1,73 @@
+{
+  "schema_version": "league-vector-assignment-receipt-v1",
+  "assignment_id": "VAS-2026-08-27-LEAGUE-VECTOR-PARTIAL-DATA-VALUATION-FAIL-CLOSED-REMEDIATION-001",
+  "prompt_sha256": "67cb14a298c1f9dc3f06938e5f9283dff3e60e156b482b92305268d75f289e44",
+  "model": "GPT-5",
+  "model_version": "UNKNOWN",
+  "start_time_utc": "2026-08-27T22:17:31Z",
+  "candidate_freeze_time_utc": "2026-08-27T22:32:31Z",
+  "elapsed_time_to_candidate_freeze_seconds": 900,
+  "repository": "kw7t9rwhny-cyber/league-vector",
+  "issue": 76,
+  "founder_start_authorization": {
+    "present": true,
+    "author_role": "OWNER",
+    "comment_created_at_utc": "2026-08-27T16:16:50Z"
+  },
+  "assignment_expected_base": {
+    "commit": "bbc8de7108e1c61d8a9c0bf856738dcb4c6b73ae",
+    "tree": "19af8168710e97d6ce5152409d06cec5f7394d8c"
+  },
+  "resolved_base": {
+    "commit": "5b63a851a83092a58e35ddc26e439c7cbda209ed",
+    "tree": "2bf072f26ae46e73f3e303ae280438ed58795980"
+  },
+  "branch": "codex/paid-beta-partial-data-valuation-fail-closed-2026-08-27",
+  "candidate": {
+    "substantive_commit": "ff764a1309a20e19bd54898f260074061a06a638",
+    "substantive_tree": "fc0600a5ebdbdacfc036ccb1a9dc474b5f742d40"
+  },
+  "substantive_files_changed": [
+    "README.md",
+    "app.js",
+    "core-v08.js",
+    "data-sources-v08.js",
+    "docs/ARCHITECTURE.md",
+    "docs/CHANGELOG.md",
+    "docs/DATA_SOURCES.md",
+    "docs/ROADMAP.md",
+    "docs/paid-data-eligibility-contract-v01.json",
+    "docs/projection-model.md",
+    "index.html",
+    "tests/core.test.js",
+    "tests/e2e/app.spec.js",
+    "tests/paid-value-partial-data-fail-closed.test.js"
+  ],
+  "handoff_artifacts_added": [
+    "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/ASSIGNMENT_RECEIPT.json",
+    "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/CREATOR_TEST_EVIDENCE.md",
+    "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/FRESH_INDEPENDENT_QA_PROMPT.md",
+    "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/HANDOFF_MANIFEST.json",
+    "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/IMPLEMENTATION_REPORT.md",
+    "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/PREDECESSOR_REPRODUCTION.json",
+    "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/RESULT.json"
+  ],
+  "tests": {
+    "repository_validation": "PASS_EQUIVALENT_COMMANDS_RUN_DIRECTLY",
+    "style": "PASS_129_FILES",
+    "syntax": "PASS",
+    "node": "PASS_739_OF_739",
+    "playwright": "PASS_66_OF_66_DESKTOP_AND_MOBILE_CHROMIUM",
+    "static_data_contract": "PASS"
+  },
+  "tool_calls": "UNKNOWN",
+  "model_calls": "UNKNOWN",
+  "estimated_cost": "UNKNOWN",
+  "human_interventions": [
+    "Founder start-authorization comment on issue #76",
+    "User supplied the assignment contract; no other human code intervention observed"
+  ],
+  "qa_handoff": "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/FRESH_INDEPENDENT_QA_PROMPT.md",
+  "qa_status": "PENDING_FRESH_INDEPENDENT_QA",
+  "terminal_state": "IMPLEMENTED — PARTIAL-DATA PAID VALUATION FAILS CLOSED — READY FOR FRESH INDEPENDENT QA — NO MERGE OR DEPLOY AUTHORITY"
+}

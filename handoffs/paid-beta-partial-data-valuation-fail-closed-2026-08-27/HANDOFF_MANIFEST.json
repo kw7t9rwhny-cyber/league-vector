@@ -1,0 +1,52 @@
+{
+  "schema_version": "league-vector-handoff-manifest-v1",
+  "assignment_id": "VAS-2026-08-27-LEAGUE-VECTOR-PARTIAL-DATA-VALUATION-FAIL-CLOSED-REMEDIATION-001",
+  "repository": "kw7t9rwhny-cyber/league-vector",
+  "base_commit": "5b63a851a83092a58e35ddc26e439c7cbda209ed",
+  "base_tree": "2bf072f26ae46e73f3e303ae280438ed58795980",
+  "branch": "codex/paid-beta-partial-data-valuation-fail-closed-2026-08-27",
+  "candidate_commit": "ff764a1309a20e19bd54898f260074061a06a638",
+  "candidate_tree": "fc0600a5ebdbdacfc036ccb1a9dc474b5f742d40",
+  "evidence_carrier_commit": "RESOLVE_AS_REMOTE_BRANCH_HEAD_AFTER_ARTIFACT_ONLY_COMMIT",
+  "candidate_byte_policy": "QA must checkout candidate_commit. The later branch-head commit may add handoff evidence only and must not alter candidate source, tests or eligibility contract.",
+  "selected_contract": {
+    "option": 2,
+    "id": "OPTION_2_ADJUSTMENT_EXCLUDED_FROM_PAID_BETA_VALUATION",
+    "machine_contract_path": "docs/paid-data-eligibility-contract-v01.json",
+    "paid_value_state": "PAID_VALUE_ELIGIBLE",
+    "projection_policy": "CONTEXT_ONLY_NOT_IN_VALUATION"
+  },
+  "candidate_files": {
+    "README.md": "f8aa5d6ca26896cad2837194bf9ea63efe0f9bbd",
+    "app.js": "6de0450f330d8539939c5132239327849e17ad08",
+    "core-v08.js": "b797e416d12148446024c8e990534ca4bec48050",
+    "data-sources-v08.js": "56ea85952569877b402c2d9ebdf314e9f4c3e1c0",
+    "docs/ARCHITECTURE.md": "ebf1c943124562fc570c962fda69ec4825dcf1aa",
+    "docs/CHANGELOG.md": "4dc7fa546bb9884845306b2ef055c2100d6ef3fe",
+    "docs/DATA_SOURCES.md": "f69c5564517a938becc2e27ef4449a84938542a3",
+    "docs/ROADMAP.md": "45f073bc1f8de31ed1535a17f0d30d51d695eee6",
+    "docs/paid-data-eligibility-contract-v01.json": "8af1e5a67061695c7c695e8f5216991dd865550e",
+    "docs/projection-model.md": "6196bd33e6eb076c84e400e19c29587a5a12c670",
+    "index.html": "733ad7f48d102709e352848c15bf1b78da62b747",
+    "tests/core.test.js": "843c8a95269abd1da698cf835262e6ce96899ee1",
+    "tests/e2e/app.spec.js": "ca550d08758c0ab13c056afd2f009d78e0a5866f",
+    "tests/paid-value-partial-data-fail-closed.test.js": "ac4db54a5a06fa215a987802e8bfb360cbad7198"
+  },
+  "evidence_paths": [
+    "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/ASSIGNMENT_RECEIPT.json",
+    "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/CREATOR_TEST_EVIDENCE.md",
+    "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/FRESH_INDEPENDENT_QA_PROMPT.md",
+    "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/HANDOFF_MANIFEST.json",
+    "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/IMPLEMENTATION_REPORT.md",
+    "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/PREDECESSOR_REPRODUCTION.json",
+    "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/RESULT.json"
+  ],
+  "qa_prompt": "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/FRESH_INDEPENDENT_QA_PROMPT.md",
+  "independent_qa_required": true,
+  "qa_pass_gate": {
+    "p0": 0,
+    "p1": 0
+  },
+  "merge_authorized": false,
+  "deploy_authorized": false
+}

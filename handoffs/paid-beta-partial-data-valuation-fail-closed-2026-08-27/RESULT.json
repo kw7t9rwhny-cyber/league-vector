@@ -1,0 +1,46 @@
+{
+  "schema_version": "league-vector-creator-result-v1",
+  "assignment_id": "VAS-2026-08-27-LEAGUE-VECTOR-PARTIAL-DATA-VALUATION-FAIL-CLOSED-REMEDIATION-001",
+  "role": "SINGLE_IMPLEMENTATION_OWNER_NOT_INDEPENDENT_QA",
+  "status": "READY_FOR_FRESH_INDEPENDENT_QA",
+  "selected_contract": "OPTION_2_ADJUSTMENT_EXCLUDED_FROM_PAID_BETA_VALUATION",
+  "candidate_commit": "ff764a1309a20e19bd54898f260074061a06a638",
+  "candidate_tree": "fc0600a5ebdbdacfc036ccb1a9dc474b5f742d40",
+  "creator_validation": {
+    "status": "PASS",
+    "node": {
+      "passed": 739,
+      "failed": 0,
+      "skipped": 0
+    },
+    "playwright": {
+      "passed": 66,
+      "failed": 0,
+      "projects": [
+        "desktop-chromium",
+        "mobile-chromium"
+      ]
+    },
+    "style_and_syntax": "PASS",
+    "static_data_contract": "PASS"
+  },
+  "predecessor_values": {
+    "18_of_18": 7440,
+    "1_of_18": 9520,
+    "0_of_18": 8240
+  },
+  "successor_values": {
+    "18_of_18": 8240,
+    "1_of_18": 8240,
+    "0_of_18": 8240
+  },
+  "independent_qa": {
+    "status": "PENDING",
+    "p0": "UNKNOWN",
+    "p1": "UNKNOWN",
+    "pass_requirement": "P0 = 0 AND P1 = 0"
+  },
+  "merged": false,
+  "deployed": false,
+  "terminal_state": "IMPLEMENTED — PARTIAL-DATA PAID VALUATION FAILS CLOSED — READY FOR FRESH INDEPENDENT QA — NO MERGE OR DEPLOY AUTHORITY"
+}
