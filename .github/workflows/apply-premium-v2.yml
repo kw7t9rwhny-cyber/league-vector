@@ -1,0 +1,91 @@
+name: Apply League Vector Premium V2
+
+on:
+  push:
+    branches: [codex/premium-homepage-shell-v1]
+    paths:
+      - ".lv-v2-payload/**"
+      - ".github/workflows/apply-premium-v2.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/premium-homepage-shell-v1
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Decode and apply reviewed V2 payload
+        run: |
+          cat .lv-v2-payload/part-* | base64 --decode > /tmp/league-vector-v2.zip
+          unzip -o /tmp/league-vector-v2.zip -d .
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('.github/workflows/ci.yml')
+          text = path.read_text()
+          replacements = {
+              "premium-homepage.css?v=0.1": "premium-homepage.css?v=0.2",
+              "premium-homepage.js?v=0.1": "premium-homepage.js?v=0.2",
+              "premium-shell.js?v=0.1": "premium-shell.js?v=0.2",
+          }
+          for old, new in replacements.items():
+              if old not in text:
+                  raise SystemExit(f"Expected CI reference missing: {old}")
+              text = text.replace(old, new)
+
+          old_mkdir = "          mkdir -p site-preview/data/experimental\n"
+          new_mkdir = "          mkdir -p site-preview/data/experimental site-preview/assets\n"
+          if old_mkdir not in text:
+              raise SystemExit("Expected preview mkdir line missing")
+          text = text.replace(old_mkdir, new_mkdir, 1)
+
+          projection_copy = "          cp data/experimental/2026-projections.json site-preview/data/experimental/\n"
+          asset_copy = projection_copy + "          cp assets/league-vector-runner.webp site-preview/assets/\n"
+          if projection_copy not in text:
+              raise SystemExit("Expected projection copy line missing")
+          text = text.replace(projection_copy, asset_copy, 1)
+
+          test_anchor = "          test -s site-preview/premium-homepage.js\n"
+          test_lines = test_anchor + "          test -s site-preview/assets/league-vector-runner.webp\n"
+          if test_anchor not in text:
+              raise SystemExit("Expected premium asset test anchor missing")
+          text = text.replace(test_anchor, test_lines, 1)
+
+          grep_anchor = "          grep -q 'premium-shell.js?v=0.2' site-preview/index.html\n"
+          grep_lines = grep_anchor + "          grep -q 'premium-shell-hero.js?v=0.2' site-preview/index.html\n          grep -q 'premium-shell-sections.js?v=0.2' site-preview/index.html\n          grep -q 'assets/league-vector-runner.webp?v=0.2' site-preview/premium-homepage-base.css\n"
+          if grep_anchor not in text:
+              raise SystemExit("Expected premium grep anchor missing")
+          text = text.replace(grep_anchor, grep_lines, 1)
+
+          curl_anchor = "          curl --fail --silent --show-error http://127.0.0.1:4174/premium-homepage.js?v=0.2 >/dev/null\n"
+          curl_lines = curl_anchor + "          curl --fail --silent --show-error http://127.0.0.1:4174/premium-shell-hero.js?v=0.2 >/dev/null\n          curl --fail --silent --show-error http://127.0.0.1:4174/premium-shell-sections.js?v=0.2 >/dev/null\n          curl --fail --silent --show-error http://127.0.0.1:4174/assets/league-vector-runner.webp?v=0.2 >/dev/null\n"
+          if curl_anchor not in text:
+              raise SystemExit("Expected premium curl anchor missing")
+          text = text.replace(curl_anchor, curl_lines, 1)
+          path.write_text(text)
+          PY
+      - name: Validate before committing
+        run: |
+          node --check premium-shell-hero.js
+          node --check premium-shell-sections.js
+          node --check premium-shell.js
+          node --check premium-homepage.js
+          node --test tests/premium-homepage-assets.test.js
+          npm run validate
+      - name: Commit the final V2 implementation
+        run: |
+          rm -rf .lv-v2-payload .github/workflows/apply-premium-v2.yml
+          git config user.name "league-vector-implementation-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          git commit -m "Implement cinematic premium homepage v2"
+          git push origin HEAD:codex/premium-homepage-shell-v1
