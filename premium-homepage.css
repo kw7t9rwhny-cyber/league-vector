@@ -1,7 +1,7 @@
-@import url("premium-homepage-base.css?v=0.1");
-@import url("premium-homepage-dashboard.css?v=0.1");
-@import url("premium-homepage-sections.css?v=0.1");
-@import url("premium-homepage-motion.css?v=0.1");
+@import url("premium-homepage-base.css?v=0.2");
+@import url("premium-homepage-dashboard.css?v=0.2");
+@import url("premium-homepage-sections.css?v=0.2");
+@import url("premium-homepage-motion.css?v=0.2");
 
 .premium-homepage h1.hero-slogan {
   max-width: 780px;

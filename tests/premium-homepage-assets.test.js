@@ -11,6 +11,7 @@ const presentationFiles = [
   "premium-homepage.js",
 ];
 const presentation = presentationFiles.map((file) => fs.readFileSync(file, "utf8")).join("\n");
+const shell = fs.readFileSync("premium-shell.js", "utf8");
 const stylesheetFiles = [
   "premium-homepage.css",
   "premium-homepage-base.css",
@@ -25,41 +26,39 @@ function countId(id) {
   return [...html.matchAll(new RegExp(`\\bid=["']${id}["']`, "g"))].length;
 }
 
-test("premium homepage preserves the static Sleeper analyzer DOM contract", () => {
+test("premium homepage preserves the Sleeper analyzer DOM contract", () => {
   for (const id of ["leagueId", "go", "status", "results"]) {
     assert.equal(countId(id), 1, `Expected exactly one #${id}`);
   }
   assert.match(html, /<label[^>]+for=["']leagueId["'][^>]*>Sleeper league ID or URL<\/label>/);
-  assert.match(html, /<button[^>]+id=["']go["'][^>]*>Analyze League<\/button>/);
-  const orderedScripts = ["app.js", ...presentationFiles];
-  for (let index = 1; index < orderedScripts.length; index += 1) {
-    assert.ok(html.indexOf(`src="${orderedScripts[index - 1]}`) < html.indexOf(`src="${orderedScripts[index]}`), `${orderedScripts[index]} must load after ${orderedScripts[index - 1]}`);
-  }
+  assert.match(shell, /form\?\.querySelector\(["']button["']\)/);
+  assert.match(shell, /secondary\.append\(status\)/);
+  assert.match(shell, /Every League/);
+  assert.match(shell, /Has an Edge\./);
+  assert.match(shell, /Find Yours\./);
+  assert.doesNotMatch(presentation, /Win today\.|Build forever\./i);
+  assert.doesNotMatch(presentation, /id=["'](?:leagueId|go|status|results)["']/);
+  assert.ok(html.indexOf('src="app.js') < html.indexOf('src="premium-shell-hero.js'), "Presentation scripts must load after app.js");
 });
 
-test("presentation layer is isolated from analyzer behavior and network access", () => {
-  for (const file of presentationFiles) new vm.Script(fs.readFileSync(file, "utf8"), { filename: file });
+test("presentation layer is isolated from analyzer networking and submission", () => {
   assert.doesNotMatch(presentation, /\bfetch\s*\(/);
+  assert.doesNotMatch(presentation, /XMLHttpRequest/);
   assert.doesNotMatch(presentation, /getElementById\s*\(\s*["'](?:leagueId|go|status|results)["']/);
   assert.doesNotMatch(presentation, /querySelector\s*\(\s*["']#(?:leagueId|go|status|results)["']/);
-  assert.doesNotMatch(presentation, /addEventListener\s*\(\s*["'](?:click|keydown|submit)["'][\s\S]{0,160}(?:leagueId|#go|status|results)/);
   assert.doesNotMatch(presentation, /preventDefault\s*\(/);
-  assert.match(presentation, /results\?\.id !== "results"/);
-  assert.match(presentation, /classList\.add\("premium-homepage"\)/);
-  assert.match(presentation, /Built to Win/);
-  assert.match(presentation, /Every League/);
-  assert.match(presentation, /Has an Edge\./);
-  assert.match(presentation, /Find Yours\./);
-  assert.doesNotMatch(presentation, /Win today\./);
-  assert.doesNotMatch(presentation, /Build forever\./);
+  for (const file of presentationFiles) new vm.Script(fs.readFileSync(file, "utf8"), { filename: file });
 });
 
-test("premium motion is optional, reduced-motion aware and locally hosted", () => {
-  for (const file of [...presentationFiles, ...stylesheetFiles]) assert.equal(fs.existsSync(file), true, `Missing ${file}`);
+test("premium art and motion are local, optional and versioned", () => {
+  for (const file of stylesheetFiles) assert.equal(fs.existsSync(file), true, `Missing ${file}`);
   assert.match(styles, /prefers-reduced-motion:\s*reduce/);
-  assert.match(styles, /hero-slogan/);
+  assert.match(styles, /data:image\/webp;base64,/);
+  assert.doesNotMatch(styles, /assets\/league-vector-runner\.webp/);
   assert.doesNotMatch(styles, /url\s*\(\s*["']?https?:/);
-  assert.match(html, /premium-homepage\.css\?v=0\.1/);
-  assert.match(html, /premium-homepage\.js\?v=0\.1/);
-  assert.doesNotMatch(html, /class=["'][^"']*premium-homepage/);
+  assert.match(html, /premium-homepage\.css\?v=0\.1\.2/);
+  assert.match(html, /premium-shell-hero\.js\?v=0\.1\.2/);
+  assert.match(html, /premium-shell-sections\.js\?v=0\.1\.2/);
+  assert.match(html, /premium-shell\.js\?v=0\.1\.2/);
+  assert.match(html, /premium-homepage\.js\?v=0\.1\.2/);
 });

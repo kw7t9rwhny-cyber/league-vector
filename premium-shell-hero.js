@@ -12,35 +12,57 @@
   namespace.createHeader = () => element(`
     <header class="site-header">
       <a class="brand brand-lockup" href="#top" aria-label="League Vector home">
-        <svg class="brand-mark" viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="brandGold" x1="4" y1="2" x2="42" y2="46"><stop stop-color="#ffe09a"/><stop offset=".48" stop-color="#e8b84d"/><stop offset="1" stop-color="#9b6517"/></linearGradient></defs><path fill="url(#brandGold)" d="M3 8h10.5L24 25.2 34.5 8H45L24 43z"/><path fill="#050705" d="M13.4 12h6.9l3.7 6.1 3.7-6.1h6.9L24 29.4z"/></svg>
+        <svg class="brand-mark" viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="brandGold" x1="3" y1="2" x2="44" y2="47"><stop stop-color="#ffe4a4"/><stop offset=".5" stop-color="#e6b349"/><stop offset="1" stop-color="#8c5812"/></linearGradient></defs><path fill="url(#brandGold)" d="M3 8h10.5L24 25.2 34.5 8H45L24 43z"/><path fill="#050604" d="M13.4 12h6.9l3.7 6.1 3.7-6.1h6.9L24 29.4z"/></svg>
         <span class="brand-copy">LEAGUE VECTOR<small>Dynasty + IDP Intelligence</small></span>
       </a>
-      <nav class="primary-nav" aria-label="Primary navigation"><a href="#top" aria-current="page">Home</a><a href="#features">Features</a><a href="#league-context">League Context</a><a href="#methodology">Methodology</a></nav>
-      <div class="header-actions"><a class="header-cta" href="#leagueId">Import League</a></div>
+      <nav class="primary-nav" aria-label="Primary navigation"><a href="#top" aria-current="page">Home</a><a href="#features">Features</a><a href="#preview">Product</a><a href="#league-context">League Context</a><a href="#methodology">Methodology</a></nav>
+      <div class="header-actions"><a class="header-login" href="#features">Explore</a><a class="header-cta" href="#leagueId">Get Started</a></div>
     </header>
   `);
 
   namespace.createHeroVisual = () => element(`
     <div class="hero-visual" aria-hidden="true">
+      <div class="hero-athlete"></div>
+      <div class="hero-athlete-glow"></div>
       <canvas id="vectorField"></canvas>
-      <div class="vector-core">
-        <div class="core-orbit orbit-one"></div><div class="core-orbit orbit-two"></div><div class="core-orbit orbit-three"></div><div class="core-halo"></div><div class="core-scan"></div>
-        <div class="core-mark"><svg viewBox="0 0 240 240"><defs><linearGradient id="coreGold" x1="40" y1="20" x2="190" y2="220"><stop stop-color="#fff0b6"/><stop offset=".38" stop-color="#e8b84e"/><stop offset="1" stop-color="#80500f"/></linearGradient><linearGradient id="coreDark" x1="70" y1="30" x2="170" y2="210"><stop stop-color="#20241f"/><stop offset="1" stop-color="#050705"/></linearGradient></defs><path fill="url(#coreGold)" d="M23 37h52l45 73 45-73h52l-97 169z"/><path fill="url(#coreDark)" stroke="rgba(255,226,151,.42)" stroke-width="2" d="M71 51h30l19 31 19-31h30l-49 87z"/><path fill="none" stroke="rgba(255,221,139,.24)" stroke-width="2" d="M45 50l75 130 75-130"/></svg></div>
-      </div>
-      <div class="floating-signal signal-context"><span>League context</span><strong>Scoring aware</strong><em>Calculated after import</em></div>
-      <div class="floating-signal signal-idp"><span>IDP coverage</span><strong>Core context</strong><em>Limits disclosed</em></div>
-      <div class="floating-signal signal-draft"><span>Draft capital</span><strong>Future value</strong><em>Pick ownership tracked</em></div>
-      <div class="hero-corner-label">One league. Every angle.</div>
+      <div class="hero-speed-lines"></div>
+      <div class="hero-metric metric-value"><span>Player value</span><strong>97</strong><em>Elite profile</em></div>
+      <div class="hero-metric metric-power"><span>League power</span><strong>1,842</strong><em>Top 12%</em></div>
+      <div class="hero-metric metric-edge"><span>Trade edge</span><strong>+18.6%</strong><em>Illustrative</em></div>
     </div>
   `);
 
-  const bars = (values) => values.map((height, index) => `<i style="--bar-height:${height}%;--bar-delay:${40 + index * 40}ms"></i>`).join("");
+  const sparkline = (points, tone = "gold") => `<svg class="sparkline ${tone}" viewBox="0 0 120 34" preserveAspectRatio="none" aria-hidden="true"><path class="sparkline-fill" d="M0 34 L${points} L120 34 Z"/><polyline points="${points}" fill="none" vector-effect="non-scaling-stroke"/></svg>`;
   namespace.createPreview = () => element(`
-    <section class="preview-rail" aria-label="League Vector analysis preview" data-reveal data-reveal-delay="1">
-      <article class="preview-card" data-spotlight><div class="preview-card-top"><span class="preview-card-label">League power</span><span class="preview-card-index">01</span></div><div class="preview-card-value">League-wide view</div><div class="preview-card-note">Compare team structure with supported data after import.</div><div class="mini-chart" aria-hidden="true">${bars([32,42,38,58,51,72,66,88])}</div></article>
-      <article class="preview-card" data-spotlight><div class="preview-card-top"><span class="preview-card-label">Team window</span><span class="preview-card-index">02</span></div><div class="preview-card-value">Roster trajectory</div><div class="preview-card-note">See present strength beside age, picks and future flexibility.</div><div class="mini-chart" aria-hidden="true">${bars([42,54,69,82,90,78,61,48])}</div></article>
-      <article class="preview-card" data-spotlight><div class="preview-card-top"><span class="preview-card-label">Asset context</span><span class="preview-card-index">03</span></div><div class="preview-card-value">League-specific value</div><div class="preview-card-note">Separate market baselines from pressure created by your format.</div><div class="mini-chart" aria-hidden="true">${bars([36,46,43,62,71,64,81,94])}</div></article>
-      <article class="preview-card" data-spotlight><div class="preview-card-top"><span class="preview-card-label">Data confidence</span><span class="preview-card-index">04</span></div><div class="preview-card-value">Coverage disclosed</div><div class="preview-card-note">Unsupported values stay unavailable instead of being invented.</div><div class="mini-chart" aria-hidden="true">${bars([72,77,75,82,79,87,91,94])}</div></article>
+    <section id="preview" class="preview-dashboard" aria-label="Illustrative League Vector product preview" data-reveal data-reveal-delay="1">
+      <div class="preview-heading"><div><span>Live league intelligence</span><strong>One import. A complete competitive picture.</strong></div><small>Illustrative interface preview · Live results populate from your imported league</small></div>
+      <div class="preview-grid">
+        <article class="preview-card power-card" data-spotlight>
+          <div class="preview-card-header"><div><span>League Power Rankings</span><small>12-team Dynasty · SF · IDP</small></div><b>LIVE</b></div>
+          <div class="ranking-list"><div class="ranking-row leader"><i>1</i><span>Gridiron Empire</span><strong>96.3</strong></div><div class="ranking-row"><i>2</i><span>The Rebuilders</span><strong>92.1</strong></div><div class="ranking-row"><i>3</i><span>Youth Movement</span><strong>88.7</strong></div><div class="ranking-row"><i>4</i><span>Sunday Scaries</span><strong>84.2</strong></div></div>
+          <div class="preview-card-link">View full rankings <span>→</span></div>
+        </article>
+
+        <article class="preview-card asset-card" data-spotlight>
+          <div class="preview-card-header"><div><span>Top Player Value</span><small>League-adjusted dynasty value</small></div><b>01</b></div>
+          <div class="asset-profile"><div class="asset-avatar"><span>JJ</span></div><div><strong>Justin Jefferson</strong><small>WR · MIN</small></div></div>
+          <div class="asset-value-row"><div><span>LV Value</span><strong>10,842</strong></div><em>Elite</em></div>
+          ${sparkline("0,29 12,27 24,30 36,22 48,24 60,18 72,20 84,12 96,15 108,7 120,3")}
+          <div class="preview-card-link">View top players <span>→</span></div>
+        </article>
+
+        <article class="preview-card rookie-card" data-spotlight>
+          <div class="preview-card-header"><div><span>Rookie Class</span><small>Illustrative class hierarchy</small></div><b>2026</b></div>
+          <div class="rookie-list"><div><i>1</i><span><strong>Rookie RB1</strong><small>RB</small></span><b>9,215</b></div><div><i>2</i><span><strong>Rookie WR1</strong><small>WR</small></span><b>7,842</b></div><div><i>3</i><span><strong>Rookie WR2</strong><small>WR</small></span><b>7,123</b></div><div><i>4</i><span><strong>Rookie QB1</strong><small>QB</small></span><b>5,912</b></div></div>
+          <div class="preview-card-link">View rookie rankings <span>→</span></div>
+        </article>
+
+        <article class="preview-card movement-card" data-spotlight>
+          <div class="preview-card-header"><div><span>Market Movement</span><small>7-day illustrative change</small></div><b>7D</b></div>
+          <div class="movement-list"><div><span><strong>CeeDee Lamb</strong><small>WR</small></span>${sparkline("0,27 24,26 48,20 72,22 96,12 120,8", "green")}<b class="up">+6.4%</b></div><div><span><strong>Bijan Robinson</strong><small>RB</small></span>${sparkline("0,28 24,25 48,27 72,18 96,14 120,9", "green")}<b class="up">+4.2%</b></div><div><span><strong>Trevor Lawrence</strong><small>QB</small></span>${sparkline("0,15 24,18 48,13 72,21 96,24 120,28", "red")}<b class="down">−2.8%</b></div><div><span><strong>Kyle Pitts</strong><small>TE</small></span>${sparkline("0,11 24,15 48,14 72,22 96,25 120,30", "red")}<b class="down">−5.1%</b></div></div>
+          <div class="preview-card-link">View market movement <span>→</span></div>
+        </article>
+      </div>
     </section>
   `);
 })();
