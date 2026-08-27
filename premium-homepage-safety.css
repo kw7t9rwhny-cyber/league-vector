@@ -1,0 +1,47 @@
+:root {
+  --bg: #07111f;
+  --panel: #0d1b2d;
+  --line: #203852;
+  --text: #f4f8fc;
+  --muted: #8fa6be;
+  --accent: #ffb01f;
+  --good: #5ee6a8;
+  --bad: #ff8d8d;
+  --hero-scroll: 0;
+}
+
+html {
+  scroll-behavior: auto;
+  background: var(--bg);
+}
+
+body.premium-homepage {
+  --bg: #030504;
+  --panel: rgba(10, 13, 11, 0.9);
+  --line: rgba(231, 186, 85, 0.18);
+  --text: #f7f4ec;
+  --muted: #9d9f99;
+  --accent: #e7b84f;
+  --good: #7edc9f;
+  --bad: #ef8177;
+}
+
+html:has(body.premium-homepage) {
+  scroll-behavior: smooth;
+  background: #030504;
+}
+
+.premium-homepage .status {
+  margin: 0;
+  color: #7f827b;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.premium-homepage .status.error {
+  color: #ffaaa1;
+}
+
+.premium-homepage .status.success {
+  color: var(--good);
+}
