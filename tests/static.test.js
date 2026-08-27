@@ -14,7 +14,7 @@ test("every app DOM lookup has a matching element", () => {
 test("HTML references existing local assets and only v0.8 labels", () => {
   const html = fs.readFileSync("index.html", "utf8");
   for (const asset of [...html.matchAll(/(?:src|href)="([^"?]+)(?:\?[^" ]*)?"/g)].map((match) => match[1])) {
-    if (/^(?:https?:|#|mailto:|tel:)/.test(asset)) continue;
+    if (/^https?:/.test(asset)) continue;
     assert.equal(fs.existsSync(asset), true, `Missing asset ${asset}`);
   }
   assert.doesNotMatch(html, /v0\.[67]/);
