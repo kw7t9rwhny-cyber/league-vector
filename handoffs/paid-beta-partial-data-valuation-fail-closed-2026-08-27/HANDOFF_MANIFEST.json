@@ -7,7 +7,7 @@
   "branch": "codex/paid-beta-partial-data-valuation-fail-closed-2026-08-27",
   "candidate_commit": "ff764a1309a20e19bd54898f260074061a06a638",
   "candidate_tree": "fc0600a5ebdbdacfc036ccb1a9dc474b5f742d40",
-  "evidence_carrier_commit": "RESOLVE_AS_REMOTE_BRANCH_HEAD_AFTER_ARTIFACT_ONLY_COMMIT",
+  "evidence_carrier_commit": "510b80df336937f9e9e36556ae5ceebfac7be524",
   "candidate_byte_policy": "QA must checkout candidate_commit. The later branch-head commit may add handoff evidence only and must not alter candidate source, tests or eligibility contract.",
   "selected_contract": {
     "option": 2,
@@ -36,16 +36,38 @@
     "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/ASSIGNMENT_RECEIPT.json",
     "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/CREATOR_TEST_EVIDENCE.md",
     "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/FRESH_INDEPENDENT_QA_PROMPT.md",
+    "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/FRESH_INDEPENDENT_QA_REPORT.md",
+    "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/FRESH_INDEPENDENT_QA_FINDINGS.json",
     "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/HANDOFF_MANIFEST.json",
     "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/IMPLEMENTATION_REPORT.md",
     "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/PREDECESSOR_REPRODUCTION.json",
-    "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/RESULT.json"
+    "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/RESULT.json",
+    "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/REMOTE_READBACK.json"
   ],
   "qa_prompt": "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/FRESH_INDEPENDENT_QA_PROMPT.md",
   "independent_qa_required": true,
   "qa_pass_gate": {
     "p0": 0,
     "p1": 0
+  },
+  "independent_qa": {
+    "role": "FRESH_INDEPENDENT_QA",
+    "status": "FAIL",
+    "executed_at_utc": "2026-08-28T11:03:09Z",
+    "tested_commit": "ff764a1309a20e19bd54898f260074061a06a638",
+    "tested_tree": "fc0600a5ebdbdacfc036ccb1a9dc474b5f742d40",
+    "p0": 0,
+    "p1": 2,
+    "gate_met": false,
+    "report": "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/FRESH_INDEPENDENT_QA_REPORT.md",
+    "findings": "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/FRESH_INDEPENDENT_QA_FINDINGS.json"
+  },
+  "persistence": {
+    "remote_branch": "codex/paid-beta-partial-data-valuation-fail-closed-2026-08-27",
+    "pre_qa_remote_head": "510b80df336937f9e9e36556ae5ceebfac7be524",
+    "qa_report_commit": "PENDING_FIRST_QA_EVIDENCE_COMMIT",
+    "remote_readback_path": "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/REMOTE_READBACK.json",
+    "status": "PENDING"
   },
   "merge_authorized": false,
   "deploy_authorized": false
