@@ -45,8 +45,13 @@
   },
   "report_path": "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/FRESH_INDEPENDENT_QA_REPORT.md",
   "findings_path": "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/FRESH_INDEPENDENT_QA_FINDINGS.json",
-  "qa_report_commit": "PENDING_FIRST_QA_EVIDENCE_COMMIT",
-  "remote_readback": "PENDING",
+  "qa_report_commit": "98a5d825d1ed70b23d2fd29de51ed5310f154f6e",
+  "remote_readback": {
+    "status": "VERIFIED",
+    "commit": "98a5d825d1ed70b23d2fd29de51ed5310f154f6e",
+    "tree": "bfc35e87ed8d0e80856a2e1541080a9331ddcea8",
+    "path": "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/REMOTE_READBACK.json"
+  },
   "merged": false,
   "deployed": false,
   "payment_authorized": false,

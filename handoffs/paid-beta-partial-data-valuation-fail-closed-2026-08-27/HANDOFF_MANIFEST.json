@@ -65,9 +65,12 @@
   "persistence": {
     "remote_branch": "codex/paid-beta-partial-data-valuation-fail-closed-2026-08-27",
     "pre_qa_remote_head": "510b80df336937f9e9e36556ae5ceebfac7be524",
-    "qa_report_commit": "PENDING_FIRST_QA_EVIDENCE_COMMIT",
+    "qa_report_commit": "98a5d825d1ed70b23d2fd29de51ed5310f154f6e",
+    "remote_readback_commit": "98a5d825d1ed70b23d2fd29de51ed5310f154f6e",
+    "remote_readback_tree": "bfc35e87ed8d0e80856a2e1541080a9331ddcea8",
+    "remote_branch_head_at_readback": "98a5d825d1ed70b23d2fd29de51ed5310f154f6e",
     "remote_readback_path": "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/REMOTE_READBACK.json",
-    "status": "PENDING"
+    "status": "VERIFIED"
   },
   "merge_authorized": false,
   "deploy_authorized": false
