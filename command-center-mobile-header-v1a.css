@@ -1,0 +1,41 @@
+@media (max-width: 760px) {
+  body.premium-homepage.command-center-active .site-header {
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 44px;
+    padding: 0 12px;
+    background: rgba(2, 4, 3, 0.95);
+    backdrop-filter: blur(18px) saturate(120%);
+    transition: min-height 180ms ease, padding 180ms ease, background-color 180ms ease;
+  }
+
+  body.premium-homepage.command-center-active .site-header .primary-nav,
+  body.premium-homepage.command-center-active .site-header .header-actions {
+    display: none;
+  }
+
+  body.premium-homepage.command-center-active .brand.brand-lockup {
+    gap: 7px;
+    font-size: 9px;
+    letter-spacing: 0.14em;
+  }
+
+  body.premium-homepage.command-center-active .brand-mark {
+    width: 25px;
+    height: 25px;
+  }
+
+  body.premium-homepage.command-center-active .cc-navigation {
+    top: 44px;
+  }
+
+  body.premium-homepage.command-center-active .cc-overview,
+  body.premium-homepage.command-center-active .cc-panel {
+    scroll-margin-top: 104px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body.premium-homepage.command-center-active .site-header {
+    transition: none;
+  }
+}
