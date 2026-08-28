@@ -1,0 +1,70 @@
+name: Username Onboarding V1B Preview
+
+on:
+  pull_request:
+    paths:
+      - "username-onboarding-v1b.js"
+      - "username-onboarding-v1b.css"
+      - "index.html"
+      - "package.json"
+      - "tests/username-onboarding-v1b.test.js"
+      - "tests/e2e/username-onboarding-v1b.spec.js"
+      - ".github/workflows/username-onboarding-preview-v1b.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run validate
+      - run: npx playwright install --with-deps chromium
+      - name: Validate username-first onboarding in Chromium
+        run: npx playwright test tests/e2e/username-onboarding-v1b.spec.js
+      - name: Assemble exact static review artifact
+        run: |
+          mkdir -p site-preview/data/experimental
+          find . -maxdepth 1 -type f \( -name '*.html' -o -name '*.css' -o -name '*.js' \) -exec cp {} site-preview/ \;
+          cp data/experimental/2026-projections.json site-preview/data/experimental/2026-projections.json
+      - name: Verify onboarding assets and protected analyzer contract
+        run: |
+          test -s site-preview/index.html
+          test -s site-preview/app.js
+          test -s site-preview/data-sources-v08.js
+          test -s site-preview/username-onboarding-v1b.css
+          test -s site-preview/username-onboarding-v1b.js
+          test -s site-preview/command-center-v1a.css
+          test -s site-preview/command-center-v1a.js
+          test -s site-preview/command-center-mobile-header-v1a.css
+          test -s site-preview/command-center-mobile-header-v1a.js
+          test -s site-preview/premium-homepage-truth.css
+          grep -q 'username-onboarding-v1b.css?v=0.1' site-preview/index.html
+          grep -q 'username-onboarding-v1b.js?v=0.1' site-preview/index.html
+          grep -q 'command-center-bridge-v1a.js?v=0.1' site-preview/index.html
+          test "$(grep -o 'id="leagueId"' site-preview/index.html | wc -l)" -eq 1
+          test "$(grep -o 'id="go"' site-preview/index.html | wc -l)" -eq 1
+          test "$(grep -o 'id="status"' site-preview/index.html | wc -l)" -eq 1
+          test "$(grep -o 'id="results"' site-preview/index.html | wc -l)" -eq 1
+          ! grep -q '/projections/' site-preview/username-onboarding-v1b.js
+          ! grep -q 'type="password"' site-preview/username-onboarding-v1b.js
+          python3 -m http.server 4177 --directory site-preview >/tmp/league-vector-username-onboarding-preview.log 2>&1 &
+          server_pid=$!
+          trap 'kill $server_pid' EXIT
+          sleep 1
+          curl --fail --silent --show-error http://127.0.0.1:4177/ >/dev/null
+          curl --fail --silent --show-error http://127.0.0.1:4177/username-onboarding-v1b.css?v=0.1 >/dev/null
+          curl --fail --silent --show-error http://127.0.0.1:4177/username-onboarding-v1b.js?v=0.1 >/dev/null
+      - name: Upload username-onboarding review artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: league-vector-username-onboarding-v1b-preview
+          path: site-preview/
+          if-no-files-found: error
+          retention-days: 14
