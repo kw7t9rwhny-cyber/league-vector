@@ -33,10 +33,10 @@ jobs:
       - run: npm run validate
       - run: npx playwright install --with-deps chromium
       - run: npx playwright test tests/e2e/username-onboarding-v1b.spec.js
-      - name: Commit verified implementation
+      - name: Commit verified implementation without workflow mutations
         run: |
           rm -rf .github/v1b-payload
-          rm -f .github/workflows/username-onboarding-v1b-installer.yml
+          rm -f .github/workflows/username-onboarding-preview-v1b.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
