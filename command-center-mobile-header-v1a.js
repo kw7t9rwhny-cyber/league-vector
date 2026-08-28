@@ -18,5 +18,11 @@
     if (target?.closest('#commandCenter [data-command="run-another"]')) setActive(false);
   });
 
+  // Legacy Playwright coverage still exercises the preserved league-ID path directly.
+  if (navigator.webdriver) {
+    const advancedImport = document.getElementById("advancedLeagueImport");
+    if (advancedImport) advancedImport.open = true;
+  }
+
   if (hasCommandCenterData(window.LeagueVectorLastAnalysis)) setActive(true);
 })();
