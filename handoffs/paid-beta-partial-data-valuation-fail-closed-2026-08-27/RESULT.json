@@ -1,0 +1,60 @@
+{
+  "schema_version": "league-vector-independent-qa-result-v1",
+  "assignment_id": "VAS-2026-08-27-LEAGUE-VECTOR-PARTIAL-DATA-VALUATION-FAIL-CLOSED-REMEDIATION-001",
+  "role": "FRESH_INDEPENDENT_QA",
+  "status": "FAIL",
+  "repository": "kw7t9rwhny-cyber/league-vector",
+  "pr": 78,
+  "selected_contract": "OPTION_2_ADJUSTMENT_EXCLUDED_FROM_PAID_BETA_VALUATION",
+  "candidate_commit": "ff764a1309a20e19bd54898f260074061a06a638",
+  "candidate_tree": "fc0600a5ebdbdacfc036ccb1a9dc474b5f742d40",
+  "candidate_identity": "PASS",
+  "candidate_bytes_modified": false,
+  "qa_gate": {
+    "p0": 0,
+    "p1": 2,
+    "pass_requirement": "P0 = 0 AND P1 = 0",
+    "met": false
+  },
+  "finding_ids": [
+    "P1-01",
+    "P1-02"
+  ],
+  "predecessor_values_actual_base_checkout": {
+    "18_of_18": 7440,
+    "1_of_18": 9520,
+    "0_of_18": 8240
+  },
+  "successor_values_exact_candidate": {
+    "18_of_18": 8240,
+    "1_of_18": 8240,
+    "0_of_18": 8240,
+    "byte_reproducible_for_identical_inputs": true,
+    "reject_all": false
+  },
+  "validation": {
+    "style": { "passed_files": 129, "failed": 0 },
+    "syntax": { "passed_targets": 25, "failed": 0 },
+    "node_full": { "passed": 739, "failed": 0, "skipped": 0 },
+    "creator_targeted_rerun": { "passed": 22, "failed": 0 },
+    "independent_adversarial_node": { "passed": 5, "failed": 0 },
+    "actual_base_predecessor": { "passed": 1, "failed": 0 },
+    "playwright_repository_matrix": { "passed": 66, "failed": 0 },
+    "independent_browser_control": { "passed": 1, "failed": 0, "legacy_weekly_requests": 0 },
+    "independent_browser_falsification": { "passed": 0, "failed_assertions": 3, "root_cause_findings": 2 }
+  },
+  "report_path": "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/FRESH_INDEPENDENT_QA_REPORT.md",
+  "findings_path": "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/FRESH_INDEPENDENT_QA_FINDINGS.json",
+  "qa_report_commit": "98a5d825d1ed70b23d2fd29de51ed5310f154f6e",
+  "remote_readback": {
+    "status": "VERIFIED",
+    "commit": "98a5d825d1ed70b23d2fd29de51ed5310f154f6e",
+    "tree": "bfc35e87ed8d0e80856a2e1541080a9331ddcea8",
+    "path": "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/REMOTE_READBACK.json"
+  },
+  "merged": false,
+  "deployed": false,
+  "payment_authorized": false,
+  "numeric_idp_dynasty_value_activated": false,
+  "terminal_state": "FRESH_INDEPENDENT_QA FAIL — P0=0 P1=2 — RETURN TO IMPLEMENTATION OWNERSHIP — NO REMEDIATION, MERGE, DEPLOY, PAYMENT, OR NUMERIC IDP AUTHORITY"
+}

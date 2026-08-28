@@ -10,20 +10,26 @@ For a matched offensive player:
 
 ```text
 adjusted baseline = max(market baseline, applicable rookie floor)
-total adjustment = clamp(age + league structure + projection, -25%, +35%)
+total adjustment = clamp(age + league structure, -25%, +35%)
 final value = max(0, round(adjusted baseline × (1 + total adjustment)))
 ```
 
 - **Market baseline:** `value_1qb` for one-QB lineups; `value_2qb` for superflex/two-QB lineups.
 - **Age:** compact position-specific dynasty curve.
 - **League structure:** team and lineup scarcity only. It excludes scoring bonuses.
-- **Projection:** league-scored projected performance above a neutral 12-team/1QB replacement benchmark.
-- **League VORP:** displayed against actual league replacement, but not added again to value.
+- **Projection policy:** `CONTEXT_ONLY_NOT_IN_VALUATION`. Legacy weekly and experimental projection data are excluded from player values, team totals, sorting and ranking.
 - **Rookie floor:** ECR or NFL draft-capital floor when the player has zero experience.
 - **Confidence:** a same-source market/ECR agreement heuristic; informational only.
 - **Trades:** local completed-trade count; informational only.
 
-Separating structural pressure from league-scored projection prevents the same scoring rule from being applied as both a direct league multiplier and a projection multiplier. Actual league VORP remains visible without becoming a second scarcity adjustment.
+The paid-beta formula is therefore:
+
+```text
+total adjustment = clamp(age + league structure, -25%, +35%)
+final value = max(0, round(adjusted baseline × (1 + total adjustment)))
+```
+
+The runtime state is `PAID_VALUE_ELIGIBLE` only under this projection-exclusion contract. The legacy weekly adapter is not requested during paid-value analysis, so incomplete, stale, malformed, timed-out, cached or mixed-version projection responses cannot enter a paid value. No missing projection is represented as numeric zero and no coverage is fabricated. The machine-readable contract is `docs/paid-data-eligibility-contract-v01.json`.
 
 ## Identity contract
 

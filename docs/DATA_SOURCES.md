@@ -6,7 +6,7 @@ Used for league configuration, rosters, users, player metadata, transactions, tr
 
 Sleeper's public documentation says the API is free for non-commercial use and asks commercial users to contact Sleeper. Commercial launch is therefore blocked until the owner confirms acceptable commercial terms. League Vector has not contacted Sleeper or accepted terms on the owner's behalf.
 
-The projection adapter currently calls Sleeper's undocumented `/projections/nfl/...` endpoint. It is explicitly labeled unstable, has timeouts and partial-failure reporting, and must be replaced before relying on it commercially.
+The paid-beta analysis does not call Sleeper's undocumented `/projections/nfl/...` endpoint. The former weekly adapter and projection adjustment were removed from paid valuation because the source cannot establish complete, immutable, version-consistent coverage. Separately labeled experimental projections remain context only and cannot affect paid player values, team totals, sorting or ranking.
 
 ## SportsDataIO evaluation
 

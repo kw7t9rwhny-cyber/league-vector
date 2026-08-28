@@ -11,7 +11,7 @@
 ## Engineering work
 
 1. Populate and maintain the new Sleeper → provider crosswalk with legally sourced, verified mappings; audit tooling is now implemented.
-2. Replace the undocumented projection endpoint with a licensed provider adapter.
+2. Evaluate a licensed provider adapter for separately labeled projection context; any future paid-valuation use requires a new complete-coverage contract and authorization.
 3. Restore the validated scoring engine and weekly 308-slot scarcity pipeline behind the private API.
 4. Add licensed IDP projections, replacement levels, age curves and market calibration.
 5. Add scoring-neutral projections so market/role talent and league scoring can be tested independently.

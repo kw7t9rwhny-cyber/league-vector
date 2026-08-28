@@ -14,7 +14,7 @@ Build proprietary player-stat projections from legally usable historical footbal
 6. promote more complex models only when they beat the baselines out of sample
 7. emit projected football statistics plus uncertainty
 8. score those statistics through the existing League Vector scoring engine
-9. feed league-scored projections into replacement level, VORP and dynasty valuation
+9. expose approved projections only as separately labeled context unless a future Founder-authorized valuation contract and fresh independent QA explicitly permit otherwise
 
 ## Initial baselines
 

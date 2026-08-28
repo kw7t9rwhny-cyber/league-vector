@@ -1,0 +1,44 @@
+{
+  "schema_version": "league-vector-predecessor-reproduction-v1",
+  "reproduced_on_base_commit": "5b63a851a83092a58e35ddc26e439c7cbda209ed",
+  "base_tree": "2bf072f26ae46e73f3e303ae280438ed58795980",
+  "fixture": {
+    "league": "12-team neutral 1QB",
+    "market_baseline": 8000,
+    "player_age": 27,
+    "age_adjustment": 0.03,
+    "target": "one QB target",
+    "replacement_population": "12 QB rows",
+    "scoring": {
+      "pass_yd": 1
+    }
+  },
+  "predecessor_results": {
+    "18_of_18_weekly_responses": {
+      "displayed_offensive_dynasty_value": 7440
+    },
+    "1_of_18_weekly_responses": {
+      "displayed_offensive_dynasty_value": 9520
+    },
+    "0_of_18_weekly_responses": {
+      "displayed_offensive_dynasty_value": 8240
+    }
+  },
+  "predecessor_root_cause": [
+    "Each failed weekly request was caught and flattened to an empty array.",
+    "The remaining rows were aggregated without proving complete, fresh, version-consistent coverage.",
+    "Replacement levels and the target projection adjustment were rebuilt from whichever rows remained.",
+    "A warning disclosed partial coverage but ordinary numeric player values, cards, ranking, roster values and team totals were still emitted."
+  ],
+  "successor_candidate": {
+    "commit": "ff764a1309a20e19bd54898f260074061a06a638",
+    "tree": "fc0600a5ebdbdacfc036ccb1a9dc474b5f742d40",
+    "selected_contract": "OPTION_2_ADJUSTMENT_EXCLUDED_FROM_PAID_BETA_VALUATION",
+    "18_of_18_weekly_responses_value": 8240,
+    "1_of_18_weekly_responses_value": 8240,
+    "0_of_18_weekly_responses_value": 8240,
+    "byte_reproducible_for_same_inputs": true,
+    "legacy_weekly_requests_during_paid_value_analysis": 0,
+    "projection_policy": "CONTEXT_ONLY_NOT_IN_VALUATION"
+  }
+}

@@ -6,7 +6,6 @@
   "use strict";
 
   const SLEEPER_API = "https://api.sleeper.app/v1";
-  const SLEEPER_UNDOCUMENTED_API = "https://api.sleeper.app";
   const MARKET_URL = "https://raw.githubusercontent.com/dynastyprocess/data/master/files/values-players.csv";
   const memory = new Map();
 
@@ -142,38 +141,6 @@
     });
   }
 
-  async function projectionWeek(season, week, signal) {
-    const params = new URLSearchParams({ season_type: "regular" });
-    ["QB", "RB", "WR", "TE", "FLEX"].forEach((position) => params.append("position[]", position));
-    const url = `${SLEEPER_UNDOCUMENTED_API}/projections/nfl/${season}/${week}?${params}`;
-    return request(url, { signal, ttlMs: 60 * 60 * 1000, timeoutMs: 12000 });
-  }
-
-  async function seasonProjections(season, signal, progress = () => {}) {
-    const weeks = Array.from({ length: 18 }, (_, index) => index + 1);
-    const failures = [];
-    let completed = 0;
-    const results = await mapLimit(weeks, 4, async (week) => {
-      try {
-        return (await projectionWeek(season, week, signal)).value || [];
-      } catch (error) {
-        if (error?.name === "AbortError") throw error;
-        failures.push({ week, message: error.message });
-        return [];
-      } finally {
-        completed += 1;
-        progress(completed, weeks.length);
-      }
-    });
-    return {
-      rows: results.flat(),
-      failures,
-      status: failures.length === 0 ? "complete" : failures.length === weeks.length ? "unavailable" : "partial",
-      source: "Sleeper undocumented projections endpoint",
-      documented: false,
-    };
-  }
-
   async function transactionHistory(leagueId, maxRound, signal, progress = () => {}) {
     const rounds = Array.from({ length: Math.max(1, maxRound) }, (_, index) => index + 1);
     const failures = [];
@@ -211,7 +178,6 @@
     mapLimit,
     leagueBundle,
     marketData,
-    seasonProjections,
     transactionHistory,
   };
 });

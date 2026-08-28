@@ -1,0 +1,80 @@
+{
+  "schema_version": "league-vector-independent-qa-findings-v1",
+  "assignment_id": "VAS-2026-08-27-LEAGUE-VECTOR-PARTIAL-DATA-VALUATION-FAIL-CLOSED-REMEDIATION-001",
+  "repository": "kw7t9rwhny-cyber/league-vector",
+  "pr": 78,
+  "candidate_commit": "ff764a1309a20e19bd54898f260074061a06a638",
+  "candidate_tree": "fc0600a5ebdbdacfc036ccb1a9dc474b5f742d40",
+  "verdict": "FAIL",
+  "counts": {
+    "p0": 0,
+    "p1": 2,
+    "p2": 0,
+    "p3": 0
+  },
+  "findings": [
+    {
+      "id": "P1-01",
+      "severity": "P1",
+      "title": "Per-value eligibility validation accepts contradictory projection-use flags",
+      "requirement": "Eligibility drift must fail closed before player values, team totals, roster values or ranks emit.",
+      "affected": [
+        "app.js:73",
+        "app.js:80",
+        "app.js:88",
+        "app.js:103",
+        "app.js:196"
+      ],
+      "root_cause": "isPaidValueEligible validates only state, numeric_offensive_paid_value_available, and projection_policy; it does not validate the remaining safety-bearing exclusion, influence, zero-substitution, and fabricated-coverage fields.",
+      "reproduction": {
+        "surface": "real Chromium paid analysis with intercepted deterministic league data",
+        "mutation": {
+          "legacy_weekly_projection_adjustment_applied": true,
+          "projection_data_can_affect_paid_value": true,
+          "projection_data_can_affect_player_values": true
+        },
+        "preserved_checked_fields": {
+          "state": "PAID_VALUE_ELIGIBLE",
+          "numeric_offensive_paid_value_available": true,
+          "projection_policy": "CONTEXT_ONLY_NOT_IN_VALUATION"
+        },
+        "expected": "No numeric paid player value, rank, roster value, or team total is emitted.",
+        "actual": "#playerValues .lv-value resolved to 1 numeric element instead of 0; the valuation remained eligible for downstream paid surfaces."
+      },
+      "disposition": "RETURN_TO_IMPLEMENTATION_OWNER"
+    },
+    {
+      "id": "P1-02",
+      "severity": "P1",
+      "title": "Analysis-wide eligibility drift still emits eligible status and numeric zero team totals",
+      "requirement": "PAID_VALUE_ELIGIBLE may be emitted only with CONTEXT_ONLY_NOT_IN_VALUATION, and drift must fail closed before team totals emit without zero substitution.",
+      "affected": [
+        "app.js:103",
+        "app.js:196",
+        "app.js:213",
+        "app.js:230",
+        "app.js:233"
+      ],
+      "root_cause": "The pipeline has no single validated analysis-wide eligibility gate. It renders valuation/team surfaces before separately copying an unvalidated top-level eligibility object and unconditional paid-eligible status into the page.",
+      "reproduction": {
+        "top_level_drift": {
+          "mutation": {
+            "state": "PAID_VALUE_ELIGIBLE",
+            "projection_policy": "DRIFTED_UNSAFE_POLICY"
+          },
+          "expected": "No PAID_VALUE_ELIGIBLE state or numeric paid output.",
+          "actual": "The page emitted data-state=PAID_VALUE_ELIGIBLE beside data-projection-policy=DRIFTED_UNSAFE_POLICY and displayed paid-value-eligible text."
+        },
+        "value_level_policy_drift": {
+          "mutation": {
+            "projection_policy": "DRIFTED_UNSAFE_POLICY"
+          },
+          "expected": "The paid team surface is withheld as unavailable.",
+          "actual": "Player and roster values were suppressed, but 4 numeric team metric elements were emitted as empty-set zeros and the page still declared paid value eligible."
+        }
+      },
+      "disposition": "RETURN_TO_IMPLEMENTATION_OWNER"
+    }
+  ]
+}
+

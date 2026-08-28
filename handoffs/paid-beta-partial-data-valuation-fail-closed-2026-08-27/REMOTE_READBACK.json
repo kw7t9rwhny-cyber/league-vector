@@ -1,0 +1,35 @@
+{
+  "schema_version": "league-vector-independent-qa-remote-readback-v1",
+  "repository": "kw7t9rwhny-cyber/league-vector",
+  "remote_url": "https://github.com/kw7t9rwhny-cyber/league-vector.git",
+  "remote_branch": "codex/paid-beta-partial-data-valuation-fail-closed-2026-08-27",
+  "readback_at_utc": "2026-08-28T11:05:41Z",
+  "method": "fresh empty repository; direct depth-1 fetch by immutable QA report commit; git object and semantic readback",
+  "remote_branch_head_at_readback": "98a5d825d1ed70b23d2fd29de51ed5310f154f6e",
+  "immutable_readback_commit": "98a5d825d1ed70b23d2fd29de51ed5310f154f6e",
+  "immutable_readback_tree": "bfc35e87ed8d0e80856a2e1541080a9331ddcea8",
+  "immutable_readback_parent": "510b80df336937f9e9e36556ae5ceebfac7be524",
+  "files": {
+    "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/FRESH_INDEPENDENT_QA_REPORT.md": "2fa06b793e4cd493e6f294fc860bf9d5fbfc58b4",
+    "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/FRESH_INDEPENDENT_QA_FINDINGS.json": "841a7ef70742b7a36f69269a55f7e7435a5a2f5f",
+    "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/RESULT.json": "b579117e216f37d3f616da071732a1ddc19c6af0",
+    "handoffs/paid-beta-partial-data-valuation-fail-closed-2026-08-27/HANDOFF_MANIFEST.json": "b804354784790e80be597f3729729cf9c900d631"
+  },
+  "semantic_readback": {
+    "verdict": "FAIL",
+    "p0": 0,
+    "p1": 2,
+    "finding_ids": [
+      "P1-01",
+      "P1-02"
+    ],
+    "gate_met": false
+  },
+  "candidate_binding": {
+    "commit": "ff764a1309a20e19bd54898f260074061a06a638",
+    "tree": "fc0600a5ebdbdacfc036ccb1a9dc474b5f742d40",
+    "non_handoff_paths_changed_after_candidate": false
+  },
+  "status": "VERIFIED"
+}
+
