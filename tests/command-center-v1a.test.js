@@ -8,7 +8,7 @@ const bridge = fs.readFileSync("command-center-bridge-v1a.js", "utf8");
 const commandCenter = fs.readFileSync("command-center-v1a.js", "utf8");
 const styles = fs.readFileSync("command-center-v1a.css", "utf8");
 const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8"));
-const workflow = fs.readFileSync(".github/workflows/ci.yml", "utf8");
+const workflow = fs.readFileSync(".github/workflows/command-center-preview-v1a.yml", "utf8");
 
 function countId(id) {
   return [...html.matchAll(new RegExp(`\\bid=["']${id}["']`, "g"))].length;
