@@ -1,0 +1,26 @@
+{
+  "contract_version": "lv-paid-value-eligibility-v1",
+  "state": "PAID_VALUE_INELIGIBLE",
+  "numeric_offensive_paid_value_available": false,
+  "projection_policy": "CONTEXT_ONLY_NOT_IN_VALUATION",
+  "legacy_weekly_projection_requested_during_paid_value_analysis": false,
+  "legacy_weekly_projection_adjustment_applied": false,
+  "projection_data_can_affect_paid_value": false,
+  "projection_data_can_affect_player_values": false,
+  "projection_data_can_affect_team_totals": false,
+  "projection_data_can_affect_sorting_or_ranking": false,
+  "projection_data_can_appear_inside_paid_value_components": false,
+  "missing_projection_substituted_with_zero": false,
+  "projection_coverage_fabricated": false,
+  "safe_context_surfaces": [
+    "league_and_scoring_inputs",
+    "separately_labeled_experimental_projection_board"
+  ],
+  "idp_dynasty_value_available": false,
+  "offense_idp_combined_dynasty_rankings_available": false,
+  "source_rights_state": "UNRESOLVED",
+  "paid_delivery_authorized": false,
+  "reason_codes": [
+    "SOURCE_RIGHTS_UNRESOLVED"
+  ]
+}
