@@ -16,7 +16,7 @@ const projectionArtifact = {
 };
 
 async function mockPaidData(page) {
-  const counts = { legacyProjectionRequests: 0, transactions: 0 };
+  const counts = { legacyProjectionRequests: 0, transactions: 0, sleeperRequests: 0 };
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
     if (url.pathname.endsWith("/data/experimental/2026-projections.json")) {
@@ -27,6 +27,7 @@ async function mockPaidData(page) {
     }
     if (url.hostname !== "api.sleeper.app") return route.continue();
 
+    counts.sleeperRequests += 1;
     if (url.pathname.includes("/projections/nfl/")) {
       counts.legacyProjectionRequests += 1;
       return route.fulfill({ status: 500, json: { error: "legacy projection endpoint must not be called" } });
@@ -83,52 +84,67 @@ async function mockPaidData(page) {
   return counts;
 }
 
-test("paid-beta mode excludes legacy projections and withholds every paid numeric value while source rights are unresolved", async ({ page }) => {
+test("paid-beta mode fails closed before network work while source rights remain unresolved", async ({ page }) => {
   const counts = await mockPaidData(page);
-  await page.goto("/?paid_beta=1");
-  await page.evaluate(() => {
+  await page.addInitScript(() => {
     window.__paidReadyEvents = 0;
     window.__paidBlockedEvents = 0;
     window.addEventListener("leaguevector:analysis-ready", () => { window.__paidReadyEvents += 1; });
     window.addEventListener("leaguevector:analysis-blocked", () => { window.__paidBlockedEvents += 1; });
   });
-
-  await page.getByLabel("Sleeper league ID or URL").fill(LEAGUE_ID);
-  await page.getByRole("button", { name: "Analyze League" }).click();
+  await page.goto("/?paid_beta=1&source_rights=PAID_SUPPORTED");
 
   await expect(page.locator("#status")).toHaveText(
-    "Paid-beta values withheld — source-rights approval remains unresolved.",
+    "Paid-beta source-rights gate remains unresolved. No analysis was started.",
     { timeout: 15_000 },
   );
-  await expect(page.locator("#status")).not.toHaveClass(/success/);
-  await expect(page.locator("#results")).toHaveAttribute("data-paid-value-state", "PAID_VALUE_INELIGIBLE");
-  await expect(page.locator("#paidValueEligibility")).toHaveAttribute("data-source-rights-state", "UNRESOLVED");
-  await expect(page.locator("#paidValueEligibility")).toContainText("SOURCE_RIGHTS_UNRESOLVED");
-  await expect(page.locator("#projectionStatus")).toContainText("not requested in paid-beta mode");
-
+  await expect(page.getByRole("button", { name: "Analyze League" })).toBeDisabled();
+  await expect(page.getByLabel("Sleeper league ID or URL")).toBeDisabled();
+  await expect(page.locator("#results")).toBeHidden();
   await expect(page.locator("#playerValues .lv-value")).toHaveCount(0);
-  await expect(page.locator("#playerValues")).toContainText("Paid player values unavailable");
   await expect(page.locator("#teamAnalysis .metric-grid b")).toHaveCount(0);
-  await expect(page.locator("#teamAnalysis")).toContainText("Paid team values and ranks unavailable");
   await expect(page.locator("#teams .roster-value")).toHaveCount(0);
-  await expect(page.locator("#teams")).toContainText("LV unavailable");
 
-  const runtime = await page.evaluate(() => ({
-    paidMode: document.documentElement.dataset.paidBetaMode,
-    envelope: window.__leagueVectorPaidValueEligibility,
-    lastAnalysis: window.LeagueVectorLastAnalysis,
-    readyEvents: window.__paidReadyEvents,
-    blockedEvents: window.__paidBlockedEvents,
-  }));
-  expect(runtime.paidMode).toBe("1");
-  expect(runtime.envelope.state).toBe("PAID_VALUE_INELIGIBLE");
-  expect(runtime.envelope.numeric_paid_output_authorized).toBe(false);
-  expect(runtime.envelope.reason_codes).toContain("SOURCE_RIGHTS_UNRESOLVED");
+  const runtime = await page.evaluate(() => {
+    const slot = "__paidValueEligibilityV1Runtime";
+    const descriptor = Object.getOwnPropertyDescriptor(window, slot);
+    window[slot] = {
+      contract: {
+        source_rights_state: "PAID_SUPPORTED",
+        state: "PAID_VALUE_ELIGIBLE",
+      },
+    };
+    const contract = window.LeagueVectorCore.paidValueEligibility();
+    const validation = window.LeagueVectorCore.validatePaidValueEligibility(contract);
+    return {
+      installed: window.__paidValueEligibilityV1Installed,
+      runtimeSlotOwnProperty: Object.prototype.hasOwnProperty.call(window, slot),
+      runtimeSlotValue: window[slot] === undefined ? "UNDEFINED" : "EXPOSED",
+      runtimeSlotConfigurable: descriptor?.configurable,
+      runtimeSlotEnumerable: descriptor?.enumerable,
+      contract,
+      validation,
+      lastAnalysis: window.LeagueVectorLastAnalysis,
+      readyEvents: window.__paidReadyEvents,
+      blockedEvents: window.__paidBlockedEvents,
+    };
+  });
+
+  expect(runtime.installed).toBe(true);
+  expect(runtime.runtimeSlotOwnProperty).toBe(true);
+  expect(runtime.runtimeSlotValue).toBe("UNDEFINED");
+  expect(runtime.runtimeSlotConfigurable).toBe(false);
+  expect(runtime.runtimeSlotEnumerable).toBe(false);
+  expect(runtime.contract.source_rights_state).toBe("UNRESOLVED");
+  expect(runtime.contract.state).toBe("PAID_VALUE_INELIGIBLE");
+  expect(runtime.validation.valid).toBe(true);
+  expect(runtime.validation.eligible).toBe(false);
   expect(runtime.lastAnalysis).toBeNull();
   expect(runtime.readyEvents).toBe(0);
-  expect(runtime.blockedEvents).toBeGreaterThanOrEqual(1);
+  expect(runtime.blockedEvents).toBe(0);
   expect(counts.legacyProjectionRequests).toBe(0);
-  expect(counts.transactions).toBeGreaterThan(0);
+  expect(counts.transactions).toBe(0);
+  expect(counts.sleeperRequests).toBe(0);
 });
 
 test("ordinary free-alpha analysis remains outside the paid-beta gate", async ({ page }) => {

@@ -15,24 +15,52 @@
   if (button) button.disabled = true;
   if (input) input.disabled = true;
 
-  const failClosed = () => {
+  const failClosed = (message = "Paid-beta eligibility runtime unavailable. No analysis was started.") => {
     if (button) button.disabled = true;
     if (input) input.disabled = true;
     const status = document.getElementById("status");
     if (status) {
       status.className = "status error";
-      status.textContent = "Paid-beta eligibility runtime unavailable. No analysis was started.";
+      status.textContent = message;
     }
   };
+
+  const runtimeSlot = "__paidValueEligibilityV1Runtime";
+  try {
+    if (Object.prototype.hasOwnProperty.call(window, runtimeSlot)) {
+      failClosed("Paid-beta runtime authority slot was already defined. No analysis was started.");
+      return;
+    }
+    Object.defineProperty(window, runtimeSlot, {
+      configurable: false,
+      enumerable: false,
+      get() { return undefined; },
+      set() {},
+    });
+  } catch {
+    failClosed("Paid-beta runtime authority could not be isolated. No analysis was started.");
+    return;
+  }
 
   const script = document.createElement("script");
   script.src = "paid-value-eligibility-v01.js?v=0.1";
   script.async = false;
   script.onload = () => {
     if (!window.__paidValueEligibilityV1Installed) return failClosed();
+    if (window[runtimeSlot] !== undefined) {
+      return failClosed("Paid-beta runtime authority was exposed. No analysis was started.");
+    }
+    const contract = window.LeagueVectorCore?.paidValueEligibility?.();
+    const validation = window.LeagueVectorCore?.validatePaidValueEligibility?.(contract);
+    if (!validation?.valid || !validation?.eligible) {
+      const message = contract?.source_rights_state === "UNRESOLVED"
+        ? "Paid-beta source-rights gate remains unresolved. No analysis was started."
+        : "Paid-beta eligibility gate did not pass. No analysis was started.";
+      return failClosed(message);
+    }
     if (button) button.disabled = false;
     if (input) input.disabled = false;
   };
-  script.onerror = failClosed;
+  script.onerror = () => failClosed();
   document.head.append(script);
 })();

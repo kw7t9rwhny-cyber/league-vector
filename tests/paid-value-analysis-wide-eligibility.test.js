@@ -251,3 +251,17 @@ test("source contains a single paid-mode activation parameter and no query overr
   assert.match(loaderSource, /paid-value-eligibility-v01\.js\?v=0\.1/);
   assert.match(loaderSource, /Paid-beta eligibility runtime unavailable/);
 });
+
+test("paid loader precommits a non-configurable sink for mutable runtime authority", () => {
+  const loaderSource = fs.readFileSync("scoring-coverage-v032.js", "utf8");
+  assert.match(loaderSource, /const runtimeSlot = "__paidValueEligibilityV1Runtime"/);
+  assert.match(loaderSource, /Object\.defineProperty\(window, runtimeSlot/);
+  assert.match(loaderSource, /configurable: false/);
+  assert.match(loaderSource, /enumerable: false/);
+  assert.match(loaderSource, /get\(\) \{ return undefined; \}/);
+  assert.match(loaderSource, /set\(\) \{\}/);
+  assert.match(loaderSource, /Object\.prototype\.hasOwnProperty\.call\(window, runtimeSlot\)/);
+  assert.match(loaderSource, /window\[runtimeSlot\] !== undefined/);
+  assert.match(loaderSource, /validation\?\.valid \|\| !validation\?\.eligible/);
+  assert.match(loaderSource, /Paid-beta source-rights gate remains unresolved\. No analysis was started\./);
+});
