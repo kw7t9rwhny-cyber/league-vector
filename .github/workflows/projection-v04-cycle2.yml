@@ -1,0 +1,63 @@
+name: Projection v0.4 Cycle 2 Research
+
+on:
+  push:
+    branches:
+      - codex/projection-research-v04-cycle2
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  cycle2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Restore exact validated v0.4 frozen control artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p /tmp/lv-control
+          curl -L --fail-with-body \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/actions/artifacts/9205731274/zip \
+            -o /tmp/lv-control/control.zip
+          unzip -q /tmp/lv-control/control.zip -d /tmp/lv-control/unpacked
+          mkdir -p .cache data/reports/projection-v04-cycle2/control
+          cp -R /tmp/lv-control/unpacked/.cache/lv-v04-canonical .cache/lv-v04-cycle2
+          cp /tmp/lv-control/unpacked/data/reports/projection-v04-canonical/snapshot-manifest.json .cache/lv-v04-cycle2/snapshot-manifest.json
+          cp /tmp/lv-control/unpacked/data/reports/projection-v04-canonical/run-a/candidate-player-seasons.json data/reports/projection-v04-cycle2/control/candidate-player-seasons.json
+          cp /tmp/lv-control/unpacked/data/reports/projection-v04-canonical/run-a/output-hashes.json data/reports/projection-v04-cycle2/control/output-hashes.json
+      - name: Verify exact control snapshot and candidate output hash
+        run: |
+          python - <<'PY'
+          import hashlib,json,pathlib
+          m=json.loads(pathlib.Path('.cache/lv-v04-cycle2/snapshot-manifest.json').read_text())
+          assert m['snapshot_sha256']=='d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188',m['snapshot_sha256']
+          expected=json.loads(pathlib.Path('data/reports/projection-v04-cycle2/control/output-hashes.json').read_text())['candidate_sha256']
+          actual=hashlib.sha256(pathlib.Path('data/reports/projection-v04-cycle2/control/candidate-player-seasons.json').read_bytes()).hexdigest()
+          assert actual==expected,(actual,expected)
+          print('validated frozen control',m['snapshot_sha256'],actual)
+          PY
+      - name: Install pinned research dependencies
+        run: python -m pip install pandas==2.2.3 numpy==2.2.3 scipy==1.15.2 scikit-learn==1.6.1
+      - name: Run Cycle 2 analysis twice
+        run: |
+          python scripts/projection-v04-cycle2-analysis.py .cache/lv-v04-cycle2 data/reports/projection-v04-cycle2/control/candidate-player-seasons.json data/reports/projection-v04-cycle2/run-a.json
+          python scripts/projection-v04-cycle2-analysis.py .cache/lv-v04-cycle2 data/reports/projection-v04-cycle2/control/candidate-player-seasons.json data/reports/projection-v04-cycle2/run-b.json
+          cmp data/reports/projection-v04-cycle2/run-a.json data/reports/projection-v04-cycle2/run-b.json
+          sha256sum data/reports/projection-v04-cycle2/run-a.json > data/reports/projection-v04-cycle2/result.sha256
+      - name: Upload Cycle 2 evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: league-vector-projection-v04-cycle2
+          path: data/reports/projection-v04-cycle2/
+          if-no-files-found: error
+          retention-days: 30

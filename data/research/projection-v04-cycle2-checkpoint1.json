@@ -1,0 +1,67 @@
+{
+  "version": "lv-projection-v04-cycle2-checkpoint1",
+  "control_sha": "6d931abadbcb06e910bf953d941902c7c2cd1638",
+  "input_snapshot_sha256": "d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188",
+  "selection_evidence_seasons": [2020,2021,2022,2023,2024],
+  "retrospective_observed_season": 2025,
+  "headline_findings": {
+    "te": "Direct whole-player Ridge feature families did not stably beat validated v0.4 on 2020-2024; keep validated v0.4 TE as control while target-specific research continues.",
+    "rookies": "NFL draft capital strongly improves rookie year-1 forecasts over a simple prior-cohort position mean across 2018-2024 for QB/RB/WR/TE.",
+    "young_players": "Validated v0.4 under-projects first-year-history RB/WR and year-1/year-2 TE on average; upstream projection bias remains relevant to the separate dynasty audit.",
+    "role_survival": "Chronological logistic role-survival models beat simple prior-role persistence in all evaluated folds for QB/RB/WR/TE.",
+    "availability": "Simple expected-games x per-game decomposition is unstable and is rejected as a universal replacement.",
+    "uncertainty": "Rolling empirical whole-player 80% intervals are approximately calibrated but wide; history-conditioned calibration helps some positions but not all.",
+    "breakouts": "Breakout events are only weakly predictable and do not justify a breakout model.",
+    "collapses": "Collapse risk is materially more predictable than breakout risk and is more promising as an uncertainty/risk feature than as a point-forecast override."
+  },
+  "te_direct_whole_player_ridge_vs_validated_v04": [
+    {"family":"age_exp_opp","folds":5,"wins":2,"mean_mae_gain_pct":-1.781857,"median_mae_gain_pct":-1.144314,"worst_mae_gain_pct":-6.974423,"best_mae_gain_pct":4.685941,"mean_spearman_change":-0.000756},
+    {"family":"age_only","folds":5,"wins":2,"mean_mae_gain_pct":-2.368607,"median_mae_gain_pct":-1.124016,"worst_mae_gain_pct":-9.694576,"best_mae_gain_pct":2.337352,"mean_spearman_change":-0.001339},
+    {"family":"role_growth","folds":5,"wins":2,"mean_mae_gain_pct":-2.512718,"median_mae_gain_pct":-1.734845,"worst_mae_gain_pct":-9.422152,"best_mae_gain_pct":1.342691,"mean_spearman_change":-0.009869},
+    {"family":"age_experience","folds":5,"wins":2,"mean_mae_gain_pct":-2.620019,"median_mae_gain_pct":-0.884019,"worst_mae_gain_pct":-11.306988,"best_mae_gain_pct":3.206129,"mean_spearman_change":-0.008146},
+    {"family":"efficiency","folds":5,"wins":1,"mean_mae_gain_pct":-3.016759,"median_mae_gain_pct":-0.774289,"worst_mae_gain_pct":-13.721708,"best_mae_gain_pct":1.052369,"mean_spearman_change":-0.004632},
+    {"family":"age_opp","folds":5,"wins":2,"mean_mae_gain_pct":-3.339135,"median_mae_gain_pct":-2.620206,"worst_mae_gain_pct":-15.145851,"best_mae_gain_pct":3.97769,"mean_spearman_change":-0.003685},
+    {"family":"opportunity","folds":5,"wins":1,"mean_mae_gain_pct":-3.349955,"median_mae_gain_pct":-3.505802,"worst_mae_gain_pct":-8.998288,"best_mae_gain_pct":2.010791,"mean_spearman_change":-0.009288}
+  ],
+  "rookie_models_vs_prior_cohort_mean": [
+    {"position":"QB","model":"draft_ridge","folds":7,"mean_mae":56.207706,"mean_rmse":69.133844,"mean_spearman":0.664004,"wins_vs_mean":7,"mean_gain_pct":33.652897},
+    {"position":"QB","model":"round_bucket","folds":7,"mean_mae":57.187259,"mean_rmse":70.548314,"mean_spearman":0.648774,"wins_vs_mean":7,"mean_gain_pct":34.36407},
+    {"position":"RB","model":"draft_age_ridge","folds":7,"mean_mae":37.660098,"mean_rmse":50.407696,"mean_spearman":0.583496,"wins_vs_mean":7,"mean_gain_pct":31.85734},
+    {"position":"RB","model":"draft_ridge","folds":7,"mean_mae":38.005888,"mean_rmse":50.25825,"mean_spearman":0.571124,"wins_vs_mean":7,"mean_gain_pct":31.189488},
+    {"position":"WR","model":"draft_age_ridge","folds":7,"mean_mae":36.497296,"mean_rmse":51.243224,"mean_spearman":0.699321,"wins_vs_mean":7,"mean_gain_pct":30.034556},
+    {"position":"WR","model":"draft_ridge","folds":7,"mean_mae":36.900069,"mean_rmse":51.23607,"mean_spearman":0.71331,"wins_vs_mean":7,"mean_gain_pct":29.261863},
+    {"position":"TE","model":"draft_age_ridge","folds":7,"mean_mae":22.651871,"mean_rmse":33.349035,"mean_spearman":0.643381,"wins_vs_mean":7,"mean_gain_pct":28.61205},
+    {"position":"TE","model":"draft_ridge","folds":7,"mean_mae":22.92339,"mean_rmse":33.379566,"mean_spearman":0.629722,"wins_vs_mean":7,"mean_gain_pct":27.930892}
+  ],
+  "validated_v04_young_experience_bias": [
+    {"position":"QB","experience":1,"n":37,"bias":-32.327568,"mae":66.638919},{"position":"QB","experience":2,"n":35,"bias":24.745524,"mae":55.853714},{"position":"QB","experience":3,"n":36,"bias":10.302722,"mae":61.325981},
+    {"position":"RB","experience":1,"n":117,"bias":-9.612011,"mae":47.693697},{"position":"RB","experience":2,"n":118,"bias":7.173677,"mae":38.948315},{"position":"RB","experience":3,"n":110,"bias":13.179359,"mae":45.391892},
+    {"position":"WR","experience":1,"n":155,"bias":-9.14399,"mae":36.589089},{"position":"WR","experience":2,"n":168,"bias":-1.710949,"mae":37.584527},{"position":"WR","experience":3,"n":144,"bias":5.402789,"mae":41.191596},
+    {"position":"TE","experience":1,"n":76,"bias":-4.404803,"mae":28.239224},{"position":"TE","experience":2,"n":84,"bias":-6.29966,"mae":22.917194},{"position":"TE","experience":3,"n":85,"bias":-3.074686,"mae":29.352452}
+  ],
+  "whole_player_uncertainty": [
+    {"position":"QB","scheme":"position","mean_coverage80":0.786,"mean_interval_width":199.349},{"position":"QB","scheme":"history","mean_coverage80":0.808,"mean_interval_width":211.433},
+    {"position":"RB","scheme":"position","mean_coverage80":0.818,"mean_interval_width":162.115},{"position":"RB","scheme":"history","mean_coverage80":0.826,"mean_interval_width":164.656},
+    {"position":"WR","scheme":"position","mean_coverage80":0.806,"mean_interval_width":134.709},{"position":"WR","scheme":"history","mean_coverage80":0.79,"mean_interval_width":132.108},
+    {"position":"TE","scheme":"position","mean_coverage80":0.844,"mean_interval_width":97.364},{"position":"TE","scheme":"history","mean_coverage80":0.859,"mean_interval_width":97.603}
+  ],
+  "role_survival": [
+    {"position":"QB","folds_won":5,"mean_brier_gain_pct":17.969,"mean_auc":0.861},
+    {"position":"RB","folds_won":5,"mean_brier_gain_pct":21.541,"mean_auc":0.872},
+    {"position":"WR","folds_won":5,"mean_brier_gain_pct":24.552,"mean_auc":0.911},
+    {"position":"TE","folds_won":5,"mean_brier_gain_pct":18.611,"mean_auc":0.898}
+  ],
+  "availability_decomposition": [
+    {"position":"QB","folds_won":2,"mean_mae_gain_pct":-2.54,"worst_mae_gain_pct":-16.07},
+    {"position":"RB","folds_won":3,"mean_mae_gain_pct":1.2,"worst_mae_gain_pct":-2.85},
+    {"position":"WR","folds_won":3,"mean_mae_gain_pct":-0.4,"worst_mae_gain_pct":-6.27},
+    {"position":"TE","folds_won":1,"mean_mae_gain_pct":-2.05,"worst_mae_gain_pct":-8.52}
+  ],
+  "breakout_collapse": {
+    "definition":"Breakout = next-season fantasy-point increase >=50; collapse = decrease <=-50, defined before classifier testing.",
+    "breakout_mean_auc":{"QB":0.585,"RB":0.578,"WR":0.616,"TE":0.554},
+    "collapse_mean_auc":{"QB":0.807,"RB":0.854,"WR":0.814,"TE":0.881}
+  },
+  "flags":{"experimental":true,"production_projection_eligible":false,"dynasty_value_eligible":false},
+  "status":"MORE PROJECTION RESEARCH REQUIRED"
+}

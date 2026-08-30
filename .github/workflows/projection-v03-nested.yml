@@ -1,0 +1,32 @@
+name: Projection v0.3 Nested Comparator
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/projection-v03-nested-comparator.js'
+      - '.github/workflows/projection-v03-nested.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  nested-v03:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Run selection-safe v0.3 comparator
+        run: node scripts/projection-v03-nested-comparator.js data/reports/projection-v03-nested
+      - name: Upload nested v0.3 results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: league-vector-projection-v03-nested
+          path: data/reports/projection-v03-nested/
+          if-no-files-found: error
+          retention-days: 14
