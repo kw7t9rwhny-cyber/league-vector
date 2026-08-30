@@ -1,0 +1,23 @@
+{
+  "version": "lv-projection-v04-classical-summary",
+  "source_workflow_run": 31762302960,
+  "final_holdout": 2025,
+  "weight_grid_finding": "Chronologically selected 3-year weights provide negligible whole-player gain. They do not justify replacing 60/30/10 as a general default.",
+  "final_2025_weight_mae_change_pct": {"QB":0.0183,"RB":0.1292,"WR":0.0,"TE":0.3451},
+  "shrinkage_finding": "Opportunity-conditioned shrinkage is materially more useful than weight retuning and aligns with the residual evidence that high prior opportunity is over-persistent while low prior opportunity is under-projected.",
+  "final_2025_shrink_mae_change_pct": {"QB":0.0429,"RB":1.1516,"WR":3.6342,"TE":3.3027},
+  "shrink_fold_changes_pct": {
+    "QB":{"2021":-0.2819,"2022":0.3947,"2023":-0.1667,"2024":1.1097,"2025":0.0429},
+    "RB":{"2021":3.2816,"2022":1.1918,"2023":3.1899,"2024":-0.8132,"2025":1.1516},
+    "WR":{"2021":-0.0118,"2022":1.3531,"2023":-1.3756,"2024":2.1835,"2025":3.6342},
+    "TE":{"2021":-0.8498,"2022":0.5378,"2023":1.5914,"2024":2.2017,"2025":3.3027}
+  },
+  "selected_2025_pattern": {
+    "RB": "opportunity-conditioned shrinkage selected for carries, rushing yards/TD, targets, receptions, receiving yards/TD (20-40% shrink)",
+    "WR": "opportunity-conditioned shrinkage selected for all receiving targets and most rushing production except carries (10-40%)",
+    "TE": "opportunity-conditioned shrinkage selected for targets/receptions/receiving yards/TD (10-30%); rare rushing stats remain baseline",
+    "QB": "mostly baseline; shrinkage only on interceptions/sacks/rushing components"
+  },
+  "interpretation": "Historical weighting is not the main edge. Role/opportunity regression-to-mean is a real signal, but its standalone gains are smaller and less stable than the best age/opportunity Ridge ensembles.",
+  "readiness": "MORE RESEARCH REQUIRED"
+}
