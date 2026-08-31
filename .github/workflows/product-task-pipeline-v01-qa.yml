@@ -1,0 +1,198 @@
+name: League Vector Product Task Fresh Read-Only QA v0.1
+
+on:
+  workflow_dispatch:
+    inputs:
+      contract_issue_number:
+        description: Exact durable task-contract issue number
+        required: true
+        type: string
+      task_contract_identity:
+        description: SHA-256 identity of the frozen task contract
+        required: true
+        type: string
+      implementation_run_identity:
+        description: Deterministic identity of the implementation workflow run
+        required: true
+        type: string
+      deterministic_evidence_identity:
+        description: SHA-256 identity of deterministic validation evidence
+        required: true
+        type: string
+      deterministic_workflow_run_id:
+        description: Exact deterministic validation workflow run ID
+        required: true
+        type: string
+      candidate_pr_number:
+        description: Exact candidate draft PR number
+        required: true
+        type: string
+      expected_candidate_commit:
+        description: Exact candidate commit SHA
+        required: true
+        type: string
+      expected_candidate_tree:
+        description: Exact candidate tree SHA
+        required: true
+        type: string
+      expected_base_commit:
+        description: Exact base commit SHA
+        required: true
+        type: string
+      expected_changed_paths_json:
+        description: Canonical JSON array of exact expected changed paths
+        required: true
+        type: string
+      acceptance_threshold_json:
+        description: Exact QA acceptance threshold JSON
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: lv-product-task-qa-${{ inputs.deterministic_evidence_identity }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+      actions: read
+    outputs:
+      prompt: ${{ steps.preflight.outputs.prompt }}
+      not_before: ${{ steps.preflight.outputs.not_before }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - id: preflight
+        name: Re-read exact validation, authority, candidate, and QA threshold
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONTRACT_ISSUE_NUMBER: ${{ inputs.contract_issue_number }}
+          TASK_CONTRACT_IDENTITY: ${{ inputs.task_contract_identity }}
+          IMPLEMENTATION_RUN_IDENTITY: ${{ inputs.implementation_run_identity }}
+          DETERMINISTIC_EVIDENCE_IDENTITY: ${{ inputs.deterministic_evidence_identity }}
+          DETERMINISTIC_WORKFLOW_RUN_ID: ${{ inputs.deterministic_workflow_run_id }}
+          CANDIDATE_PR_NUMBER: ${{ inputs.candidate_pr_number }}
+          EXPECTED_CANDIDATE_COMMIT: ${{ inputs.expected_candidate_commit }}
+          EXPECTED_CANDIDATE_TREE: ${{ inputs.expected_candidate_tree }}
+          EXPECTED_BASE_COMMIT: ${{ inputs.expected_base_commit }}
+          EXPECTED_CHANGED_PATHS_JSON: ${{ inputs.expected_changed_paths_json }}
+          ACCEPTANCE_THRESHOLD_JSON: ${{ inputs.acceptance_threshold_json }}
+        run: node scripts/product-task-pipeline-v01.js qa-preflight
+
+  qa:
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      final_message: ${{ steps.codex.outputs.final-message }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.expected_candidate_commit }}
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Restore immutable QA schema from the admitted base
+        env:
+          EXPECTED_BASE_COMMIT: ${{ inputs.expected_base_commit }}
+        run: |
+          set -euo pipefail
+          schema_root="$RUNNER_TEMP/product-task-pipeline-v01-schema"
+          mkdir -p "$schema_root"
+          git show "$EXPECTED_BASE_COMMIT:protocol/product-task-pipeline-v01/qa-result.schema.json" > "$schema_root/qa-result.schema.json"
+          chmod 0444 "$schema_root/qa-result.schema.json"
+      - name: Run separate fresh independent read-only QA actor
+        id: codex
+        uses: openai/codex-action@f367b1e9572fd064ea71ef925ca24ee0f01080af # v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          allow-bot-users: github-actions[bot]
+          codex-version: "0.147.0"
+          model: gpt-5.4-mini
+          permission-profile: ":read-only"
+          prompt: ${{ needs.preflight.outputs.prompt }}
+          output-schema-file: ${{ runner.temp }}/product-task-pipeline-v01-schema/qa-result.schema.json
+
+  persist:
+    needs: [preflight, qa]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+      actions: read
+    outputs:
+      terminal_status: ${{ steps.persist.outputs.terminal_status }}
+      accepted: ${{ steps.persist.outputs.accepted }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - id: persist
+        name: Infrastructure-author one exact terminal PASS, FAIL, or BLOCKED result
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONTRACT_ISSUE_NUMBER: ${{ inputs.contract_issue_number }}
+          TASK_CONTRACT_IDENTITY: ${{ inputs.task_contract_identity }}
+          IMPLEMENTATION_RUN_IDENTITY: ${{ inputs.implementation_run_identity }}
+          DETERMINISTIC_EVIDENCE_IDENTITY: ${{ inputs.deterministic_evidence_identity }}
+          DETERMINISTIC_WORKFLOW_RUN_ID: ${{ inputs.deterministic_workflow_run_id }}
+          CANDIDATE_PR_NUMBER: ${{ inputs.candidate_pr_number }}
+          EXPECTED_CANDIDATE_COMMIT: ${{ inputs.expected_candidate_commit }}
+          EXPECTED_CANDIDATE_TREE: ${{ inputs.expected_candidate_tree }}
+          EXPECTED_BASE_COMMIT: ${{ inputs.expected_base_commit }}
+          EXPECTED_CHANGED_PATHS_JSON: ${{ inputs.expected_changed_paths_json }}
+          ACCEPTANCE_THRESHOLD_JSON: ${{ inputs.acceptance_threshold_json }}
+          QA_JOB_RESULT: ${{ needs.qa.result }}
+          QA_FINAL_MESSAGE: ${{ needs.qa.outputs.final_message }}
+        run: node scripts/product-task-pipeline-v01.js persist-qa
+      - name: Upload exact terminal receipt and PRIVATE RESEARCH SYSTEM handoff
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: product-task-qa-terminal-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            /tmp/gh-aw/agent/product-task-pipeline-v01/terminal-execution-receipt.json
+            /tmp/gh-aw/agent/product-task-pipeline-v01/private-research-system-handoff.json
+          retention-days: 30
+          if-no-files-found: error
+
+  terminal:
+    needs: [preflight, qa, persist]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions: {}
+    steps:
+      - name: Reject partial, failed, blocked, or false-green acceptance
+        env:
+          PREFLIGHT_JOB: ${{ needs.preflight.result }}
+          QA_JOB: ${{ needs.qa.result }}
+          PERSIST_JOB: ${{ needs.persist.result }}
+          TERMINAL_STATUS: ${{ needs.persist.outputs.terminal_status }}
+          ACCEPTED: ${{ needs.persist.outputs.accepted }}
+        run: |
+          test "$PREFLIGHT_JOB" = "success"
+          test "$QA_JOB" = "success"
+          test "$PERSIST_JOB" = "success"
+          test "$TERMINAL_STATUS" = "PASS"
+          test "$ACCEPTED" = "true"

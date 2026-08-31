@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kw7t9rwhny-cyber/league-vector/protocol/product-task-pipeline-v01/deterministic-evidence.schema.json",
+  "title": "League Vector Product Task Deterministic Evidence v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_contract_identity",
+    "implementation_run_identity",
+    "candidate_pr_number",
+    "expected_candidate_commit",
+    "observed_candidate_commit",
+    "expected_candidate_tree",
+    "observed_candidate_tree",
+    "expected_base_commit",
+    "observed_base_commit",
+    "expected_changed_paths",
+    "observed_changed_paths",
+    "observed_patch_bytes",
+    "test_commands",
+    "command_results",
+    "workflow_run_id",
+    "run_attempt",
+    "started_at",
+    "ended_at",
+    "identity_error",
+    "movement_error",
+    "overall"
+  ],
+  "properties": {
+    "schema_version": {"const": "league-vector.product-task-deterministic-evidence/v0.1"},
+    "task_contract_identity": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "implementation_run_identity": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "candidate_pr_number": {"type": "integer", "minimum": 1},
+    "expected_candidate_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "observed_candidate_commit": {"type": "string", "pattern": "^(?:[0-9a-f]{40}|UNKNOWN)$"},
+    "expected_candidate_tree": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "observed_candidate_tree": {"type": "string", "pattern": "^(?:[0-9a-f]{40}|UNKNOWN)$"},
+    "expected_base_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "observed_base_commit": {"type": "string", "pattern": "^(?:[0-9a-f]{40}|UNKNOWN)$"},
+    "expected_changed_paths": {"$ref": "#/$defs/paths"},
+    "observed_changed_paths": {"$ref": "#/$defs/paths"},
+    "observed_patch_bytes": {"oneOf": [{"type": "integer", "minimum": 0, "maximum": 524288}, {"const": "UNKNOWN"}]},
+    "test_commands": {
+      "const": ["npm ci", "npm run validate", "npx playwright install --with-deps chromium", "npm run test:e2e"]
+    },
+    "command_results": {
+      "type": "array",
+      "minItems": 4,
+      "maxItems": 4,
+      "items": {"$ref": "#/$defs/commandResult"}
+    },
+    "workflow_run_id": {"type": "string", "pattern": "^[1-9][0-9]*$"},
+    "run_attempt": {"type": "string", "pattern": "^[1-9][0-9]*$"},
+    "started_at": {"type": "string", "format": "date-time"},
+    "ended_at": {"type": "string", "format": "date-time"},
+    "identity_error": {"type": ["string", "null"]},
+    "movement_error": {"type": ["string", "null"]},
+    "overall": {"enum": ["PASS", "FAIL"]}
+  },
+  "$defs": {
+    "paths": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 20,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 300}
+    },
+    "commandResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["command", "exit_code", "started_at", "ended_at", "test_count"],
+      "properties": {
+        "command": {"type": "string"},
+        "exit_code": {"oneOf": [{"type": "integer", "minimum": 0}, {"const": "NOT_RUN"}]},
+        "started_at": {"type": "string"},
+        "ended_at": {"type": "string"},
+        "test_count": {"oneOf": [{"type": "integer", "minimum": 0}, {"const": "UNKNOWN"}]}
+      }
+    }
+  }
+}

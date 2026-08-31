@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kw7t9rwhny-cyber/league-vector/protocol/product-task-pipeline-v01/qa-result.schema.json",
+  "title": "League Vector Product Task Fresh QA Result v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "status", "p0_count", "p1_count", "findings", "limitations"],
+  "properties": {
+    "schema_version": {"const": "league-vector.product-task-qa-result/v0.1"},
+    "status": {"enum": ["PASS", "FAIL", "BLOCKED"]},
+    "p0_count": {"oneOf": [{"type": "integer", "minimum": 0}, {"const": "UNKNOWN"}]},
+    "p1_count": {"oneOf": [{"type": "integer", "minimum": 0}, {"const": "UNKNOWN"}]},
+    "findings": {"type": "array", "maxItems": 100, "items": {"type": "string", "minLength": 1, "maxLength": 10000}},
+    "limitations": {"type": "string", "maxLength": 10000}
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"status": {"const": "PASS"}}, "required": ["status"]},
+      "then": {"properties": {"p0_count": {"const": 0}, "p1_count": {"const": 0}}}
+    }
+  ]
+}

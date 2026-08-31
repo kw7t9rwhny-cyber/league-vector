@@ -1,0 +1,163 @@
+name: League Vector Product Task Exact-Head Validation v0.1
+
+on:
+  workflow_dispatch:
+    inputs:
+      contract_issue_number:
+        description: Exact durable task-contract issue number
+        required: true
+        type: string
+      task_contract_identity:
+        description: SHA-256 identity of the frozen task contract
+        required: true
+        type: string
+      implementation_run_identity:
+        description: Deterministic identity of the implementation workflow run
+        required: true
+        type: string
+      candidate_pr_number:
+        description: Exact candidate draft PR number
+        required: true
+        type: string
+      expected_candidate_commit:
+        description: Exact candidate commit SHA
+        required: true
+        type: string
+      expected_candidate_tree:
+        description: Exact candidate tree SHA
+        required: true
+        type: string
+      expected_base_commit:
+        description: Exact base commit SHA
+        required: true
+        type: string
+      expected_changed_paths_json:
+        description: Canonical JSON array of exact expected changed paths
+        required: true
+        type: string
+
+permissions: {}
+
+concurrency:
+  group: lv-product-task-validation-${{ inputs.implementation_run_identity }}
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+    outputs:
+      overall: ${{ steps.validation.outputs.overall }}
+      evidence_identity: ${{ steps.validation.outputs.evidence_identity }}
+      evidence_file: ${{ steps.validation.outputs.evidence_file }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.expected_candidate_commit }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+      - name: Restore the immutable verifier from the admitted base
+        env:
+          EXPECTED_BASE_COMMIT: ${{ inputs.expected_base_commit }}
+        run: |
+          set -euo pipefail
+          verifier_root="$RUNNER_TEMP/product-task-pipeline-v01-verifier"
+          mkdir -p "$verifier_root/scripts" "$verifier_root/lib"
+          git show "$EXPECTED_BASE_COMMIT:scripts/product-task-pipeline-v01.js" > "$verifier_root/scripts/product-task-pipeline-v01.js"
+          git show "$EXPECTED_BASE_COMMIT:lib/product-task-pipeline-v01.js" > "$verifier_root/lib/product-task-pipeline-v01.js"
+          chmod 0555 "$verifier_root/scripts/product-task-pipeline-v01.js" "$verifier_root/lib/product-task-pipeline-v01.js"
+      - id: validation
+        name: Verify exact identities and run the established League Vector commands
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONTRACT_ISSUE_NUMBER: ${{ inputs.contract_issue_number }}
+          TASK_CONTRACT_IDENTITY: ${{ inputs.task_contract_identity }}
+          IMPLEMENTATION_RUN_IDENTITY: ${{ inputs.implementation_run_identity }}
+          CANDIDATE_PR_NUMBER: ${{ inputs.candidate_pr_number }}
+          EXPECTED_CANDIDATE_COMMIT: ${{ inputs.expected_candidate_commit }}
+          EXPECTED_CANDIDATE_TREE: ${{ inputs.expected_candidate_tree }}
+          EXPECTED_BASE_COMMIT: ${{ inputs.expected_base_commit }}
+          EXPECTED_CHANGED_PATHS_JSON: ${{ inputs.expected_changed_paths_json }}
+        run: node "$RUNNER_TEMP/product-task-pipeline-v01-verifier/scripts/product-task-pipeline-v01.js" exact-head-validate
+      - name: Upload immutable deterministic evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: product-task-deterministic-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/gh-aw/agent/product-task-pipeline-v01/deterministic-evidence.json
+          retention-days: 30
+          if-no-files-found: error
+
+  persist_and_dispatch_qa:
+    needs: validate
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: read
+      actions: write
+    outputs:
+      disposition: ${{ steps.persist.outputs.disposition }}
+      evidence_identity: ${{ steps.persist.outputs.evidence_identity }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Download exact deterministic evidence
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: product-task-deterministic-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/gh-aw/agent/product-task-pipeline-v01
+      - id: persist
+        name: Persist public evidence and dispatch fresh read-only QA only on PASS
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONTRACT_ISSUE_NUMBER: ${{ inputs.contract_issue_number }}
+          TASK_CONTRACT_IDENTITY: ${{ inputs.task_contract_identity }}
+          IMPLEMENTATION_RUN_IDENTITY: ${{ inputs.implementation_run_identity }}
+          CANDIDATE_PR_NUMBER: ${{ inputs.candidate_pr_number }}
+          EXPECTED_CANDIDATE_COMMIT: ${{ inputs.expected_candidate_commit }}
+          EXPECTED_CANDIDATE_TREE: ${{ inputs.expected_candidate_tree }}
+          EXPECTED_BASE_COMMIT: ${{ inputs.expected_base_commit }}
+          EXPECTED_CHANGED_PATHS_JSON: ${{ inputs.expected_changed_paths_json }}
+          DETERMINISTIC_EVIDENCE_FILE: /tmp/gh-aw/agent/product-task-pipeline-v01/deterministic-evidence.json
+        run: node scripts/product-task-pipeline-v01.js persist-validation
+      - name: Upload machine-readable PRIVATE RESEARCH SYSTEM handoff
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: private-research-system-handoff-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/gh-aw/agent/product-task-pipeline-v01/private-research-system-handoff.json
+          retention-days: 30
+          if-no-files-found: error
+
+  terminal:
+    needs: [validate, persist_and_dispatch_qa]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions: {}
+    steps:
+      - name: Reject false-green, failed validation, or failed QA dispatch
+        env:
+          VALIDATE_JOB: ${{ needs.validate.result }}
+          PERSIST_JOB: ${{ needs.persist_and_dispatch_qa.result }}
+          DISPOSITION: ${{ needs.persist_and_dispatch_qa.outputs.disposition }}
+        run: |
+          test "$VALIDATE_JOB" = "success"
+          test "$PERSIST_JOB" = "success"
+          test "$DISPOSITION" = "PASS"

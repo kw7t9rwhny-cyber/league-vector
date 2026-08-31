@@ -1,0 +1,138 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kw7t9rwhny-cyber/league-vector/protocol/product-task-pipeline-v01/task-contract.schema.json",
+  "title": "League Vector Product Task Contract v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "task_id",
+    "assignment_id",
+    "objective",
+    "repository",
+    "starting_commit",
+    "starting_tree",
+    "allowed_files",
+    "prohibited_path_patterns",
+    "required_deterministic_commands",
+    "maximum_changed_files",
+    "maximum_patch_bytes",
+    "maximum_provider_cost_usd",
+    "authority",
+    "prohibited_actions",
+    "qa_requirement",
+    "acceptance_threshold",
+    "expires_at",
+    "target_date",
+    "idempotency_identity",
+    "stop_conditions"
+  ],
+  "properties": {
+    "schema_version": {"const": "league-vector.product-task-contract/v0.1"},
+    "task_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{2,199}$"},
+    "assignment_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{2,199}$"},
+    "objective": {"type": "string", "minLength": 1, "maxLength": 5000},
+    "repository": {"const": "kw7t9rwhny-cyber/league-vector"},
+    "starting_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "starting_tree": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "allowed_files": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 300, "pattern": "^(?!/)(?!.*(?:^|/)[.][.](?:/|$))(?!.*[*]).+$"}
+    },
+    "prohibited_path_patterns": {
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 100,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 500},
+      "allOf": [
+        {"contains": {"const": ".github/**"}},
+        {"contains": {"const": ".agents/**"}},
+        {"contains": {"const": ".codex/**"}},
+        {"contains": {"const": "package.json"}},
+        {"contains": {"const": "package-lock.json"}},
+        {"contains": {"const": "data/**"}},
+        {"contains": {"const": "**/.env*"}},
+        {"contains": {"const": "**/*credential*"}},
+        {"contains": {"const": "**/*deploy*"}}
+      ]
+    },
+    "required_deterministic_commands": {
+      "const": [
+        "npm ci",
+        "npm run validate",
+        "npx playwright install --with-deps chromium",
+        "npm run test:e2e"
+      ]
+    },
+    "maximum_changed_files": {"type": "integer", "minimum": 1, "maximum": 20},
+    "maximum_patch_bytes": {"type": "integer", "minimum": 1, "maximum": 524288},
+    "maximum_provider_cost_usd": {"type": "number", "exclusiveMinimum": 0, "maximum": 30},
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "authorized_by", "authorized_at", "authorization_id", "scope"],
+      "properties": {
+        "status": {"const": "APPROVED"},
+        "authorized_by": {"const": "kw7t9rwhny-cyber"},
+        "authorized_at": {"type": "string", "format": "date-time"},
+        "authorization_id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{2,199}$"},
+        "scope": {"const": "PRODUCT_TASK_IMPLEMENTATION"}
+      }
+    },
+    "prohibited_actions": {
+      "type": "array",
+      "minItems": 15,
+      "maxItems": 100,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 500},
+      "allOf": [
+        {"contains": {"const": "write_main"}},
+        {"contains": {"const": "merge"}},
+        {"contains": {"const": "deploy"}},
+        {"contains": {"const": "release"}},
+        {"contains": {"const": "create_or_request_credentials"}},
+        {"contains": {"const": "payment"}},
+        {"contains": {"const": "customer_delivery"}},
+        {"contains": {"const": "source_rights_conclusion"}},
+        {"contains": {"const": "self_approve"}},
+        {"contains": {"const": "issue_closure"}},
+        {"contains": {"const": "branch_deletion"}},
+        {"contains": {"const": "router_control"}},
+        {"contains": {"const": "stage_0"}},
+        {"contains": {"const": "vectoros_cycle_2"}},
+        {"contains": {"const": "mlp"}}
+      ]
+    },
+    "qa_requirement": {"const": "FRESH_INDEPENDENT_READ_ONLY"},
+    "acceptance_threshold": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["p0", "p1"],
+      "properties": {"p0": {"const": 0}, "p1": {"const": 0}}
+    },
+    "expires_at": {"type": "string", "format": "date-time"},
+    "target_date": {"type": "string", "format": "date"},
+    "idempotency_identity": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "stop_conditions": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 100,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1, "maxLength": 500},
+      "allOf": [
+        {"contains": {"const": "additional_credential_required"}},
+        {"contains": {"const": "repository_identity_moved"}},
+        {"contains": {"const": "task_contract_invalid"}},
+        {"contains": {"const": "task_specific_file_boundary_unenforceable"}},
+        {"contains": {"const": "exact_head_validation_unavailable"}},
+        {"contains": {"const": "separate_read_only_qa_unavailable"}},
+        {"contains": {"const": "provider_cost_authority_unavailable"}},
+        {"contains": {"const": "real_product_task_requested_during_bootstrap"}}
+      ]
+    }
+  }
+}

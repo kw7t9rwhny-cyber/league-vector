@@ -1,0 +1,9 @@
+{
+  "schema_version": "league-vector.gh-aw-compiler-manifest/v0.1",
+  "gh_aw_version": "v0.86.2",
+  "compiler_commit": "48e5fa3ff52294d91d97715017a9f8693a48387f",
+  "source_path": ".github/workflows/product-task-pipeline-v01.md",
+  "source_sha256": "af35230e5bec0d9c0cbc1b38f9b78acafa521a304e8a979006530accac1afa30",
+  "lock_path": ".github/workflows/product-task-pipeline-v01.lock.yml",
+  "lock_sha256": "12fb89b233cf0e2ab0512d040ff13001bb046f7ec698cfff8f539b1bca16b96d"
+}
