@@ -15,12 +15,24 @@ on:
         description: Deterministic identity of the implementation workflow run
         required: true
         type: string
+      implementation_workflow_run_id:
+        description: Exact implementation workflow run ID
+        required: true
+        type: string
+      implementation_workflow_run_attempt:
+        description: Exact implementation workflow run attempt
+        required: true
+        type: string
       deterministic_evidence_identity:
         description: SHA-256 identity of deterministic validation evidence
         required: true
         type: string
       deterministic_workflow_run_id:
         description: Exact deterministic validation workflow run ID
+        required: true
+        type: string
+      deterministic_workflow_run_attempt:
+        description: Exact deterministic validation workflow run attempt
         required: true
         type: string
       candidate_pr_number:
@@ -69,7 +81,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: main
+          ref: ${{ inputs.expected_base_commit }}
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -81,8 +93,11 @@ jobs:
           CONTRACT_ISSUE_NUMBER: ${{ inputs.contract_issue_number }}
           TASK_CONTRACT_IDENTITY: ${{ inputs.task_contract_identity }}
           IMPLEMENTATION_RUN_IDENTITY: ${{ inputs.implementation_run_identity }}
+          IMPLEMENTATION_WORKFLOW_RUN_ID: ${{ inputs.implementation_workflow_run_id }}
+          IMPLEMENTATION_WORKFLOW_RUN_ATTEMPT: ${{ inputs.implementation_workflow_run_attempt }}
           DETERMINISTIC_EVIDENCE_IDENTITY: ${{ inputs.deterministic_evidence_identity }}
           DETERMINISTIC_WORKFLOW_RUN_ID: ${{ inputs.deterministic_workflow_run_id }}
+          DETERMINISTIC_WORKFLOW_RUN_ATTEMPT: ${{ inputs.deterministic_workflow_run_attempt }}
           CANDIDATE_PR_NUMBER: ${{ inputs.candidate_pr_number }}
           EXPECTED_CANDIDATE_COMMIT: ${{ inputs.expected_candidate_commit }}
           EXPECTED_CANDIDATE_TREE: ${{ inputs.expected_candidate_tree }}
@@ -138,11 +153,11 @@ jobs:
       actions: read
     outputs:
       terminal_status: ${{ steps.persist.outputs.terminal_status }}
-      accepted: ${{ steps.persist.outputs.accepted }}
+      acceptance_eligible: ${{ steps.persist.outputs.acceptance_eligible }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: main
+          ref: ${{ inputs.expected_base_commit }}
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -154,8 +169,11 @@ jobs:
           CONTRACT_ISSUE_NUMBER: ${{ inputs.contract_issue_number }}
           TASK_CONTRACT_IDENTITY: ${{ inputs.task_contract_identity }}
           IMPLEMENTATION_RUN_IDENTITY: ${{ inputs.implementation_run_identity }}
+          IMPLEMENTATION_WORKFLOW_RUN_ID: ${{ inputs.implementation_workflow_run_id }}
+          IMPLEMENTATION_WORKFLOW_RUN_ATTEMPT: ${{ inputs.implementation_workflow_run_attempt }}
           DETERMINISTIC_EVIDENCE_IDENTITY: ${{ inputs.deterministic_evidence_identity }}
           DETERMINISTIC_WORKFLOW_RUN_ID: ${{ inputs.deterministic_workflow_run_id }}
+          DETERMINISTIC_WORKFLOW_RUN_ATTEMPT: ${{ inputs.deterministic_workflow_run_attempt }}
           CANDIDATE_PR_NUMBER: ${{ inputs.candidate_pr_number }}
           EXPECTED_CANDIDATE_COMMIT: ${{ inputs.expected_candidate_commit }}
           EXPECTED_CANDIDATE_TREE: ${{ inputs.expected_candidate_tree }}
@@ -189,10 +207,47 @@ jobs:
           QA_JOB: ${{ needs.qa.result }}
           PERSIST_JOB: ${{ needs.persist.result }}
           TERMINAL_STATUS: ${{ needs.persist.outputs.terminal_status }}
-          ACCEPTED: ${{ needs.persist.outputs.accepted }}
+          ACCEPTANCE_ELIGIBLE: ${{ needs.persist.outputs.acceptance_eligible }}
         run: |
           test "$PREFLIGHT_JOB" = "success"
           test "$QA_JOB" = "success"
           test "$PERSIST_JOB" = "success"
           test "$TERMINAL_STATUS" = "PASS"
-          test "$ACCEPTED" = "true"
+          test "$ACCEPTANCE_ELIGIBLE" = "true"
+
+  finalize_acceptance:
+    needs: [preflight, qa, persist, terminal]
+    if: ${{ needs.terminal.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+      issues: write
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.expected_base_commit }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Publish acceptance as the final authoritative durable transition
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONTRACT_ISSUE_NUMBER: ${{ inputs.contract_issue_number }}
+          TASK_CONTRACT_IDENTITY: ${{ inputs.task_contract_identity }}
+          IMPLEMENTATION_RUN_IDENTITY: ${{ inputs.implementation_run_identity }}
+          IMPLEMENTATION_WORKFLOW_RUN_ID: ${{ inputs.implementation_workflow_run_id }}
+          IMPLEMENTATION_WORKFLOW_RUN_ATTEMPT: ${{ inputs.implementation_workflow_run_attempt }}
+          DETERMINISTIC_EVIDENCE_IDENTITY: ${{ inputs.deterministic_evidence_identity }}
+          DETERMINISTIC_WORKFLOW_RUN_ID: ${{ inputs.deterministic_workflow_run_id }}
+          DETERMINISTIC_WORKFLOW_RUN_ATTEMPT: ${{ inputs.deterministic_workflow_run_attempt }}
+          CANDIDATE_PR_NUMBER: ${{ inputs.candidate_pr_number }}
+          EXPECTED_CANDIDATE_COMMIT: ${{ inputs.expected_candidate_commit }}
+          EXPECTED_CANDIDATE_TREE: ${{ inputs.expected_candidate_tree }}
+          EXPECTED_BASE_COMMIT: ${{ inputs.expected_base_commit }}
+          EXPECTED_CHANGED_PATHS_JSON: ${{ inputs.expected_changed_paths_json }}
+          ACCEPTANCE_THRESHOLD_JSON: ${{ inputs.acceptance_threshold_json }}
+        run: node scripts/product-task-pipeline-v01.js finalize-qa-acceptance

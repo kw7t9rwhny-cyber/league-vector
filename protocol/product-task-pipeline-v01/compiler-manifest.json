@@ -3,7 +3,7 @@
   "gh_aw_version": "v0.86.2",
   "compiler_commit": "48e5fa3ff52294d91d97715017a9f8693a48387f",
   "source_path": ".github/workflows/product-task-pipeline-v01.md",
-  "source_sha256": "af35230e5bec0d9c0cbc1b38f9b78acafa521a304e8a979006530accac1afa30",
+  "source_sha256": "19fc13e6335128819a6f1edcdba6a06fdef11255eaeff7cabe8a0d996778ad85",
   "lock_path": ".github/workflows/product-task-pipeline-v01.lock.yml",
-  "lock_sha256": "12fb89b233cf0e2ab0512d040ff13001bb046f7ec698cfff8f539b1bca16b96d"
+  "lock_sha256": "dfa9d46d6d264a0c67c2477bf6cc0d7b3ca96596bb747b255ec157b78189b087"
 }

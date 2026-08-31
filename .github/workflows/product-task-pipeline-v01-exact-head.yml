@@ -15,6 +15,14 @@ on:
         description: Deterministic identity of the implementation workflow run
         required: true
         type: string
+      implementation_workflow_run_id:
+        description: Exact implementation workflow run ID
+        required: true
+        type: string
+      implementation_workflow_run_attempt:
+        description: Exact implementation workflow run attempt
+        required: true
+        type: string
       candidate_pr_number:
         description: Exact candidate draft PR number
         required: true
@@ -81,6 +89,8 @@ jobs:
           CONTRACT_ISSUE_NUMBER: ${{ inputs.contract_issue_number }}
           TASK_CONTRACT_IDENTITY: ${{ inputs.task_contract_identity }}
           IMPLEMENTATION_RUN_IDENTITY: ${{ inputs.implementation_run_identity }}
+          IMPLEMENTATION_WORKFLOW_RUN_ID: ${{ inputs.implementation_workflow_run_id }}
+          IMPLEMENTATION_WORKFLOW_RUN_ATTEMPT: ${{ inputs.implementation_workflow_run_attempt }}
           CANDIDATE_PR_NUMBER: ${{ inputs.candidate_pr_number }}
           EXPECTED_CANDIDATE_COMMIT: ${{ inputs.expected_candidate_commit }}
           EXPECTED_CANDIDATE_TREE: ${{ inputs.expected_candidate_tree }}
@@ -112,7 +122,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: main
+          ref: ${{ inputs.expected_base_commit }}
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -129,6 +139,8 @@ jobs:
           CONTRACT_ISSUE_NUMBER: ${{ inputs.contract_issue_number }}
           TASK_CONTRACT_IDENTITY: ${{ inputs.task_contract_identity }}
           IMPLEMENTATION_RUN_IDENTITY: ${{ inputs.implementation_run_identity }}
+          IMPLEMENTATION_WORKFLOW_RUN_ID: ${{ inputs.implementation_workflow_run_id }}
+          IMPLEMENTATION_WORKFLOW_RUN_ATTEMPT: ${{ inputs.implementation_workflow_run_attempt }}
           CANDIDATE_PR_NUMBER: ${{ inputs.candidate_pr_number }}
           EXPECTED_CANDIDATE_COMMIT: ${{ inputs.expected_candidate_commit }}
           EXPECTED_CANDIDATE_TREE: ${{ inputs.expected_candidate_tree }}

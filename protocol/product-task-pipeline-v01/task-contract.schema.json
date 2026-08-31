@@ -43,21 +43,16 @@
       "items": {"type": "string", "minLength": 1, "maxLength": 300, "pattern": "^(?!/)(?!.*(?:^|/)[.][.](?:/|$))(?!.*[*]).+$"}
     },
     "prohibited_path_patterns": {
-      "type": "array",
-      "minItems": 9,
-      "maxItems": 100,
-      "uniqueItems": true,
-      "items": {"type": "string", "minLength": 1, "maxLength": 500},
-      "allOf": [
-        {"contains": {"const": ".github/**"}},
-        {"contains": {"const": ".agents/**"}},
-        {"contains": {"const": ".codex/**"}},
-        {"contains": {"const": "package.json"}},
-        {"contains": {"const": "package-lock.json"}},
-        {"contains": {"const": "data/**"}},
-        {"contains": {"const": "**/.env*"}},
-        {"contains": {"const": "**/*credential*"}},
-        {"contains": {"const": "**/*deploy*"}}
+      "const": [
+        ".github/**",
+        ".agents/**",
+        ".codex/**",
+        "package.json",
+        "package-lock.json",
+        "data/**",
+        "**/.env*",
+        "**/*credential*",
+        "**/*deploy*"
       ]
     },
     "required_deterministic_commands": {
@@ -70,7 +65,7 @@
     },
     "maximum_changed_files": {"type": "integer", "minimum": 1, "maximum": 20},
     "maximum_patch_bytes": {"type": "integer", "minimum": 1, "maximum": 524288},
-    "maximum_provider_cost_usd": {"type": "number", "exclusiveMinimum": 0, "maximum": 30},
+    "maximum_provider_cost_usd": {"const": 30},
     "authority": {
       "type": "object",
       "additionalProperties": false,
@@ -84,27 +79,22 @@
       }
     },
     "prohibited_actions": {
-      "type": "array",
-      "minItems": 15,
-      "maxItems": 100,
-      "uniqueItems": true,
-      "items": {"type": "string", "minLength": 1, "maxLength": 500},
-      "allOf": [
-        {"contains": {"const": "write_main"}},
-        {"contains": {"const": "merge"}},
-        {"contains": {"const": "deploy"}},
-        {"contains": {"const": "release"}},
-        {"contains": {"const": "create_or_request_credentials"}},
-        {"contains": {"const": "payment"}},
-        {"contains": {"const": "customer_delivery"}},
-        {"contains": {"const": "source_rights_conclusion"}},
-        {"contains": {"const": "self_approve"}},
-        {"contains": {"const": "issue_closure"}},
-        {"contains": {"const": "branch_deletion"}},
-        {"contains": {"const": "router_control"}},
-        {"contains": {"const": "stage_0"}},
-        {"contains": {"const": "vectoros_cycle_2"}},
-        {"contains": {"const": "mlp"}}
+      "const": [
+        "write_main",
+        "merge",
+        "deploy",
+        "release",
+        "create_or_request_credentials",
+        "payment",
+        "customer_delivery",
+        "source_rights_conclusion",
+        "self_approve",
+        "issue_closure",
+        "branch_deletion",
+        "router_control",
+        "stage_0",
+        "vectoros_cycle_2",
+        "mlp"
       ]
     },
     "qa_requirement": {"const": "FRESH_INDEPENDENT_READ_ONLY"},
@@ -118,20 +108,15 @@
     "target_date": {"type": "string", "format": "date"},
     "idempotency_identity": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "stop_conditions": {
-      "type": "array",
-      "minItems": 8,
-      "maxItems": 100,
-      "uniqueItems": true,
-      "items": {"type": "string", "minLength": 1, "maxLength": 500},
-      "allOf": [
-        {"contains": {"const": "additional_credential_required"}},
-        {"contains": {"const": "repository_identity_moved"}},
-        {"contains": {"const": "task_contract_invalid"}},
-        {"contains": {"const": "task_specific_file_boundary_unenforceable"}},
-        {"contains": {"const": "exact_head_validation_unavailable"}},
-        {"contains": {"const": "separate_read_only_qa_unavailable"}},
-        {"contains": {"const": "provider_cost_authority_unavailable"}},
-        {"contains": {"const": "real_product_task_requested_during_bootstrap"}}
+      "const": [
+        "additional_credential_required",
+        "repository_identity_moved",
+        "task_contract_invalid",
+        "task_specific_file_boundary_unenforceable",
+        "exact_head_validation_unavailable",
+        "separate_read_only_qa_unavailable",
+        "provider_cost_authority_unavailable",
+        "real_product_task_requested_during_bootstrap"
       ]
     }
   }

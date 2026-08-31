@@ -64,10 +64,10 @@ jobs:
       contract_artifact_name: ${{ steps.preflight.outputs.contract_artifact_name }}
       allowed_files_json: ${{ steps.preflight.outputs.allowed_files_json }}
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 22
       - id: preflight
@@ -77,7 +77,7 @@ jobs:
           CONTRACT_ISSUE_NUMBER: ${{ inputs.task_contract_issue_number }}
         run: node scripts/product-task-pipeline-v01.js preflight "$CONTRACT_ISSUE_NUMBER"
       - name: Preserve the exact admitted contract for the isolated worker
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ steps.preflight.outputs.contract_artifact_name }}
           path: ${{ steps.preflight.outputs.contract_file }}
@@ -86,6 +86,46 @@ jobs:
 
   agent:
     needs: [preflight]
+
+  safe_outputs:
+    if: ${{ needs.agent.result == 'success' && needs.detection.result == 'success' }}
+    pre-steps:
+      - name: Require the immutable creator verifier to have succeeded
+        env:
+          AGENT_JOB_RESULT: ${{ needs.agent.result }}
+        run: test "$AGENT_JOB_RESULT" = "success"
+      - name: Download the immutable agent artifact before any repository mutation
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: agent
+          path: /tmp/gh-aw
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.preflight.outputs.starting_commit }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+      - name: Restore the immutable pre-mutation safe-output verifier
+        env:
+          ADMITTED_STARTING_COMMIT: ${{ needs.preflight.outputs.starting_commit }}
+        run: |
+          set -euo pipefail
+          verifier_root="$RUNNER_TEMP/product-task-pipeline-v01-safe-output-verifier"
+          mkdir -p "$verifier_root/scripts" "$verifier_root/lib"
+          git show "$ADMITTED_STARTING_COMMIT:scripts/product-task-pipeline-v01.js" > "$verifier_root/scripts/product-task-pipeline-v01.js"
+          git show "$ADMITTED_STARTING_COMMIT:lib/product-task-pipeline-v01.js" > "$verifier_root/lib/product-task-pipeline-v01.js"
+          chmod 0555 "$verifier_root/scripts/product-task-pipeline-v01.js" "$verifier_root/lib/product-task-pipeline-v01.js"
+      - name: Enforce the exact task allowed-files boundary on the immutable bundle
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CONTRACT_ISSUE_NUMBER: ${{ inputs.task_contract_issue_number }}
+          TASK_CONTRACT_IDENTITY: ${{ needs.preflight.outputs.task_contract_identity }}
+          IMPLEMENTATION_RUN_IDENTITY: ${{ needs.preflight.outputs.implementation_run_identity }}
+          AGENT_JOB_RESULT: ${{ needs.agent.result }}
+          AGENT_ARTIFACT_DIR: /tmp/gh-aw
+        run: node "$RUNNER_TEMP/product-task-pipeline-v01-safe-output-verifier/scripts/product-task-pipeline-v01.js" safe-output-gate "$CONTRACT_ISSUE_NUMBER" "$TASK_CONTRACT_IDENTITY"
 
   conclusion:
     pre-steps:
@@ -116,10 +156,10 @@ safe-outputs:
           required: true
           type: boolean
       steps:
-        - uses: actions/checkout@v7
+        - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
           with:
             persist-credentials: false
-        - uses: actions/setup-node@v7
+        - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
           with:
             node-version: 22
         - name: Require exactly one confirmed validation request and one created PR
@@ -162,7 +202,7 @@ safe-outputs:
 
 steps:
   - name: Download exact admitted task contract
-    uses: actions/download-artifact@v8
+    uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
     with:
       name: ${{ needs.preflight.outputs.contract_artifact_name }}
       path: /tmp/gh-aw/agent/product-task-pipeline-v01

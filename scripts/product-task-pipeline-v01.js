@@ -145,6 +145,11 @@ function git(args, {allowFailure = false, encoding = "utf8"} = {}) {
   return result;
 }
 
+function requireAncestor(ancestor, descendant = "HEAD") {
+  const result = git(["merge-base", "--is-ancestor", ancestor, descendant], {allowFailure: true});
+  if (result.status !== 0) throw new Error("candidate_not_descended_from_starting_commit");
+}
+
 function localCandidate(contract, {draft = true, repositoryName = repository} = {}) {
   const head = git(["rev-parse", "HEAD"]).stdout.trim();
   const tree = git(["rev-parse", "HEAD^{tree}"]).stdout.trim();
@@ -169,10 +174,19 @@ function ensureCleanSingleLane(contract) {
   if (baseTree !== contract.starting_tree) throw new Error("local_starting_tree_mismatch");
   const status = git(["status", "--porcelain=v1", "--untracked-files=all"]).stdout.trim();
   if (status) throw new Error(`candidate_worktree_not_clean:${status.split("\n")[0]}`);
+  requireAncestor(contract.starting_commit);
   const merges = git(["rev-list", "--merges", `${contract.starting_commit}..HEAD`]).stdout.trim();
   if (merges) throw new Error("candidate_contains_merge_commit");
   const commitCount = Number(git(["rev-list", "--count", `${contract.starting_commit}..HEAD`]).stdout.trim());
   if (!Number.isInteger(commitCount) || commitCount < 1 || commitCount > 3) throw new Error("candidate_commit_count_invalid");
+}
+
+async function verifyImplementationWorkflowRun(contract, expected) {
+  const run = await api(`/actions/runs/${encodeURIComponent(expected.implementation_workflow_run_id)}`);
+  if (String(run.id) !== String(expected.implementation_workflow_run_id) || Number(run.run_attempt) !== Number(expected.implementation_workflow_run_attempt) || run.event !== "workflow_dispatch" || run.path !== ".github/workflows/product-task-pipeline-v01.lock.yml" || run.head_branch !== "main" || run.head_sha !== contract.starting_commit || !run.repository || run.repository.full_name !== repository) {
+    throw new Error("implementation_workflow_run_provenance_mismatch");
+  }
+  return run;
 }
 
 function runRequiredCommands() {
@@ -236,6 +250,9 @@ async function creatorVerify(issueNumber, expectedIdentity) {
   const evidence = {
     schema_version: "league-vector.product-task-creator-evidence/v0.1",
     task_contract_identity: state.taskContractIdentity,
+    implementation_run_identity: runIdentity,
+    implementation_workflow_run_id: requiredEnv("GITHUB_RUN_ID"),
+    implementation_workflow_run_attempt: requiredEnv("GITHUB_RUN_ATTEMPT"),
     candidate,
     commands: results,
     started_at: startedAt,
@@ -250,11 +267,89 @@ async function creatorVerify(issueNumber, expectedIdentity) {
   if (evidence.overall !== "PASS") throw new Error("creator_tests_failed");
 }
 
+function artifactFiles(root, predicate, limit = 10000) {
+  const matches = [];
+  const pending = [root];
+  let visited = 0;
+  while (pending.length) {
+    const directory = pending.pop();
+    for (const entry of fs.readdirSync(directory, {withFileTypes: true})) {
+      visited += 1;
+      if (visited > limit) throw new Error("agent_artifact_file_limit_exceeded");
+      const target = path.join(directory, entry.name);
+      if (entry.isSymbolicLink()) throw new Error("agent_artifact_symlink_rejected");
+      if (entry.isDirectory()) pending.push(target);
+      else if (entry.isFile() && predicate(entry.name, target)) matches.push(target);
+    }
+  }
+  return matches.sort();
+}
+
+async function safeOutputGate(issueNumber, expectedIdentity) {
+  if (requiredEnv("AGENT_JOB_RESULT") !== "success") throw new Error("safe_output_agent_verifier_not_successful");
+  const state = await loadContract(issueNumber);
+  if (state.taskContractIdentity !== expectedIdentity) throw new Error("safe_output_contract_identity_mismatch");
+  const expected = {
+    task_contract_identity: state.taskContractIdentity,
+    idempotency_identity: state.contract.idempotency_identity,
+    implementation_run_identity: requiredEnv("IMPLEMENTATION_RUN_IDENTITY"),
+    implementation_workflow_run_id: requiredEnv("GITHUB_RUN_ID"),
+    implementation_workflow_run_attempt: requiredEnv("GITHUB_RUN_ATTEMPT")
+  };
+  p.assertClaimAuthority(state.comments, expected);
+  await verifyImplementationWorkflowRun(state.contract, expected);
+
+  const artifactRoot = requiredEnv("AGENT_ARTIFACT_DIR");
+  const evidenceFiles = artifactFiles(artifactRoot, (name) => name === "creator-evidence.json");
+  const outputFiles = artifactFiles(artifactRoot, (name) => name === "agent_output.json");
+  const bundleFiles = artifactFiles(artifactRoot, (name) => /^aw-[A-Za-z0-9._-]+\.bundle$/.test(name));
+  if (evidenceFiles.length !== 1 || outputFiles.length !== 1 || bundleFiles.length !== 1) throw new Error("safe_output_artifact_set_invalid");
+  const evidence = JSON.parse(fs.readFileSync(evidenceFiles[0], "utf8"));
+  const agentOutput = JSON.parse(fs.readFileSync(outputFiles[0], "utf8"));
+  p.validateCreatorEvidence(state.contract, evidence, expected);
+  p.validateSafeOutputRequests(agentOutput);
+
+  const bundleFile = bundleFiles[0];
+  git(["bundle", "verify", bundleFile]);
+  const heads = git(["bundle", "list-heads", bundleFile]).stdout.trim().split("\n").filter(Boolean);
+  if (heads.length !== 1) throw new Error("safe_output_bundle_head_count_invalid");
+  const match = heads[0].match(/^([0-9a-f]{40}) refs\/heads\/(.+)$/);
+  if (!match || match[2] !== evidence.candidate.candidate_branch || match[1] !== evidence.candidate.candidate_commit) throw new Error("safe_output_bundle_head_binding_mismatch");
+  const gateRef = `refs/league-vector/safe-output-gate/${expected.implementation_workflow_run_id}-${expected.implementation_workflow_run_attempt}`;
+  git(["fetch", "--no-write-fetch-head", bundleFile, `refs/heads/${match[2]}:${gateRef}`]);
+  requireAncestor(state.contract.starting_commit, gateRef);
+  const merges = git(["rev-list", "--merges", `${state.contract.starting_commit}..${gateRef}`]).stdout.trim();
+  if (merges) throw new Error("safe_output_bundle_contains_merge_commit");
+  const commitCount = Number(git(["rev-list", "--count", `${state.contract.starting_commit}..${gateRef}`]).stdout.trim());
+  if (!Number.isInteger(commitCount) || commitCount < 1 || commitCount > 3) throw new Error("safe_output_bundle_commit_count_invalid");
+  const changedPaths = git(["diff", "--name-only", "--no-renames", `${state.contract.starting_commit}..${gateRef}`]).stdout.trim().split("\n").filter(Boolean).sort();
+  const patch = git(["diff", "--binary", `${state.contract.starting_commit}..${gateRef}`], {encoding: null}).stdout;
+  const bundledCandidate = {
+    repository,
+    base_branch: "main",
+    base_commit: state.contract.starting_commit,
+    candidate_branch: match[2],
+    candidate_commit: git(["rev-parse", gateRef]).stdout.trim(),
+    candidate_tree: git(["rev-parse", `${gateRef}^{tree}`]).stdout.trim(),
+    changed_paths: changedPaths,
+    patch_bytes: patch.length,
+    draft: true
+  };
+  p.validateCandidate(state.contract, bundledCandidate);
+  if (p.canonical(bundledCandidate) !== p.canonical(evidence.candidate)) throw new Error("safe_output_bundle_creator_evidence_mismatch");
+  output("safe_output_gate", "PASS");
+  summary(`Safe-output pre-mutation gate PASS for exact task allowlist and immutable bundle head \`${bundledCandidate.candidate_commit}\`.`);
+}
+
 async function remoteCandidate(contract, prNumber) {
   const pr = await api(`/pulls/${prNumber}`);
   if (pr.state !== "open" || !pr.base || !pr.base.repo || pr.base.repo.full_name !== repository || !pr.head || !pr.head.repo || pr.head.repo.full_name !== repository) throw new Error("candidate_pull_request_repository_or_state_invalid");
   const files = await allPullFiles(prNumber);
   const commit = await api(`/git/commits/${pr.head.sha}`);
+  const comparison = await api(`/compare/${encodeURIComponent(contract.starting_commit)}...${encodeURIComponent(pr.head.sha)}`);
+  if (comparison.status !== "ahead" || !comparison.merge_base_commit || comparison.merge_base_commit.sha !== contract.starting_commit || !Number.isInteger(comparison.ahead_by) || comparison.ahead_by < 1 || comparison.ahead_by > 3) {
+    throw new Error("remote_candidate_not_descended_from_starting_commit");
+  }
   return {
     pr,
     candidate: {
@@ -308,6 +403,8 @@ async function dispatchValidation(issueNumber, prNumber) {
     contract_issue_number: String(issueNumber),
     task_contract_identity: state.taskContractIdentity,
     implementation_run_identity: runIdentity,
+    implementation_workflow_run_id: requiredEnv("GITHUB_RUN_ID"),
+    implementation_workflow_run_attempt: requiredEnv("GITHUB_RUN_ATTEMPT"),
     candidate_pr_number: String(prNumber),
     expected_candidate_commit: remote.candidate.candidate_commit,
     expected_candidate_tree: remote.candidate.candidate_tree,
@@ -348,6 +445,8 @@ function expectedValidationInputs() {
     contract_issue_number: canonicalPositiveInteger(requiredEnv("CONTRACT_ISSUE_NUMBER"), "contract_issue_number"),
     task_contract_identity: requiredEnv("TASK_CONTRACT_IDENTITY"),
     implementation_run_identity: requiredEnv("IMPLEMENTATION_RUN_IDENTITY"),
+    implementation_workflow_run_id: requiredEnv("IMPLEMENTATION_WORKFLOW_RUN_ID"),
+    implementation_workflow_run_attempt: requiredEnv("IMPLEMENTATION_WORKFLOW_RUN_ATTEMPT"),
     candidate_pr_number: canonicalPositiveInteger(requiredEnv("CANDIDATE_PR_NUMBER"), "candidate_pr_number"),
     expected_candidate_commit: requiredEnv("EXPECTED_CANDIDATE_COMMIT"),
     expected_candidate_tree: requiredEnv("EXPECTED_CANDIDATE_TREE"),
@@ -367,6 +466,11 @@ async function exactHeadValidate() {
   try {
     state = await loadContract(expected.contract_issue_number);
     if (state.taskContractIdentity !== expected.task_contract_identity) throw new Error("validation_contract_identity_mismatch");
+    p.assertImplementationAuthority(state.comments, {
+      ...expected,
+      idempotency_identity: state.contract.idempotency_identity
+    });
+    await verifyImplementationWorkflowRun(state.contract, expected);
     const remote = await remoteCandidate(state.contract, expected.candidate_pr_number);
     const local = localCandidate(state.contract);
     local.candidate_branch = remote.candidate.candidate_branch;
@@ -408,6 +512,8 @@ async function exactHeadValidate() {
     schema_version: p.EVIDENCE_SCHEMA_VERSION,
     task_contract_identity: expected.task_contract_identity,
     implementation_run_identity: expected.implementation_run_identity,
+    implementation_workflow_run_id: expected.implementation_workflow_run_id,
+    implementation_workflow_run_attempt: expected.implementation_workflow_run_attempt,
     candidate_pr_number: expected.candidate_pr_number,
     expected_candidate_commit: expected.expected_candidate_commit,
     observed_candidate_commit: observed.commit,
@@ -444,6 +550,11 @@ async function persistValidation() {
   const evidence = JSON.parse(fs.readFileSync(evidenceFile, "utf8"));
   const state = await loadContract(expected.contract_issue_number, {requireCurrentMain: false});
   if (state.taskContractIdentity !== expected.task_contract_identity) throw new Error("persist_validation_contract_identity_mismatch");
+  p.assertImplementationAuthority(state.comments, {
+    ...expected,
+    idempotency_identity: state.contract.idempotency_identity
+  });
+  await verifyImplementationWorkflowRun(state.contract, expected);
   p.validateDeterministicEvidence(evidence, expected);
   const evidenceIdentity = p.sha256(p.canonical(evidence));
   const remote = await remoteCandidate(state.contract, expected.candidate_pr_number);
@@ -458,6 +569,8 @@ async function persistValidation() {
     evidence_identity: evidenceIdentity,
     task_contract_identity: expected.task_contract_identity,
     implementation_run_identity: expected.implementation_run_identity,
+    implementation_workflow_run_id: expected.implementation_workflow_run_id,
+    implementation_workflow_run_attempt: expected.implementation_workflow_run_attempt,
     candidate_pr_number: expected.candidate_pr_number,
     candidate_commit: expected.expected_candidate_commit,
     candidate_tree: expected.expected_candidate_tree,
@@ -489,8 +602,11 @@ async function persistValidation() {
       contract_issue_number: String(expected.contract_issue_number),
       task_contract_identity: expected.task_contract_identity,
       implementation_run_identity: expected.implementation_run_identity,
+      implementation_workflow_run_id: expected.implementation_workflow_run_id,
+      implementation_workflow_run_attempt: expected.implementation_workflow_run_attempt,
       deterministic_evidence_identity: evidenceIdentity,
       deterministic_workflow_run_id: String(evidence.workflow_run_id),
+      deterministic_workflow_run_attempt: String(evidence.run_attempt),
       candidate_pr_number: String(expected.candidate_pr_number),
       expected_candidate_commit: expected.expected_candidate_commit,
       expected_candidate_tree: expected.expected_candidate_tree,
@@ -559,8 +675,11 @@ function expectedQaInputs() {
     contract_issue_number: canonicalPositiveInteger(requiredEnv("CONTRACT_ISSUE_NUMBER"), "contract_issue_number"),
     task_contract_identity: requiredEnv("TASK_CONTRACT_IDENTITY"),
     implementation_run_identity: requiredEnv("IMPLEMENTATION_RUN_IDENTITY"),
+    implementation_workflow_run_id: requiredEnv("IMPLEMENTATION_WORKFLOW_RUN_ID"),
+    implementation_workflow_run_attempt: requiredEnv("IMPLEMENTATION_WORKFLOW_RUN_ATTEMPT"),
     deterministic_evidence_identity: requiredEnv("DETERMINISTIC_EVIDENCE_IDENTITY"),
     deterministic_workflow_run_id: requiredEnv("DETERMINISTIC_WORKFLOW_RUN_ID"),
+    deterministic_workflow_run_attempt: requiredEnv("DETERMINISTIC_WORKFLOW_RUN_ATTEMPT"),
     candidate_pr_number: canonicalPositiveInteger(requiredEnv("CANDIDATE_PR_NUMBER"), "candidate_pr_number"),
     expected_candidate_commit: requiredEnv("EXPECTED_CANDIDATE_COMMIT"),
     expected_candidate_tree: requiredEnv("EXPECTED_CANDIDATE_TREE"),
@@ -574,14 +693,19 @@ async function qaPreflight() {
   const expected = expectedQaInputs();
   const state = await loadContract(expected.contract_issue_number, {requireCurrentMain: false});
   if (state.taskContractIdentity !== expected.task_contract_identity || p.canonical(state.contract.acceptance_threshold) !== p.canonical(expected.acceptance_threshold)) throw new Error("qa_contract_or_threshold_mismatch");
+  p.assertImplementationAuthority(state.comments, {
+    ...expected,
+    idempotency_identity: state.contract.idempotency_identity
+  });
+  await verifyImplementationWorkflowRun(state.contract, expected);
   const validations = p.parseTrustedRecords(state.comments, p.MARKERS.validation).filter((record) => record.evidence_identity === expected.deterministic_evidence_identity);
   if (validations.length !== 1 || validations[0].overall !== "PASS") throw new Error("qa_missing_exact_validation_pass");
   const validation = validations[0];
-  if (String(validation.workflow_run_id) !== String(expected.deterministic_workflow_run_id) || validation.task_contract_identity !== expected.task_contract_identity || validation.implementation_run_identity !== expected.implementation_run_identity || validation.candidate_pr_number !== expected.candidate_pr_number || validation.candidate_commit !== expected.expected_candidate_commit || validation.candidate_tree !== expected.expected_candidate_tree || validation.base_commit !== expected.expected_base_commit || p.canonical(validation.changed_paths) !== p.canonical(expected.expected_changed_paths)) {
+  if (String(validation.workflow_run_id) !== String(expected.deterministic_workflow_run_id) || String(validation.run_attempt) !== String(expected.deterministic_workflow_run_attempt) || validation.task_contract_identity !== expected.task_contract_identity || validation.implementation_run_identity !== expected.implementation_run_identity || String(validation.implementation_workflow_run_id) !== String(expected.implementation_workflow_run_id) || String(validation.implementation_workflow_run_attempt) !== String(expected.implementation_workflow_run_attempt) || validation.candidate_pr_number !== expected.candidate_pr_number || validation.candidate_commit !== expected.expected_candidate_commit || validation.candidate_tree !== expected.expected_candidate_tree || validation.base_commit !== expected.expected_base_commit || p.canonical(validation.changed_paths) !== p.canonical(expected.expected_changed_paths)) {
     throw new Error("qa_validation_record_binding_mismatch");
   }
   const validationRun = await api(`/actions/runs/${encodeURIComponent(expected.deterministic_workflow_run_id)}`);
-  if (String(validationRun.id) !== String(expected.deterministic_workflow_run_id) || validationRun.event !== "workflow_dispatch" || validationRun.path !== ".github/workflows/product-task-pipeline-v01-exact-head.yml" || validationRun.head_branch !== "main" || validationRun.head_sha !== expected.expected_base_commit || !validationRun.repository || validationRun.repository.full_name !== repository || Number(validationRun.run_attempt) !== Number(validation.run_attempt)) {
+  if (String(validationRun.id) !== String(expected.deterministic_workflow_run_id) || validationRun.event !== "workflow_dispatch" || validationRun.path !== ".github/workflows/product-task-pipeline-v01-exact-head.yml" || validationRun.head_branch !== "main" || validationRun.head_sha !== expected.expected_base_commit || !validationRun.repository || validationRun.repository.full_name !== repository || Number(validationRun.run_attempt) !== Number(expected.deterministic_workflow_run_attempt)) {
     throw new Error("qa_validation_run_provenance_mismatch");
   }
   const validationJobs = await api(`/actions/runs/${encodeURIComponent(expected.deterministic_workflow_run_id)}/jobs?per_page=100`);
@@ -604,11 +728,17 @@ async function persistQa() {
   const expected = expectedQaInputs();
   const state = await loadContract(expected.contract_issue_number, {requireCurrentMain: false});
   if (state.taskContractIdentity !== expected.task_contract_identity) throw new Error("qa_persist_contract_identity_mismatch");
+  p.assertImplementationAuthority(state.comments, {
+    ...expected,
+    idempotency_identity: state.contract.idempotency_identity
+  });
+  await verifyImplementationWorkflowRun(state.contract, expected);
   const priorQa = p.parseTrustedRecords(state.comments, p.MARKERS.qa).filter((record) => record.deterministic_evidence_identity === expected.deterministic_evidence_identity);
   if (priorQa.length > 1) throw new Error("qa_duplicate_terminal_result");
   if (priorQa.length === 1) {
+    if (priorQa[0].accepted !== false) throw new Error("qa_acceptance_published_before_finalization");
     output("terminal_status", priorQa[0].status);
-    output("accepted", String(priorQa[0].accepted));
+    output("acceptance_eligible", String(priorQa[0].acceptance_eligible));
     return;
   }
 
@@ -636,7 +766,7 @@ async function persistQa() {
   if (moved) {
     substance = {schema_version: p.QA_SCHEMA_VERSION, status: "BLOCKED", p0_count: "UNKNOWN", p1_count: "UNKNOWN", findings: ["Candidate identity moved after deterministic validation or during QA."], limitations: "Prior evidence is invalid for the moved candidate."};
   }
-  const accepted = p.qaAcceptance(substance);
+  const acceptanceEligible = p.qaAcceptance(substance);
   const qaRecord = {
     schema_version: p.QA_SCHEMA_VERSION,
     qa_result_identity: p.sha256(`${expected.deterministic_evidence_identity}:${p.canonical(substance)}`),
@@ -655,7 +785,8 @@ async function persistQa() {
     p1_count: substance.p1_count,
     findings: substance.findings,
     limitations: substance.limitations,
-    accepted,
+    acceptance_eligible: acceptanceEligible,
+    accepted: false,
     created_at: new Date().toISOString()
   };
   await writeRecord(expected.contract_issue_number, p.MARKERS.qa, qaRecord, "qa_result_identity");
@@ -670,7 +801,8 @@ async function persistQa() {
     candidate_tree: expected.expected_candidate_tree,
     terminal_state: substance.status,
     failure_class: substance.status === "PASS" ? "NONE" : (substance.status === "BLOCKED" && qaJobResult !== "success" ? "TRANSPORT_FAILURE" : "TASK_FAILURE"),
-    accepted,
+    acceptance_eligible: acceptanceEligible,
+    accepted: false,
     created_at: new Date().toISOString()
   };
   await writeRecord(expected.contract_issue_number, p.MARKERS.receipt, receipt, "receipt_identity");
@@ -685,7 +817,8 @@ async function persistQa() {
     candidate_commit: expected.expected_candidate_commit,
     candidate_tree: expected.expected_candidate_tree,
     terminal_state: substance.status,
-    accepted
+    acceptance_eligible: acceptanceEligible,
+    accepted: false
   });
   fs.mkdirSync(OUTPUT_DIR, {recursive: true});
   const handoffFile = path.join(OUTPUT_DIR, "private-research-system-handoff.json");
@@ -693,22 +826,99 @@ async function persistQa() {
   fs.writeFileSync(handoffFile, `${JSON.stringify(handoff, null, 2)}\n`, "utf8");
   fs.writeFileSync(receiptFile, `${JSON.stringify(receipt, null, 2)}\n`, "utf8");
   output("terminal_status", substance.status);
-  output("accepted", String(accepted));
+  output("acceptance_eligible", String(acceptanceEligible));
   output("private_handoff_file", handoffFile);
   output("receipt_file", receiptFile);
-  summary(`Fresh independent QA terminal result: ${substance.status}; accepted=${accepted}. The authoritative work item and draft PR now carry the same exact-head terminal identity.`);
+  summary(`Fresh independent QA terminal result: ${substance.status}; acceptance_eligible=${acceptanceEligible}; accepted=false pending mirrored receipts, artifact upload, and terminal checks.`);
+}
+
+async function finalizeQaAcceptance() {
+  const expected = expectedQaInputs();
+  const state = await loadContract(expected.contract_issue_number, {requireCurrentMain: false});
+  if (state.taskContractIdentity !== expected.task_contract_identity || p.canonical(state.contract.acceptance_threshold) !== p.canonical(expected.acceptance_threshold)) throw new Error("qa_finalize_contract_or_threshold_mismatch");
+  p.assertImplementationAuthority(state.comments, {
+    ...expected,
+    idempotency_identity: state.contract.idempotency_identity
+  });
+  await verifyImplementationWorkflowRun(state.contract, expected);
+
+  const qaRunId = requiredEnv("GITHUB_RUN_ID");
+  const qaRunAttempt = requiredEnv("GITHUB_RUN_ATTEMPT");
+  const qaRecords = p.parseTrustedRecords(state.comments, p.MARKERS.qa).filter((record) => record.deterministic_evidence_identity === expected.deterministic_evidence_identity);
+  if (qaRecords.length !== 1) throw new Error("qa_finalize_result_missing_or_duplicate");
+  const qaRecord = qaRecords[0];
+  const exactQa = qaRecord.task_contract_identity === expected.task_contract_identity &&
+    qaRecord.implementation_run_identity === expected.implementation_run_identity &&
+    qaRecord.candidate_pr_number === expected.candidate_pr_number &&
+    qaRecord.base_commit === expected.expected_base_commit &&
+    qaRecord.candidate_commit === expected.expected_candidate_commit &&
+    qaRecord.candidate_tree === expected.expected_candidate_tree &&
+    p.canonical(qaRecord.changed_paths) === p.canonical(expected.expected_changed_paths) &&
+    String(qaRecord.qa_workflow_run_id) === String(qaRunId) &&
+    String(qaRecord.qa_run_attempt) === String(qaRunAttempt) &&
+    qaRecord.status === "PASS" && qaRecord.p0_count === 0 && qaRecord.p1_count === 0 &&
+    qaRecord.acceptance_eligible === true && qaRecord.accepted === false;
+  if (!exactQa) throw new Error("qa_finalize_result_binding_mismatch");
+
+  const prComments = await allComments(expected.candidate_pr_number);
+  const mirroredQa = p.parseTrustedRecords(prComments, p.MARKERS.qa).filter((record) => record.qa_result_identity === qaRecord.qa_result_identity);
+  if (mirroredQa.length !== 1 || p.canonical(mirroredQa[0]) !== p.canonical(qaRecord)) throw new Error("qa_finalize_mirrored_result_missing_or_mismatched");
+  const receiptIdentity = p.sha256(`${qaRecord.qa_result_identity}:terminal`);
+  const issueReceipts = p.parseTrustedRecords(state.comments, p.MARKERS.receipt).filter((record) => record.receipt_identity === receiptIdentity);
+  const prReceipts = p.parseTrustedRecords(prComments, p.MARKERS.receipt).filter((record) => record.receipt_identity === receiptIdentity);
+  if (issueReceipts.length !== 1 || prReceipts.length !== 1 || p.canonical(issueReceipts[0]) !== p.canonical(prReceipts[0]) || issueReceipts[0].terminal_state !== "PASS" || issueReceipts[0].acceptance_eligible !== true || issueReceipts[0].accepted !== false) {
+    throw new Error("qa_finalize_mirrored_receipt_missing_or_mismatched");
+  }
+
+  const qaRun = await api(`/actions/runs/${encodeURIComponent(qaRunId)}`);
+  if (String(qaRun.id) !== String(qaRunId) || Number(qaRun.run_attempt) !== Number(qaRunAttempt) || qaRun.event !== "workflow_dispatch" || qaRun.path !== ".github/workflows/product-task-pipeline-v01-qa.yml" || qaRun.head_branch !== "main" || qaRun.head_sha !== expected.expected_base_commit || !qaRun.repository || qaRun.repository.full_name !== repository) {
+    throw new Error("qa_finalize_workflow_run_provenance_mismatch");
+  }
+  const jobs = await api(`/actions/runs/${encodeURIComponent(qaRunId)}/jobs?per_page=100`);
+  for (const name of ["preflight", "qa", "persist", "terminal"]) {
+    const job = (jobs.jobs || []).find((entry) => entry.name === name);
+    if (!job || job.status !== "completed" || job.conclusion !== "success") throw new Error(`qa_finalize_${name}_job_not_successful`);
+  }
+  const artifacts = await api(`/actions/runs/${encodeURIComponent(qaRunId)}/artifacts?per_page=100`);
+  const artifactName = `product-task-qa-terminal-${qaRunId}-${qaRunAttempt}`;
+  const terminalArtifacts = (artifacts.artifacts || []).filter((artifact) => artifact.name === artifactName && artifact.expired !== true && Number(artifact.size_in_bytes) > 0);
+  if (terminalArtifacts.length !== 1) throw new Error("qa_finalize_terminal_artifact_missing_or_duplicate");
+  const remote = await remoteCandidate(state.contract, expected.candidate_pr_number);
+  if (remote.candidate.candidate_commit !== expected.expected_candidate_commit || remote.candidate.candidate_tree !== expected.expected_candidate_tree || remote.candidate.base_commit !== expected.expected_base_commit || p.canonical(remote.candidate.changed_paths) !== p.canonical(expected.expected_changed_paths)) throw new Error("qa_finalize_candidate_moved");
+
+  const acceptance = {
+    schema_version: p.EXECUTION_SCHEMA_VERSION,
+    status_identity: p.sha256(`${qaRecord.qa_result_identity}:ACCEPTED`),
+    task_contract_identity: expected.task_contract_identity,
+    implementation_run_identity: expected.implementation_run_identity,
+    deterministic_evidence_identity: expected.deterministic_evidence_identity,
+    qa_result_identity: qaRecord.qa_result_identity,
+    candidate_pr_number: expected.candidate_pr_number,
+    candidate_commit: expected.expected_candidate_commit,
+    candidate_tree: expected.expected_candidate_tree,
+    qa_workflow_run_id: qaRunId,
+    qa_run_attempt: qaRunAttempt,
+    terminal_artifact_name: artifactName,
+    status: "ACCEPTED",
+    accepted: true,
+    created_at: new Date().toISOString()
+  };
+  summary(`All mirrored receipts, terminal artifacts, immutable run bindings, and terminal checks succeeded. Publishing the single authoritative acceptance transition as the final step.`);
+  await writeRecord(expected.contract_issue_number, p.MARKERS.status, acceptance, "status_identity");
 }
 
 async function main() {
   const [mode, arg1, arg2] = process.argv.slice(2);
   if (mode === "preflight") return preflight(canonicalPositiveInteger(arg1, "contract_issue_number"));
   if (mode === "creator-verify") return creatorVerify(canonicalPositiveInteger(arg1, "contract_issue_number"), arg2);
+  if (mode === "safe-output-gate") return safeOutputGate(canonicalPositiveInteger(arg1, "contract_issue_number"), arg2);
   if (mode === "dispatch-validation") return dispatchValidation(canonicalPositiveInteger(arg1, "contract_issue_number"), canonicalPositiveInteger(arg2, "candidate_pr_number"));
   if (mode === "exact-head-validate") return exactHeadValidate();
   if (mode === "persist-validation") return persistValidation();
   if (mode === "qa-preflight") return qaPreflight();
   if (mode === "persist-qa") return persistQa();
-  throw new Error("usage: product-task-pipeline-v01.js <preflight|creator-verify|dispatch-validation|exact-head-validate|persist-validation|qa-preflight|persist-qa>");
+  if (mode === "finalize-qa-acceptance") return finalizeQaAcceptance();
+  throw new Error("usage: product-task-pipeline-v01.js <preflight|creator-verify|safe-output-gate|dispatch-validation|exact-head-validate|persist-validation|qa-preflight|persist-qa|finalize-qa-acceptance>");
 }
 
 main().catch((error) => {

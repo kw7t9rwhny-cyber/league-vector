@@ -32,7 +32,7 @@ function fixtureContract(overrides = {}) {
     required_deterministic_commands: [...pipeline.REQUIRED_COMMANDS],
     maximum_changed_files: 1,
     maximum_patch_bytes: 4096,
-    maximum_provider_cost_usd: 20,
+    maximum_provider_cost_usd: 30,
     authority: {
       status: "APPROVED",
       authorized_by: "kw7t9rwhny-cyber",
@@ -79,6 +79,8 @@ function expectedEvidenceBinding() {
   return {
     task_contract_identity: "5".repeat(64),
     implementation_run_identity: "6".repeat(64),
+    implementation_workflow_run_id: "90",
+    implementation_workflow_run_attempt: "1",
     candidate_pr_number: 17,
     expected_candidate_commit: CANDIDATE_COMMIT,
     expected_candidate_tree: CANDIDATE_TREE,
@@ -125,6 +127,16 @@ test("malformed or extra contract fields fail closed", () => {
   assert.throws(() => pipeline.parseContractIssue({body: "not a contract"}), /task_contract_missing_or_duplicate/);
 });
 
+test("v0.1 rejects unimplemented extra controls and any unsupported provider budget", () => {
+  const extraPath = fixtureContract({prohibited_path_patterns: [...pipeline.REQUIRED_PROHIBITED_PATH_PATTERNS, "docs/**"]});
+  assert.throws(() => pipeline.validateTaskContract(extraPath, {now: FIXED_NOW}), /prohibited_path_controls_invalid|prohibited_path_patterns_invalid/);
+  const extraAction = fixtureContract({prohibited_actions: [...pipeline.REQUIRED_PROHIBITED_ACTIONS, "extra_action"]});
+  assert.throws(() => pipeline.validateTaskContract(extraAction, {now: FIXED_NOW}), /prohibited_action_controls_invalid|prohibited_actions_invalid/);
+  const extraStop = fixtureContract({stop_conditions: [...pipeline.REQUIRED_STOP_CONDITIONS, "extra_stop"]});
+  assert.throws(() => pipeline.validateTaskContract(extraStop, {now: FIXED_NOW}), /stop_condition_controls_invalid|stop_conditions_invalid/);
+  assert.throws(() => pipeline.validateTaskContract(fixtureContract({maximum_provider_cost_usd: 29}), {now: FIXED_NOW}), /provider_cost_authority_invalid/);
+});
+
 test("wrong repository and moved starting identity fail closed", () => {
   assert.throws(() => pipeline.validateTaskContract(fixtureContract({repository: "elsewhere/repo"}), {now: FIXED_NOW}), /wrong_repository/);
   const contract = fixtureContract();
@@ -169,6 +181,7 @@ test("workflow, dependency, data, credential, deployment, and control-plane path
     "data/new.json",
     "secrets/api-token.txt",
     "deploy-prod.js",
+    "scripts/predeploy-hook.js",
     "scripts/product-task-pipeline-v01.js",
     "protocol/product-task-pipeline-v01/qa-result.schema.json",
     "tests/product-task-pipeline-v01-regression.test.js"
@@ -193,6 +206,56 @@ test("only one trusted claim for the current exact run is admitted", () => {
   assert.equal(pipeline.assertCurrentClaim([comment], record.task_contract_identity, record.implementation_run_identity), true);
   assert.throws(() => pipeline.assertCurrentClaim([], record.task_contract_identity, record.implementation_run_identity), /missing_or_duplicate/);
   assert.throws(() => pipeline.assertCurrentClaim([comment, comment], record.task_contract_identity, record.implementation_run_identity), /missing_or_duplicate/);
+});
+
+test("exact-head authority requires one claim and implementation record bound to one run attempt", () => {
+  const contract = fixtureContract();
+  const taskContractIdentity = pipeline.deriveTaskContractIdentity(contract);
+  const runId = "90";
+  const runAttempt = "1";
+  const runIdentity = pipeline.deriveImplementationRunIdentity({taskContractIdentity, runId, runAttempt});
+  const expected = {
+    task_contract_identity: taskContractIdentity,
+    idempotency_identity: contract.idempotency_identity,
+    implementation_run_identity: runIdentity,
+    implementation_workflow_run_id: runId,
+    implementation_workflow_run_attempt: runAttempt,
+    candidate_pr_number: 17,
+    expected_base_commit: START_COMMIT,
+    expected_candidate_commit: CANDIDATE_COMMIT,
+    expected_candidate_tree: CANDIDATE_TREE,
+    expected_changed_paths: ["app.js"]
+  };
+  const claim = {
+    schema_version: pipeline.EXECUTION_SCHEMA_VERSION,
+    claim_identity: pipeline.sha256(`${taskContractIdentity}:${runIdentity}:CLAIM`),
+    task_contract_identity: taskContractIdentity,
+    idempotency_identity: contract.idempotency_identity,
+    implementation_run_identity: runIdentity,
+    implementation_workflow_run_id: runId,
+    implementation_workflow_run_attempt: runAttempt,
+    claimed_at: "2026-08-30T12:00:00Z"
+  };
+  const implementation = {
+    schema_version: pipeline.EXECUTION_SCHEMA_VERSION,
+    record_type: "IMPLEMENTATION_DISPATCH",
+    task_id: contract.task_id,
+    task_contract_identity: taskContractIdentity,
+    idempotency_identity: contract.idempotency_identity,
+    implementation_run_identity: runIdentity,
+    implementation_workflow_run_id: runId,
+    implementation_workflow_run_attempt: runAttempt,
+    candidate_pr_number: 17,
+    base_commit: START_COMMIT,
+    candidate_commit: CANDIDATE_COMMIT,
+    candidate_tree: CANDIDATE_TREE,
+    changed_paths: ["app.js"],
+    created_at: "2026-08-30T12:01:00Z"
+  };
+  const comments = [trustedComment(pipeline.MARKERS.claim, claim), trustedComment(pipeline.MARKERS.implementation, implementation)];
+  assert.equal(pipeline.assertImplementationAuthority(comments, expected).implementation.candidate_commit, CANDIDATE_COMMIT);
+  assert.throws(() => pipeline.assertImplementationAuthority(comments, {...expected, implementation_workflow_run_attempt: "2"}), /trusted_claim|run_identity/);
+  assert.throws(() => pipeline.assertImplementationAuthority([...comments, trustedComment(pipeline.MARKERS.implementation, implementation)], expected), /missing_or_duplicate/);
 });
 
 test("untrusted comments cannot forge an authoritative duplicate", () => {
@@ -221,6 +284,35 @@ test("candidate cannot modify a path outside the exact task list", () => {
   const helper = fs.readFileSync(path.join(ROOT, "scripts/product-task-pipeline-v01.js"), "utf8");
   assert.match(helper, /"--name-only", "--no-renames"/);
   assert.doesNotMatch(helper, /--diff-filter/);
+});
+
+test("pre-mutation gate accepts only passing creator evidence and exactly two authorized requests", () => {
+  const contract = fixtureContract();
+  const taskContractIdentity = pipeline.deriveTaskContractIdentity(contract);
+  const implementationWorkflowRunId = "90";
+  const implementationWorkflowRunAttempt = "1";
+  const implementationRunIdentity = pipeline.deriveImplementationRunIdentity({taskContractIdentity, runId: implementationWorkflowRunId, runAttempt: implementationWorkflowRunAttempt});
+  const creator = {
+    schema_version: "league-vector.product-task-creator-evidence/v0.1",
+    task_contract_identity: taskContractIdentity,
+    implementation_run_identity: implementationRunIdentity,
+    implementation_workflow_run_id: implementationWorkflowRunId,
+    implementation_workflow_run_attempt: implementationWorkflowRunAttempt,
+    candidate: candidate(),
+    commands: pipeline.REQUIRED_COMMANDS.map((command) => ({command, exit_code: 0, started_at: "2026-08-30T12:00:00Z", ended_at: "2026-08-30T12:00:01Z", test_count: "UNKNOWN"})),
+    started_at: "2026-08-30T12:00:00Z",
+    ended_at: "2026-08-30T12:01:00Z",
+    overall: "PASS"
+  };
+  const expected = {task_contract_identity: taskContractIdentity, implementation_run_identity: implementationRunIdentity, implementation_workflow_run_id: implementationWorkflowRunId, implementation_workflow_run_attempt: implementationWorkflowRunAttempt};
+  assert.equal(pipeline.validateCreatorEvidence(contract, creator, expected), true);
+  const failed = structuredClone(creator);
+  failed.commands[0].exit_code = 1;
+  failed.overall = "FAIL";
+  assert.throws(() => pipeline.validateCreatorEvidence(contract, failed, expected), /command_failed|not_pass/);
+  assert.equal(pipeline.validateSafeOutputRequests({items: [{type: "create_pull_request"}, {type: "dispatch_validation", confirmation: true}]}), true);
+  assert.throws(() => pipeline.validateSafeOutputRequests({items: [{type: "create_pull_request"}, {type: "dispatch_validation", confirmation: false}]}), /request_set_invalid/);
+  assert.throws(() => pipeline.validateSafeOutputRequests({items: [{type: "create_pull_request"}, {type: "dispatch_validation", confirmation: true}, {type: "create_pull_request"}]}), /request_count_invalid/);
 });
 
 test("objective cannot request credentials, merge, deployment, release, payment, rights, or customer delivery", () => {
@@ -284,6 +376,20 @@ test("terminal FAIL and BLOCKED propagate without false-green acceptance", () =>
   }
 });
 
+test("accepted true exists only in the final post-artifact authoritative transition", () => {
+  const qaWorkflow = fs.readFileSync(QA_PATH, "utf8");
+  const helper = fs.readFileSync(path.join(ROOT, "scripts/product-task-pipeline-v01.js"), "utf8");
+  assert.ok(qaWorkflow.indexOf("Upload exact terminal receipt") < qaWorkflow.indexOf("  terminal:"));
+  assert.ok(qaWorkflow.indexOf("  terminal:") < qaWorkflow.indexOf("  finalize_acceptance:"));
+  assert.ok(qaWorkflow.indexOf("finalize_acceptance:") < qaWorkflow.indexOf("finalize-qa-acceptance"));
+  assert.equal((helper.match(/accepted: true/g) || []).length, 1);
+  const persistence = helper.slice(helper.indexOf("async function persistQa"), helper.indexOf("async function finalizeQaAcceptance"));
+  assert.doesNotMatch(persistence, /accepted:\s*true/);
+  assert.match(persistence, /accepted:\s*false/);
+  assert.match(helper, /qa_finalize_terminal_artifact_missing_or_duplicate/);
+  assert.match(helper, /await writeRecord\(expected\.contract_issue_number, p\.MARKERS\.status, acceptance, "status_identity"\);\n\}/);
+});
+
 test("transport failures remain distinct from task failures", () => {
   assert.equal(pipeline.classifyFailure(new Error("github_api_transport_503")), "TRANSPORT_FAILURE");
   assert.equal(pipeline.classifyFailure(new Error("creator_tests_failed")), "TASK_FAILURE");
@@ -314,12 +420,35 @@ test("agentic source has read-only agent permissions and bounded cost and patch 
   assert.match(source, /protected-files: blocked/);
 });
 
+test("repository-writing safe outputs require verifier success and exact bundle allowlist validation", () => {
+  const source = fs.readFileSync(SOURCE_PATH, "utf8");
+  const lock = fs.readFileSync(LOCK_PATH, "utf8");
+  const helper = fs.readFileSync(path.join(ROOT, "scripts/product-task-pipeline-v01.js"), "utf8");
+  assert.match(source, /safe_outputs:\n    if: \$\{\{ needs\.agent\.result == 'success' && needs\.detection\.result == 'success' \}\}/);
+  assert.match(source, /Download the immutable agent artifact before any repository mutation/);
+  assert.match(source, /safe-output-gate/);
+  assert.match(helper, /bundle", "verify"/);
+  assert.match(helper, /p\.validateCandidate\(state\.contract, bundledCandidate\)/);
+  assert.match(helper, /safe_output_bundle_creator_evidence_mismatch/);
+  assert.match(helper, /"merge-base", "--is-ancestor"/);
+  assert.match(helper, /remote_candidate_not_descended_from_starting_commit/);
+  assert.match(lock, /needs\.agent\.result == 'success'/);
+  assert.ok(lock.indexOf("Enforce the exact task allowed-files boundary on the immutable bundle") < lock.indexOf("persist-credentials: true"));
+  assert.ok(lock.indexOf("Enforce the exact task allowed-files boundary on the immutable bundle") < lock.indexOf("Process Safe Outputs"));
+});
+
 test("exact-head validation uses immutable base verifier and four exact commands", () => {
   const workflow = fs.readFileSync(VALIDATION_PATH, "utf8");
+  const qaWorkflow = fs.readFileSync(QA_PATH, "utf8");
+  const helper = fs.readFileSync(path.join(ROOT, "scripts/product-task-pipeline-v01.js"), "utf8");
   assert.match(workflow, /ref: \$\{\{ inputs\.expected_candidate_commit \}\}/);
   assert.match(workflow, /git show "\$EXPECTED_BASE_COMMIT:scripts\/product-task-pipeline-v01\.js"/);
   assert.match(workflow, /persist-credentials: false/);
-  assert.match(fs.readFileSync(path.join(ROOT, "scripts/product-task-pipeline-v01.js"), "utf8"), /runRequiredCommands\(\)/);
+  assert.match(workflow, /implementation_workflow_run_attempt:/);
+  assert.match(qaWorkflow, /deterministic_workflow_run_attempt:/);
+  assert.match(helper, /p\.assertImplementationAuthority/);
+  assert.match(helper, /implementation_workflow_run_provenance_mismatch/);
+  assert.match(helper, /runRequiredCommands\(\)/);
   assert.deepEqual([...pipeline.REQUIRED_COMMANDS], ["npm ci", "npm run validate", "npx playwright install --with-deps chromium", "npm run test:e2e"]);
 });
 
@@ -335,13 +464,15 @@ test("separate QA actor is read-only, schema-bound, and cannot self-remediate", 
   assert.doesNotMatch(workflow, /contents: write/);
 });
 
-test("ordinary workflows use pinned action SHAs and no additional credential", () => {
-  const workflows = [VALIDATION_PATH, QA_PATH].map((file) => fs.readFileSync(file, "utf8")).join("\n");
+test("every action use, including generated gh-aw setup, is immutable-SHA pinned", () => {
+  const workflows = [SOURCE_PATH, LOCK_PATH, VALIDATION_PATH, QA_PATH].map((file) => fs.readFileSync(file, "utf8")).join("\n");
   for (const use of workflows.matchAll(/uses:\s+([^\s#]+)/g)) {
     assert.match(use[1], /@[0-9a-f]{40}$/);
   }
-  assert.doesNotMatch(workflows, /GH_AW_CI_TRIGGER_TOKEN|personal.access.token|PAT_/i);
-  assert.match(workflows, /secrets\.OPENAI_API_KEY/);
+  assert.match(workflows, /github\/gh-aw-actions\/setup@6aab9e5b5c91c615506061f09bedd81a23babe3c/);
+  const ordinary = [VALIDATION_PATH, QA_PATH].map((file) => fs.readFileSync(file, "utf8")).join("\n");
+  assert.doesNotMatch(ordinary, /GH_AW_CI_TRIGGER_TOKEN|personal.access.token|PAT_/i);
+  assert.match(ordinary, /secrets\.OPENAI_API_KEY/);
 });
 
 test("all protocol schemas parse and reject unspecified object properties", () => {
