@@ -1,6 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const http = require("node:http");
 const Paid = require("../paid-value-eligibility-v01.js");
 
 function supportedValue(overrides = {}) {
@@ -10,6 +11,14 @@ function supportedValue(overrides = {}) {
     paidValueEligibility: Paid.contractFor("PAID_SUPPORTED"),
     ...overrides,
   };
+}
+
+function assertIneligibleEnvelope(envelope, valuationCount, checkedValueCount = valuationCount) {
+  assert.equal(envelope.eligible, false);
+  assert.equal(envelope.state, "PAID_VALUE_INELIGIBLE");
+  assert.equal(envelope.numeric_paid_output_authorized, false);
+  if (valuationCount !== undefined) assert.equal(envelope.valuation_count, valuationCount);
+  if (checkedValueCount !== undefined) assert.equal(envelope.checked_value_count, checkedValueCount);
 }
 
 test("production contract is structurally valid but paid-ineligible while source rights remain unresolved", () => {
@@ -85,6 +94,85 @@ test("UNKNOWN source rights never become PAID_SUPPORTED", () => {
   assert.ok(result.reasons.includes("SOURCE_RIGHTS_STATE_UNSUPPORTED"));
 });
 
+test("contract booleans cannot masquerade through caller-controlled toJSON hooks", () => {
+  for (const field of [
+    "projection_data_can_affect_paid_value",
+    "paid_delivery_authorized",
+    "missing_projection_substituted_with_zero",
+  ]) {
+    let toJSONCalls = 0;
+    const contract = Paid.contractFor("PAID_SUPPORTED");
+    contract[field] = {
+      unsafe_truthy: true,
+      toJSON() { toJSONCalls += 1; return false; },
+    };
+    const result = Paid.validateContract(contract);
+    assert.equal(result.valid, false, field);
+    assert.equal(result.eligible, false, field);
+    assert.equal(toJSONCalls, 0, field);
+    assert.ok(result.reasons.includes(`CONTRACT_FIELD_MISMATCH:${field}`), field);
+  }
+});
+
+test("contract safety fields must be own data properties and accessors are never invoked", () => {
+  let getterCalls = 0;
+  const accessor = Paid.contractFor("PAID_SUPPORTED");
+  Object.defineProperty(accessor, "paid_delivery_authorized", {
+    enumerable: true,
+    configurable: true,
+    get() { getterCalls += 1; return false; },
+  });
+  const accessorResult = Paid.validateContract(accessor);
+  assert.equal(accessorResult.valid, false);
+  assert.equal(accessorResult.eligible, false);
+  assert.equal(getterCalls, 0);
+  assert.ok(accessorResult.reasons.includes("CONTRACT_FIELD_ACCESSOR:paid_delivery_authorized"));
+
+  const inherited = Object.create(Paid.contractFor("PAID_SUPPORTED"));
+  const inheritedResult = Paid.validateContract(inherited);
+  assert.equal(inheritedResult.valid, false);
+  assert.equal(inheritedResult.eligible, false);
+  assert.ok(inheritedResult.reasons.includes("CONTRACT_NOT_PLAIN_OBJECT"));
+});
+
+test("contract string arrays must be dense exact primitive arrays", () => {
+  const cases = [];
+
+  const sparseSurfaces = Paid.contractFor("PAID_SUPPORTED");
+  sparseSurfaces.safe_context_surfaces = new Array(2);
+  sparseSurfaces.safe_context_surfaces[0] = "league_and_scoring_inputs";
+  cases.push(sparseSurfaces);
+
+  const mistypedSurface = Paid.contractFor("PAID_SUPPORTED");
+  mistypedSurface.safe_context_surfaces[1] = { toString: () => "separately_labeled_experimental_projection_board" };
+  cases.push(mistypedSurface);
+
+  const malformedReasons = Paid.productionContract();
+  malformedReasons.reason_codes = { 0: "SOURCE_RIGHTS_UNRESOLVED", length: 1 };
+  cases.push(malformedReasons);
+
+  const extraArrayProperty = Paid.productionContract();
+  extraArrayProperty.reason_codes.toJSON = () => ["SOURCE_RIGHTS_UNRESOLVED"];
+  cases.push(extraArrayProperty);
+
+  for (const contract of cases) {
+    const result = Paid.validateContract(contract);
+    assert.equal(result.valid, false);
+    assert.equal(result.eligible, false);
+  }
+});
+
+test("contract validation catches hostile reflection and remains deterministic", () => {
+  const hostile = new Proxy(Paid.contractFor("PAID_SUPPORTED"), {
+    ownKeys() { throw new Error("hostile ownKeys"); },
+  });
+  assert.deepEqual(Paid.validateContract(hostile), {
+    valid: false,
+    eligible: false,
+    reasons: ["CONTRACT_INSPECTION_FAILED"],
+  });
+});
+
 test("paid valuation input strips every legacy projection-bearing input", () => {
   const input = {
     player: { position: "QB" },
@@ -153,6 +241,82 @@ test("analysis-wide positive control requires every value to share the exact eli
   assert.equal(envelope.state, "PAID_VALUE_ELIGIBLE");
   assert.equal(envelope.numeric_paid_output_authorized, true);
   assert.equal(envelope.valuation_count, 2);
+  assert.deepEqual(envelope.reason_codes, []);
+});
+
+test("sparse valuation collections account for and reject every claimed slot", () => {
+  const contract = Paid.contractFor("PAID_SUPPORTED");
+  const cases = [
+    new Array(1),
+    [supportedValue(), ,],
+    [, supportedValue()],
+    [supportedValue(), , supportedValue()],
+  ];
+  const expectedCounts = [1, 2, 2, 3];
+  for (let index = 0; index < cases.length; index += 1) {
+    const envelope = Paid.buildAnalysisEligibility(cases[index], contract);
+    assertIneligibleEnvelope(envelope, expectedCounts[index], expectedCounts[index]);
+    assert.ok(envelope.reason_codes.some((reason) => reason.includes("SPARSE_SLOT")));
+  }
+});
+
+test("caller traversal overrides are never invoked and cannot suppress invalid values", () => {
+  const contract = Paid.contractFor("PAID_SUPPORTED");
+  let mapCalls = 0;
+  const mapOverride = [supportedValue({ finalValue: 0 })];
+  mapOverride.map = () => { mapCalls += 1; return []; };
+  const mapEnvelope = Paid.buildAnalysisEligibility(mapOverride, contract);
+  assertIneligibleEnvelope(mapEnvelope, 1, 1);
+  assert.equal(mapCalls, 0);
+  assert.ok(mapEnvelope.reason_codes.includes("VALUATION_COLLECTION_UNSUPPORTED_OWN_PROPERTY"));
+  assert.ok(mapEnvelope.reason_codes.includes("VALUATION_0:ELIGIBLE_VALUE_NOT_FINITE_NONNEGATIVE"));
+
+  let iteratorCalls = 0;
+  const iteratorOverride = [supportedValue({ finalValue: -1 })];
+  iteratorOverride[Symbol.iterator] = function* hostileIterator() {
+    iteratorCalls += 1;
+    yield supportedValue();
+  };
+  const iteratorEnvelope = Paid.buildAnalysisEligibility(iteratorOverride, contract);
+  assertIneligibleEnvelope(iteratorEnvelope, 1, 1);
+  assert.equal(iteratorCalls, 0);
+  assert.ok(iteratorEnvelope.reason_codes.includes("VALUATION_COLLECTION_UNSUPPORTED_OWN_PROPERTY"));
+});
+
+test("non-array and hostile collection inputs fail closed without throwing", () => {
+  const contract = Paid.contractFor("PAID_SUPPORTED");
+  for (const input of [
+    { 0: supportedValue(), length: 1 },
+    {},
+    "not-an-array",
+    null,
+    undefined,
+  ]) {
+    const envelope = Paid.buildAnalysisEligibility(input, contract);
+    assertIneligibleEnvelope(envelope, 0, 0);
+    assert.ok(envelope.reason_codes.includes("VALUATION_COLLECTION_NOT_ARRAY"));
+  }
+
+  const hostile = new Proxy([supportedValue()], {
+    getOwnPropertyDescriptor(target, key) {
+      if (key === "0") throw new Error("hostile index");
+      return Reflect.getOwnPropertyDescriptor(target, key);
+    },
+  });
+  const hostileEnvelope = Paid.buildAnalysisEligibility(hostile, contract);
+  assertIneligibleEnvelope(hostileEnvelope, 1, 0);
+  assert.ok(hostileEnvelope.reason_codes.includes("VALUATION_COLLECTION_INSPECTION_FAILED"));
+});
+
+test("ordinary dense collection snapshots every index exactly once and remains eligible", () => {
+  const contract = Paid.contractFor("PAID_SUPPORTED");
+  const values = [supportedValue({ finalValue: 1 }), supportedValue({ finalValue: 2 })];
+  const envelope = Paid.buildAnalysisEligibility(values, contract);
+  assert.equal(envelope.eligible, true);
+  assert.equal(envelope.state, "PAID_VALUE_ELIGIBLE");
+  assert.equal(envelope.numeric_paid_output_authorized, true);
+  assert.equal(envelope.valuation_count, 2);
+  assert.equal(envelope.checked_value_count, 2);
   assert.deepEqual(envelope.reason_codes, []);
 });
 
@@ -253,6 +417,121 @@ test("projection fields on one value invalidate the entire analysis", () => {
   assert.ok(envelope.reason_codes.some((reason) => reason.includes("PROJECTION_FIELD_PRESENT:projectionAdjustment")));
 });
 
+test("mixed outer and components safety surfaces cannot be combined", () => {
+  const contract = Paid.contractFor("PAID_SUPPORTED");
+  const mixed = {
+    finalValue: 0,
+    projectionAdjustment: 99,
+    paidValueEligibility: contract,
+    components: {
+      finalValue: 1,
+      paidValueEligibility: Paid.productionContract(),
+    },
+  };
+  const envelope = Paid.buildAnalysisEligibility([mixed], contract);
+  assertIneligibleEnvelope(envelope, 1, 1);
+  for (const reason of [
+    "VALUATION_0:DUPLICATE_FINAL_VALUE_SURFACES",
+    "VALUATION_0:DUPLICATE_PAID_VALUE_ELIGIBILITY_SURFACES",
+    "VALUATION_0:PROJECTION_FIELD_PRESENT:projectionAdjustment",
+    "VALUATION_0:ELIGIBLE_VALUE_NOT_FINITE_NONNEGATIVE",
+  ]) assert.ok(envelope.reason_codes.includes(reason), reason);
+});
+
+test("duplicate and conflicting numeric or contract surfaces are always rejected", () => {
+  const contract = Paid.contractFor("PAID_SUPPORTED");
+  const cases = [
+    supportedValue({ components: { finalValue: 8240 } }),
+    supportedValue({ components: { paidValueEligibility: contract } }),
+    supportedValue({ components: { finalValue: 1 } }),
+    supportedValue({ components: { paidValueEligibility: Paid.productionContract() } }),
+  ];
+  for (const value of cases) {
+    const envelope = Paid.buildAnalysisEligibility([value], contract);
+    assertIneligibleEnvelope(envelope, 1, 1);
+    assert.ok(envelope.reason_codes.includes("VALUATION_0:COMPONENTS_SURFACE_UNSUPPORTED"));
+  }
+});
+
+test("forbidden projection, replacement, and VORP fields are rejected on every result surface", () => {
+  const contract = Paid.contractFor("PAID_SUPPORTED");
+  const outer = supportedValue({
+    projectionAdjustment: 0,
+    components: {},
+  });
+  const nested = supportedValue({
+    components: {
+      projectedPoints: 1,
+      neutralReplacementPoints: 2,
+      leagueReplacementPoints: 3,
+      neutralVorp: 4,
+      leagueVorp: 5,
+    },
+  });
+  for (const value of [outer, nested]) {
+    const envelope = Paid.buildAnalysisEligibility([value], contract);
+    assertIneligibleEnvelope(envelope, 1, 1);
+    assert.ok(envelope.reason_codes.some((reason) => reason.includes("PROJECTION_FIELD_PRESENT")));
+  }
+});
+
+test("volatile valuation accessors are rejected without being invoked", () => {
+  const contract = Paid.contractFor("PAID_SUPPORTED");
+  let finalValueReads = 0;
+  const finalValueAccessor = supportedValue();
+  Object.defineProperty(finalValueAccessor, "finalValue", {
+    enumerable: true,
+    configurable: true,
+    get() { finalValueReads += 1; return finalValueReads === 1 ? 1 : 0; },
+  });
+  const finalEnvelope = Paid.buildAnalysisEligibility([finalValueAccessor], contract);
+  assertIneligibleEnvelope(finalEnvelope, 1, 1);
+  assert.equal(finalValueReads, 0);
+  assert.ok(finalEnvelope.reason_codes.includes("VALUATION_0:FINAL_VALUE_ACCESSOR"));
+
+  let contractReads = 0;
+  const contractAccessor = supportedValue();
+  Object.defineProperty(contractAccessor, "paidValueEligibility", {
+    enumerable: true,
+    configurable: true,
+    get() { contractReads += 1; return contract; },
+  });
+  const contractEnvelope = Paid.buildAnalysisEligibility([contractAccessor], contract);
+  assertIneligibleEnvelope(contractEnvelope, 1, 1);
+  assert.equal(contractReads, 0);
+  assert.ok(contractEnvelope.reason_codes.includes("VALUATION_0:PAID_VALUE_ELIGIBILITY_ACCESSOR"));
+});
+
+test("inherited valuation safety fields cannot establish eligibility", () => {
+  const contract = Paid.contractFor("PAID_SUPPORTED");
+  const inheritedFinalValue = Object.create({ finalValue: 1 });
+  inheritedFinalValue.paidValueEligibility = contract;
+  const inheritedContract = Object.create({ paidValueEligibility: contract });
+  inheritedContract.finalValue = 1;
+
+  const finalEnvelope = Paid.buildAnalysisEligibility([inheritedFinalValue], contract);
+  assertIneligibleEnvelope(finalEnvelope, 1, 1);
+  assert.ok(finalEnvelope.reason_codes.includes("VALUATION_0:INHERITED_FINAL_VALUE"));
+
+  const contractEnvelope = Paid.buildAnalysisEligibility([inheritedContract], contract);
+  assertIneligibleEnvelope(contractEnvelope, 1, 1);
+  assert.ok(contractEnvelope.reason_codes.includes("VALUATION_0:INHERITED_PAID_VALUE_ELIGIBILITY"));
+});
+
+test("canonical direct valuation shape remains accepted after ambiguity hardening", () => {
+  const contract = Paid.contractFor("PAID_SUPPORTED");
+  const value = supportedValue({ finalValue: Number.MIN_VALUE });
+  assert.deepEqual(Paid.validateValuation(value, contract), {
+    valid: true,
+    eligible: true,
+    reasons: [],
+  });
+  const envelope = Paid.buildAnalysisEligibility([value], contract);
+  assert.equal(envelope.eligible, true);
+  assert.equal(envelope.numeric_paid_output_authorized, true);
+  assert.equal(envelope.contract.paid_delivery_authorized, false);
+});
+
 test("no values is fail-closed rather than a numeric zero result", () => {
   const envelope = Paid.buildAnalysisEligibility([], Paid.contractFor("PAID_SUPPORTED"));
   assert.equal(envelope.eligible, false);
@@ -270,6 +549,45 @@ test("unresolved production contract invalidates the entire analysis even when i
   assert.equal(envelope.eligible, false);
   assert.equal(envelope.state, "PAID_VALUE_INELIGIBLE");
   assert.ok(envelope.reason_codes.includes("SOURCE_RIGHTS_UNRESOLVED"));
+});
+
+test("malformed direct contract inputs return a stable non-authorizing fallback envelope", () => {
+  for (const contract of [null, 0, [], undefined]) {
+    const envelope = Paid.buildAnalysisEligibility([supportedValue()], contract);
+    assertIneligibleEnvelope(envelope, 1, 1);
+    assert.equal(envelope.contract.state, "PAID_VALUE_INELIGIBLE");
+    assert.equal(envelope.contract.numeric_offensive_paid_value_available, false);
+    assert.equal(envelope.contract.source_rights_state, "UNRESOLVED");
+    assert.equal(envelope.contract.paid_delivery_authorized, false);
+    assert.ok(envelope.reason_codes.includes("CONTRACT_NOT_PLAIN_OBJECT"));
+  }
+});
+
+test("exported valuation validation is total for malformed and hostile values", () => {
+  const contract = Paid.contractFor("PAID_SUPPORTED");
+  for (const value of [null, undefined, 0, "value", [], {}]) {
+    const result = Paid.validateValuation(value, contract);
+    assert.equal(result.valid, false);
+    assert.equal(result.eligible, false);
+    assert.ok(result.reasons.length > 0);
+  }
+
+  const hostile = new Proxy(supportedValue(), {
+    getOwnPropertyDescriptor() { throw new Error("hostile valuation"); },
+  });
+  const result = Paid.validateValuation(hostile, contract);
+  assert.equal(result.valid, false);
+  assert.equal(result.eligible, false);
+  assert.ok(result.reasons.includes("VALUATION_INSPECTION_FAILED"));
+});
+
+test("malformed expected contracts make direct valuation validation fail closed", () => {
+  for (const expected of [null, 0, []]) {
+    const result = Paid.validateValuation(supportedValue(), expected);
+    assert.equal(result.valid, false);
+    assert.equal(result.eligible, false);
+    assert.ok(result.reasons.some((reason) => reason.startsWith("EXPECTED_CONTRACT_INVALID:")));
+  }
 });
 
 test("paid data boundary returns excluded projection evidence without network work", async () => {
@@ -299,6 +617,103 @@ test("paid data boundary rejects every direct legacy projection URL", async () =
   );
   const safe = await data.request("https://api.sleeper.app/v1/state/nfl");
   assert.equal(safe.value, "https://api.sleeper.app/v1/state/nfl");
+});
+
+test("paid data boundary blocks canonical, mixed-case, ambiguous, and encoded projection paths", async () => {
+  const calls = [];
+  const data = {
+    request: async (url) => { calls.push(url); return { value: url }; },
+  };
+  Paid.hardenDataAdapter(data);
+  const blocked = [
+    "https://api.sleeper.app/projections/nfl/2026/1",
+    "https://api.sleeper.app/PrOjEcTiOnS/NfL/2026/1",
+    "https://api.sleeper.app\\projections\\nfl\\2026\\1",
+    "https://api.sleeper.app/allowed\\projections/nfl/2026/1",
+    "https://api.sleeper.app/projections%2Fnfl/2026/1",
+    "https://api.sleeper.app/projections%5Cnfl/2026/1",
+    "https://api.sleeper.app/%70rojections/nfl/2026/1",
+    "https://api.sleeper.app//projections/nfl/2026/1",
+    "not a valid absolute URL",
+  ];
+  for (const url of blocked) {
+    await assert.rejects(
+      () => data.request(url),
+      (error) => error.code === "PAID_BETA_LEGACY_WEEKLY_PROJECTION_REQUEST_BLOCKED",
+      url,
+    );
+  }
+  assert.deepEqual(calls, []);
+
+  const allowedString = await data.request("https://api.sleeper.app/v1/state/nfl");
+  assert.equal(allowedString.value, "https://api.sleeper.app/v1/state/nfl");
+  const allowedUrl = await data.request(new URL("https://api.sleeper.app/v1/players/nfl"));
+  assert.equal(allowedUrl.value, "https://api.sleeper.app/v1/players/nfl");
+  assert.deepEqual(calls, [
+    "https://api.sleeper.app/v1/state/nfl",
+    "https://api.sleeper.app/v1/players/nfl",
+  ]);
+});
+
+test("paid data boundary never trusts a caller-controlled URL toString hook", async () => {
+  let toStringCalls = 0;
+  let requestCalls = 0;
+  const data = {
+    request: async () => { requestCalls += 1; return {}; },
+  };
+  Paid.hardenDataAdapter(data);
+  await assert.rejects(
+    () => data.request({
+      toString() { toStringCalls += 1; return "https://api.sleeper.app/v1/state/nfl"; },
+    }),
+    (error) => error.code === "PAID_BETA_LEGACY_WEEKLY_PROJECTION_REQUEST_BLOCKED",
+  );
+  assert.equal(toStringCalls, 0);
+  assert.equal(requestCalls, 0);
+});
+
+test("backslash projection URL cannot reach a local downstream server while an allowed URL can", async () => {
+  const receivedPaths = [];
+  const server = http.createServer((request, response) => {
+    receivedPaths.push(request.url);
+    response.writeHead(200, { "content-type": "text/plain" });
+    response.end("ok");
+  });
+  await new Promise((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(0, "127.0.0.1", resolve);
+  });
+
+  try {
+    const address = server.address();
+    const port = address.port;
+    let originalCalls = 0;
+    const data = {
+      request: (url) => new Promise((resolve, reject) => {
+        originalCalls += 1;
+        const request = http.get(url, (response) => {
+          response.resume();
+          response.once("end", () => resolve({ status: response.statusCode }));
+        });
+        request.once("error", reject);
+      }),
+    };
+    Paid.hardenDataAdapter(data);
+
+    await assert.rejects(
+      () => data.request(`http://127.0.0.1:${port}\\projections\\nfl\\2026\\1`),
+      (error) => error.code === "PAID_BETA_LEGACY_WEEKLY_PROJECTION_REQUEST_BLOCKED",
+    );
+    assert.equal(originalCalls, 0);
+    assert.deepEqual(receivedPaths, []);
+
+    const allowed = await data.request(`http://127.0.0.1:${port}/v1/state/nfl`);
+    assert.equal(allowed.status, 200);
+    assert.equal(originalCalls, 1);
+    assert.deepEqual(receivedPaths, ["/v1/state/nfl"]);
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
 });
 
 test("machine-readable contract matches the production runtime contract", () => {
