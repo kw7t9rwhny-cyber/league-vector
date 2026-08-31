@@ -116,6 +116,20 @@ test("paid-beta mode fails closed before network work while source rights remain
     };
     const contract = window.LeagueVectorCore.paidValueEligibility();
     const validation = window.LeagueVectorCore.validatePaidValueEligibility(contract);
+    const api = window.LeagueVectorPaidValueEligibility;
+    const factoryContract = api.contractFor("PAID_SUPPORTED");
+    const forgedContract = api.productionContract();
+    Object.assign(forgedContract, {
+      state: "PAID_VALUE_ELIGIBLE",
+      numeric_offensive_paid_value_available: true,
+      source_rights_state: "PAID_SUPPORTED",
+      reason_codes: [],
+    });
+    const forgedValidation = api.validateContract(forgedContract);
+    const forgedEnvelope = api.buildAnalysisEligibility([{
+      finalValue: 1,
+      paidValueEligibility: forgedContract,
+    }], forgedContract);
     return {
       installed: window.__paidValueEligibilityV1Installed,
       runtimeSlotOwnProperty: Object.prototype.hasOwnProperty.call(window, slot),
@@ -124,6 +138,9 @@ test("paid-beta mode fails closed before network work while source rights remain
       runtimeSlotEnumerable: descriptor?.enumerable,
       contract,
       validation,
+      factoryContract,
+      forgedValidation,
+      forgedEnvelope,
       lastAnalysis: window.LeagueVectorLastAnalysis,
       readyEvents: window.__paidReadyEvents,
       blockedEvents: window.__paidBlockedEvents,
@@ -139,6 +156,14 @@ test("paid-beta mode fails closed before network work while source rights remain
   expect(runtime.contract.state).toBe("PAID_VALUE_INELIGIBLE");
   expect(runtime.validation.valid).toBe(true);
   expect(runtime.validation.eligible).toBe(false);
+  expect(runtime.factoryContract.source_rights_state).toBe("UNRESOLVED");
+  expect(runtime.factoryContract.state).toBe("PAID_VALUE_INELIGIBLE");
+  expect(runtime.forgedValidation.valid).toBe(true);
+  expect(runtime.forgedValidation.eligible).toBe(false);
+  expect(runtime.forgedValidation.reasons).toContain("UNTRUSTED_PAID_AUTHORITY");
+  expect(runtime.forgedEnvelope.eligible).toBe(false);
+  expect(runtime.forgedEnvelope.numeric_paid_output_authorized).toBe(false);
+  expect(runtime.forgedEnvelope.reason_codes).toContain("UNTRUSTED_PAID_AUTHORITY");
   expect(runtime.lastAnalysis).toBeNull();
   expect(runtime.readyEvents).toBe(0);
   expect(runtime.blockedEvents).toBe(0);

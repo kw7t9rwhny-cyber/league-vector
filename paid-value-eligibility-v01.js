@@ -1,10 +1,14 @@
 (function (root, factory) {
-  const api = factory();
-  if (typeof module === "object" && module.exports) module.exports = api;
+  const browserRuntime = Boolean(root && root.document);
+  const commonJs = !browserRuntime && typeof module === "object" && module && module.exports;
+  const api = factory({ testHarness: Boolean(commonJs) });
+  if (commonJs) module.exports = api;
   root.LeagueVectorPaidValueEligibility = api;
   if (root.document && root.LeagueVectorCore && root.LeagueVectorData) api.install(root, root.document);
-})(typeof globalThis !== "undefined" ? globalThis : this, function () {
+})(typeof globalThis !== "undefined" ? globalThis : this, function (options) {
   "use strict";
+
+  const testHarness = Boolean(options && options.testHarness);
 
   const CONTRACT_VERSION = "lv-paid-value-eligibility-v1";
   const ANALYSIS_VERSION = "lv-paid-value-analysis-eligibility-v1";
@@ -41,34 +45,106 @@
     "source_rights_state",
     "paid_delivery_authorized",
     "reason_codes",
-  ].sort());
+  ]);
   const MAX_SUPPORTED_VALUATIONS = 100000;
+  const MAX_SNAPSHOT_NODES = 500000;
+  const MAX_PATH_DECODE_PASSES = 4;
   const objectGetOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
   const objectGetPrototypeOf = Object.getPrototypeOf;
-  const reflectHas = Reflect.has;
+  const objectPrototype = Object.prototype;
+  const arrayPrototype = Array.prototype;
+  const objectDefineProperty = Object.defineProperty;
+  const objectDefineProperties = Object.defineProperties;
+  const objectIsExtensible = Object.isExtensible;
+  const objectFreeze = Object.freeze;
+  const hasOwn = Function.call.bind(Object.prototype.hasOwnProperty);
+  const arrayJoin = Function.call.bind(Array.prototype.join);
+  const arrayPush = Function.call.bind(Array.prototype.push);
+  const arraySlice = Function.call.bind(Array.prototype.slice);
+  const setAdd = Function.call.bind(Set.prototype.add);
+  const setDelete = Function.call.bind(Set.prototype.delete);
+  const setHas = Function.call.bind(Set.prototype.has);
+  const weakSetAdd = Function.call.bind(WeakSet.prototype.add);
+  const weakSetHas = Function.call.bind(WeakSet.prototype.has);
+  const weakMapSet = Function.call.bind(WeakMap.prototype.set);
+  const stringSplit = Function.call.bind(String.prototype.split);
+  const stringTrim = Function.call.bind(String.prototype.trim);
+  const regExpTest = Function.call.bind(RegExp.prototype.test);
   const reflectOwnKeys = Reflect.ownKeys;
+  const reflectApply = Reflect.apply;
   const arrayIsArray = Array.isArray;
+  const numberIsFinite = Number.isFinite;
+  const numberIsInteger = Number.isInteger;
+  const nativeNumber = Number;
+  const nativeError = Error;
+  const nativeSet = Set;
+  const nativePromiseReject = Promise.reject.bind(Promise);
+  const nativeDecodeURIComponent = decodeURIComponent;
+  const nativeURL = typeof URL === "function" ? URL : null;
+  const nativeURLSearchParams = typeof URLSearchParams === "function" ? URLSearchParams : null;
+  const urlProtocolGetter = nativeURL
+    ? objectGetOwnPropertyDescriptor(nativeURL.prototype, "protocol")?.get
+    : null;
+  const urlPathnameGetter = nativeURL
+    ? objectGetOwnPropertyDescriptor(nativeURL.prototype, "pathname")?.get
+    : null;
+  const urlHrefGetter = nativeURL
+    ? objectGetOwnPropertyDescriptor(nativeURL.prototype, "href")?.get
+    : null;
+  const urlSearchParamsGet = nativeURLSearchParams?.prototype?.get;
+  const cloneHost = typeof globalThis !== "undefined" ? globalThis : null;
+  const nativeStructuredClone = cloneHost && typeof cloneHost.structuredClone === "function"
+    ? cloneHost.structuredClone.bind(cloneHost)
+    : null;
+
+  const trustedTestContracts = new WeakSet();
+  const trustedRuntimeContracts = new WeakSet();
+  const trustedRuntimeValuations = new WeakSet();
+  const trustedRuntimes = new WeakSet();
+  const installedRoots = new WeakSet();
+  const runtimeByRoot = new WeakMap();
+  const hardenedAdapters = new WeakSet();
+  const inertAdapters = new WeakSet();
+  const hardenedCores = new WeakSet();
+
+  function arrayContains(array, expected) {
+    for (let index = 0; index < array.length; index += 1) {
+      if (array[index] === expected) return true;
+    }
+    return false;
+  }
+
+  function appendAll(target, values) {
+    for (let index = 0; index < values.length; index += 1) {
+      arrayPush(target, values[index]);
+    }
+  }
 
   function uniqueReasons(reasons) {
-    const seen = new Set();
+    const seen = new nativeSet();
     const unique = [];
-    for (const reason of reasons) {
-      if (!seen.has(reason)) {
-        seen.add(reason);
-        unique.push(reason);
+    for (let index = 0; index < reasons.length; index += 1) {
+      const reason = reasons[index];
+      if (!setHas(seen, reason)) {
+        setAdd(seen, reason);
+        arrayPush(unique, reason);
       }
     }
     return unique;
+  }
+
+  function isObjectLike(value) {
+    return value !== null && (typeof value === "object" || typeof value === "function");
   }
 
   function isPlainRecord(value) {
     return value !== null
       && typeof value === "object"
       && !arrayIsArray(value)
-      && objectGetPrototypeOf(value) === Object.prototype;
+      && objectGetPrototypeOf(value) === objectPrototype;
   }
 
-  function contractFor(sourceRightsState = "UNRESOLVED") {
+  function createContract(sourceRightsState = "UNRESOLVED") {
     const supported = sourceRightsState === "PAID_SUPPORTED";
     return {
       contract_version: CONTRACT_VERSION,
@@ -84,7 +160,7 @@
       projection_data_can_appear_inside_paid_value_components: false,
       missing_projection_substituted_with_zero: false,
       projection_coverage_fabricated: false,
-      safe_context_surfaces: [...SAFE_CONTEXT_SURFACES],
+      safe_context_surfaces: arraySlice(SAFE_CONTEXT_SURFACES),
       idp_dynasty_value_available: false,
       offense_idp_combined_dynasty_rankings_available: false,
       source_rights_state: supported ? "PAID_SUPPORTED" : "UNRESOLVED",
@@ -93,49 +169,167 @@
     };
   }
 
+  function contractFor(sourceRightsState = "UNRESOLVED") {
+    const supported = testHarness && sourceRightsState === "PAID_SUPPORTED";
+    const contract = createContract(supported ? "PAID_SUPPORTED" : "UNRESOLVED");
+    if (supported) weakSetAdd(trustedTestContracts, contract);
+    return contract;
+  }
+
   function productionContract() {
-    return contractFor("UNRESOLVED");
+    return createContract("UNRESOLVED");
+  }
+
+  function internalProductionContract() {
+    const contract = createContract("UNRESOLVED");
+    weakSetAdd(trustedRuntimeContracts, contract);
+    return contract;
   }
 
   function copyContractSnapshot(contract) {
     const copy = {};
-    for (const key of REQUIRED_CONTRACT_KEYS) {
+    for (let index = 0; index < REQUIRED_CONTRACT_KEYS.length; index += 1) {
+      const key = REQUIRED_CONTRACT_KEYS[index];
       const value = contract[key];
-      copy[key] = arrayIsArray(value) ? value.slice() : value;
+      copy[key] = arrayIsArray(value) ? arraySlice(value) : value;
     }
     return copy;
+  }
+
+  function snapshotFailure(reasons) {
+    return { ok: false, snapshot: null, reasons: uniqueReasons(reasons) };
+  }
+
+  function preflightDataOnlyGraph(value) {
+    const reasons = [];
+    const seen = new nativeSet();
+    const active = new nativeSet();
+    let nodeCount = 0;
+
+    function visit(current, path) {
+      if (current === null) return;
+      const type = typeof current;
+      if (type === "undefined" || type === "string" || type === "boolean"
+        || type === "number" || type === "bigint") return;
+      if (type !== "object") {
+        arrayPush(reasons, `AUTHORITY_SNAPSHOT_UNSUPPORTED_VALUE:${path}`);
+        return;
+      }
+      if (setHas(active, current)) {
+        arrayPush(reasons, `AUTHORITY_SNAPSHOT_CYCLIC:${path}`);
+        return;
+      }
+      if (setHas(seen, current)) return;
+      setAdd(seen, current);
+      setAdd(active, current);
+      nodeCount += 1;
+      if (nodeCount > MAX_SNAPSHOT_NODES) {
+        arrayPush(reasons, "AUTHORITY_SNAPSHOT_TOO_LARGE");
+        return;
+      }
+
+      let prototype;
+      let keys;
+      try {
+        prototype = objectGetPrototypeOf(current);
+        keys = reflectOwnKeys(current);
+      } catch {
+        arrayPush(reasons, `AUTHORITY_SNAPSHOT_PREFLIGHT_FAILED:${path}`);
+        return;
+      }
+      const isArray = arrayIsArray(current);
+      if ((!isArray && prototype !== objectPrototype) || (isArray && prototype !== arrayPrototype)) {
+        arrayPush(reasons, `AUTHORITY_SNAPSHOT_UNSUPPORTED_OBJECT:${path}`);
+        return;
+      }
+
+      for (let index = 0; index < keys.length; index += 1) {
+        const key = keys[index];
+        if (typeof key !== "string") {
+          arrayPush(reasons, `AUTHORITY_SNAPSHOT_SYMBOL_KEY:${path}`);
+          continue;
+        }
+        let descriptor;
+        try {
+          descriptor = objectGetOwnPropertyDescriptor(current, key);
+        } catch {
+          arrayPush(reasons, `AUTHORITY_SNAPSHOT_PREFLIGHT_FAILED:${path}.${key}`);
+          continue;
+        }
+        if (!descriptor) {
+          arrayPush(reasons, `AUTHORITY_SNAPSHOT_UNSTABLE_PROPERTY:${path}.${key}`);
+          continue;
+        }
+        if (!("value" in descriptor)) {
+          arrayPush(reasons, `AUTHORITY_SNAPSHOT_ACCESSOR:${path}.${key}`);
+          continue;
+        }
+        if (isArray && key === "length") continue;
+        visit(descriptor.value, `${path}.${key}`);
+      }
+      setDelete(active, current);
+    }
+
+    try {
+      visit(value, "envelope");
+    } catch {
+      arrayPush(reasons, "AUTHORITY_SNAPSHOT_PREFLIGHT_FAILED:envelope");
+    }
+    return { valid: reasons.length === 0, reasons: uniqueReasons(reasons) };
+  }
+
+  function cloneDataOnlyEnvelope(envelope) {
+    if (!nativeStructuredClone) return snapshotFailure(["AUTHORITY_SNAPSHOT_UNAVAILABLE"]);
+    const preflight = preflightDataOnlyGraph(envelope);
+    if (!preflight.valid) return snapshotFailure(preflight.reasons);
+    try {
+      return { ok: true, snapshot: nativeStructuredClone(envelope), reasons: [] };
+    } catch {
+      return snapshotFailure(["AUTHORITY_SNAPSHOT_FAILED"]);
+    }
+  }
+
+  function isTrustedTestContract(candidate) {
+    if (!testHarness || !isObjectLike(candidate)) return false;
+    try {
+      return weakSetHas(trustedTestContracts, candidate);
+    } catch {
+      return false;
+    }
   }
 
   function inspectExactStringArray(candidate, expected, field) {
     const reasons = [];
     const snapshot = [];
-    if (!arrayIsArray(candidate) || objectGetPrototypeOf(candidate) !== Array.prototype) {
+    if (!arrayIsArray(candidate) || objectGetPrototypeOf(candidate) !== arrayPrototype) {
       return { valid: false, reasons: [`CONTRACT_FIELD_TYPE_MISMATCH:${field}`], snapshot: null };
     }
 
     const keys = reflectOwnKeys(candidate);
-    if (keys.length !== expected.length + 1) reasons.push(`CONTRACT_FIELD_MISMATCH:${field}`);
-    for (const key of keys) {
-      if (key !== "length" && (typeof key !== "string" || !/^(0|[1-9]\d*)$/.test(key))) {
-        reasons.push(`CONTRACT_FIELD_MISMATCH:${field}`);
+    if (keys.length !== expected.length + 1) arrayPush(reasons, `CONTRACT_FIELD_MISMATCH:${field}`);
+    for (let keyIndex = 0; keyIndex < keys.length; keyIndex += 1) {
+      const key = keys[keyIndex];
+      if (key !== "length" && (typeof key !== "string"
+        || !regExpTest(/^(0|[1-9]\d*)$/, key))) {
+        arrayPush(reasons, `CONTRACT_FIELD_MISMATCH:${field}`);
       }
     }
 
     const lengthDescriptor = objectGetOwnPropertyDescriptor(candidate, "length");
     if (!lengthDescriptor || !("value" in lengthDescriptor) || lengthDescriptor.value !== expected.length) {
-      reasons.push(`CONTRACT_FIELD_MISMATCH:${field}`);
+      arrayPush(reasons, `CONTRACT_FIELD_MISMATCH:${field}`);
     }
     for (let index = 0; index < expected.length; index += 1) {
       const descriptor = objectGetOwnPropertyDescriptor(candidate, String(index));
       if (!descriptor || !("value" in descriptor)) {
-        reasons.push(`CONTRACT_FIELD_MISMATCH:${field}`);
+        arrayPush(reasons, `CONTRACT_FIELD_MISMATCH:${field}`);
         continue;
       }
       if (typeof descriptor.value !== "string" || descriptor.value !== expected[index]) {
-        reasons.push(`CONTRACT_FIELD_MISMATCH:${field}`);
+        arrayPush(reasons, `CONTRACT_FIELD_MISMATCH:${field}`);
         continue;
       }
-      snapshot.push(descriptor.value);
+      arrayPush(snapshot, descriptor.value);
     }
 
     return {
@@ -145,7 +339,7 @@
     };
   }
 
-  function inspectContract(candidate) {
+  function inspectDetachedContract(candidate) {
     const reasons = [];
     const raw = {};
     try {
@@ -154,26 +348,30 @@
       }
 
       const keys = reflectOwnKeys(candidate);
-      const keySet = new Set();
-      for (const key of keys) {
-        if (typeof key !== "string") reasons.push("CONTRACT_FIELD_SET_MISMATCH");
-        else keySet.add(key);
+      const keySet = new nativeSet();
+      for (let index = 0; index < keys.length; index += 1) {
+        const key = keys[index];
+        if (typeof key !== "string") arrayPush(reasons, "CONTRACT_FIELD_SET_MISMATCH");
+        else setAdd(keySet, key);
       }
-      if (keys.length !== REQUIRED_CONTRACT_KEYS.length) reasons.push("CONTRACT_FIELD_SET_MISMATCH");
-      for (const key of REQUIRED_CONTRACT_KEYS) {
-        if (!keySet.has(key)) reasons.push(`CONTRACT_FIELD_MISSING:${key}`);
+      if (keys.length !== REQUIRED_CONTRACT_KEYS.length) arrayPush(reasons, "CONTRACT_FIELD_SET_MISMATCH");
+      for (let index = 0; index < REQUIRED_CONTRACT_KEYS.length; index += 1) {
+        const key = REQUIRED_CONTRACT_KEYS[index];
+        if (!setHas(keySet, key)) arrayPush(reasons, `CONTRACT_FIELD_MISSING:${key}`);
       }
-      for (const key of keys) {
-        if (typeof key === "string" && !REQUIRED_CONTRACT_KEYS.includes(key)) {
-          reasons.push(`CONTRACT_FIELD_EXTRA:${key}`);
+      for (let index = 0; index < keys.length; index += 1) {
+        const key = keys[index];
+        if (typeof key === "string" && !arrayContains(REQUIRED_CONTRACT_KEYS, key)) {
+          arrayPush(reasons, `CONTRACT_FIELD_EXTRA:${key}`);
         }
       }
 
-      for (const key of REQUIRED_CONTRACT_KEYS) {
+      for (let index = 0; index < REQUIRED_CONTRACT_KEYS.length; index += 1) {
+        const key = REQUIRED_CONTRACT_KEYS[index];
         const descriptor = objectGetOwnPropertyDescriptor(candidate, key);
         if (!descriptor) continue;
         if (!("value" in descriptor)) {
-          reasons.push(`CONTRACT_FIELD_ACCESSOR:${key}`);
+          arrayPush(reasons, `CONTRACT_FIELD_ACCESSOR:${key}`);
           continue;
         }
         raw[key] = descriptor.value;
@@ -181,22 +379,23 @@
 
       const sourceRightsState = raw.source_rights_state;
       if (sourceRightsState !== "PAID_SUPPORTED" && sourceRightsState !== "UNRESOLVED") {
-        reasons.push("SOURCE_RIGHTS_STATE_UNSUPPORTED");
+        arrayPush(reasons, "SOURCE_RIGHTS_STATE_UNSUPPORTED");
       } else {
-        const expected = contractFor(sourceRightsState);
-        for (const key of REQUIRED_CONTRACT_KEYS) {
-          if (!Object.prototype.hasOwnProperty.call(raw, key)) continue;
+        const expected = createContract(sourceRightsState);
+        for (let index = 0; index < REQUIRED_CONTRACT_KEYS.length; index += 1) {
+          const key = REQUIRED_CONTRACT_KEYS[index];
+          if (!hasOwn(raw, key)) continue;
           if (arrayIsArray(expected[key])) {
             const arrayCheck = inspectExactStringArray(raw[key], expected[key], key);
-            reasons.push(...arrayCheck.reasons);
+            appendAll(reasons, arrayCheck.reasons);
             if (arrayCheck.valid) raw[key] = arrayCheck.snapshot;
           } else if (typeof raw[key] !== typeof expected[key] || raw[key] !== expected[key]) {
-            reasons.push(`CONTRACT_FIELD_MISMATCH:${key}`);
+            arrayPush(reasons, `CONTRACT_FIELD_MISMATCH:${key}`);
           }
         }
       }
     } catch {
-      reasons.push("CONTRACT_INSPECTION_FAILED");
+      arrayPush(reasons, "CONTRACT_INSPECTION_FAILED");
     }
 
     const unique = uniqueReasons(reasons);
@@ -214,68 +413,91 @@
   }
 
   function validateContract(candidate) {
-    const inspection = inspectContract(candidate);
+    const trustedAuthority = isTrustedTestContract(candidate);
+    const detached = cloneDataOnlyEnvelope({ contract: candidate, valuations: [] });
+    if (!detached.ok) return { valid: false, eligible: false, reasons: arraySlice(detached.reasons) };
+    const inspection = inspectDetachedContract(detached.snapshot.contract);
+    const trusted = inspection.snapshot?.source_rights_state !== "PAID_SUPPORTED" || trustedAuthority;
     return {
       valid: inspection.valid,
-      eligible: inspection.eligible,
-      reasons: inspection.reasons.slice(),
+      eligible: inspection.eligible && trusted,
+      reasons: inspection.valid && inspection.eligible && !trusted
+        ? ["UNTRUSTED_PAID_AUTHORITY"]
+        : arraySlice(inspection.reasons),
     };
   }
 
   function paidValuationInput(input = {}) {
     const sanitized = {};
-    try {
-      if (!isPlainRecord(input)) return sanitized;
-      for (const key of reflectOwnKeys(input)) {
-        if (typeof key !== "string") continue;
-        const descriptor = objectGetOwnPropertyDescriptor(input, key);
-        if (!descriptor || !("value" in descriptor)) return {};
-        sanitized[key] = descriptor.value;
-      }
-    } catch {
-      return {};
+    const detached = cloneDataOnlyEnvelope({ input });
+    if (!detached.ok || !isPlainRecord(detached.snapshot.input)) return sanitized;
+    const inputKeys = reflectOwnKeys(detached.snapshot.input);
+    for (let index = 0; index < inputKeys.length; index += 1) {
+      const key = inputKeys[index];
+      if (typeof key !== "string") continue;
+      sanitized[key] = detached.snapshot.input[key];
     }
-    for (const key of [
+    const excludedInputFields = [
       "projection",
       "neutralReplacement",
       "leagueReplacement",
       "legacyWeeklyProjectionContext",
       "projectionResult",
       "projectionCoverage",
-    ]) delete sanitized[key];
+    ];
+    for (let index = 0; index < excludedInputFields.length; index += 1) {
+      delete sanitized[excludedInputFields[index]];
+    }
     return sanitized;
   }
 
   function sanitizeValuationResult(result, contract = productionContract()) {
     const sanitized = {};
-    try {
-      if (isPlainRecord(result)) {
-        for (const key of reflectOwnKeys(result)) {
-          if (typeof key !== "string" || PROJECTION_VALUE_FIELDS.includes(key)) continue;
-          const descriptor = objectGetOwnPropertyDescriptor(result, key);
-          if (!descriptor || !("value" in descriptor)) return {
-            paidValueEligibility: productionContract(),
-          };
-          sanitized[key] = descriptor.value;
-        }
+    const trustedAuthority = isTrustedTestContract(contract);
+    const detached = cloneDataOnlyEnvelope({ contract, valuations: [result] });
+    if (!detached.ok) return { paidValueEligibility: productionContract() };
+    const detachedResult = detached.snapshot.valuations[0];
+    if (isPlainRecord(detachedResult)) {
+      const resultKeys = reflectOwnKeys(detachedResult);
+      for (let index = 0; index < resultKeys.length; index += 1) {
+        const key = resultKeys[index];
+        if (typeof key !== "string" || key === "paidValueEligibility"
+          || arrayContains(PROJECTION_VALUE_FIELDS, key)) continue;
+        sanitized[key] = detachedResult[key];
       }
-    } catch {
-      return { paidValueEligibility: productionContract() };
     }
-    const contractInspection = inspectContract(contract);
-    sanitized.paidValueEligibility = contractInspection.valid
+    const contractInspection = inspectDetachedContract(detached.snapshot.contract);
+    const contractTrusted = contractInspection.snapshot?.source_rights_state !== "PAID_SUPPORTED"
+      || trustedAuthority;
+    sanitized.paidValueEligibility = contractInspection.valid && contractTrusted
       ? copyContractSnapshot(contractInspection.snapshot)
       : productionContract();
     return sanitized;
   }
 
   function calculatePaidValuation(calculate, input, contract = productionContract()) {
-    if (typeof calculate !== "function") throw new Error("PAID_VALUE_CALCULATOR_UNAVAILABLE");
-    return sanitizeValuationResult(calculate(paidValuationInput(input)), contract);
+    if (typeof calculate !== "function") {
+      return {
+        paidValueEligibility: productionContract(),
+        reason_codes: ["PAID_VALUE_CALCULATOR_UNAVAILABLE"],
+      };
+    }
+    try {
+      return sanitizeValuationResult(
+        reflectApply(calculate, undefined, [paidValuationInput(input)]),
+        contract,
+      );
+    } catch {
+      return {
+        paidValueEligibility: productionContract(),
+        reason_codes: ["PAID_VALUE_CALCULATION_FAILED"],
+      };
+    }
   }
 
   function contractsEqual(left, right) {
-    for (const key of REQUIRED_CONTRACT_KEYS) {
+    for (let keyIndex = 0; keyIndex < REQUIRED_CONTRACT_KEYS.length; keyIndex += 1) {
+      const key = REQUIRED_CONTRACT_KEYS[keyIndex];
       const leftValue = left[key];
       const rightValue = right[key];
       if (arrayIsArray(leftValue) || arrayIsArray(rightValue)) {
@@ -293,15 +515,14 @@
   }
 
   function inspectForbiddenProjectionFields(record, surface, reasons) {
-    for (const key of PROJECTION_VALUE_FIELDS) {
-      const descriptor = objectGetOwnPropertyDescriptor(record, key);
+    for (let index = 0; index < PROJECTION_VALUE_FIELDS.length; index += 1) {
+      const key = PROJECTION_VALUE_FIELDS[index];
       const label = surface ? `${surface}.${key}` : key;
-      if (descriptor) reasons.push(`PROJECTION_FIELD_PRESENT:${label}`);
-      else if (reflectHas(record, key)) reasons.push(`INHERITED_PROJECTION_FIELD:${label}`);
+      if (hasOwn(record, key)) arrayPush(reasons, `PROJECTION_FIELD_PRESENT:${label}`);
     }
   }
 
-  function inspectValuation(value) {
+  function inspectDetachedValuation(value) {
     const reasons = [];
     let finalValue;
     let contractInspection = null;
@@ -313,49 +534,31 @@
           contractInspection: null,
         };
       }
-      if (objectGetPrototypeOf(value) !== Object.prototype) reasons.push("VALUATION_NOT_PLAIN_OBJECT");
+      if (objectGetPrototypeOf(value) !== objectPrototype) arrayPush(reasons, "VALUATION_NOT_PLAIN_OBJECT");
 
-      const finalValueDescriptor = objectGetOwnPropertyDescriptor(value, "finalValue");
-      if (!finalValueDescriptor) {
-        reasons.push(reflectHas(value, "finalValue") ? "INHERITED_FINAL_VALUE" : "FINAL_VALUE_MISSING");
-      } else if (!("value" in finalValueDescriptor)) {
-        reasons.push("FINAL_VALUE_ACCESSOR");
-      } else {
-        finalValue = finalValueDescriptor.value;
-      }
+      if (!hasOwn(value, "finalValue")) arrayPush(reasons, "FINAL_VALUE_MISSING");
+      else finalValue = value.finalValue;
 
-      const contractDescriptor = objectGetOwnPropertyDescriptor(value, "paidValueEligibility");
-      if (!contractDescriptor) {
-        reasons.push(reflectHas(value, "paidValueEligibility")
-          ? "INHERITED_PAID_VALUE_ELIGIBILITY"
-          : "PAID_VALUE_ELIGIBILITY_MISSING");
-      } else if (!("value" in contractDescriptor)) {
-        reasons.push("PAID_VALUE_ELIGIBILITY_ACCESSOR");
+      if (!hasOwn(value, "paidValueEligibility")) {
+        arrayPush(reasons, "PAID_VALUE_ELIGIBILITY_MISSING");
       } else {
-        contractInspection = inspectContract(contractDescriptor.value);
-        reasons.push(...contractInspection.reasons);
+        contractInspection = inspectDetachedContract(value.paidValueEligibility);
+        appendAll(reasons, contractInspection.reasons);
       }
 
       inspectForbiddenProjectionFields(value, "", reasons);
 
-      const componentsDescriptor = objectGetOwnPropertyDescriptor(value, "components");
-      if (!componentsDescriptor) {
-        if (reflectHas(value, "components")) reasons.push("INHERITED_COMPONENTS_SURFACE");
-      } else if (!("value" in componentsDescriptor)) {
-        reasons.push("COMPONENTS_SURFACE_ACCESSOR");
-      } else {
-        reasons.push("COMPONENTS_SURFACE_UNSUPPORTED");
-        const components = componentsDescriptor.value;
+      if (hasOwn(value, "components")) {
+        arrayPush(reasons, "COMPONENTS_SURFACE_UNSUPPORTED");
+        const components = value.components;
         if (components !== null && typeof components === "object" && !arrayIsArray(components)) {
-          const nestedFinalValue = objectGetOwnPropertyDescriptor(components, "finalValue");
-          if (nestedFinalValue || reflectHas(components, "finalValue")) {
-            reasons.push(finalValueDescriptor
+          if (hasOwn(components, "finalValue")) {
+            arrayPush(reasons, hasOwn(value, "finalValue")
               ? "DUPLICATE_FINAL_VALUE_SURFACES"
               : "NESTED_FINAL_VALUE_SURFACE_UNSUPPORTED");
           }
-          const nestedContract = objectGetOwnPropertyDescriptor(components, "paidValueEligibility");
-          if (nestedContract || reflectHas(components, "paidValueEligibility")) {
-            reasons.push(contractDescriptor
+          if (hasOwn(components, "paidValueEligibility")) {
+            arrayPush(reasons, hasOwn(value, "paidValueEligibility")
               ? "DUPLICATE_PAID_VALUE_ELIGIBILITY_SURFACES"
               : "NESTED_PAID_VALUE_ELIGIBILITY_SURFACE_UNSUPPORTED");
           }
@@ -363,22 +566,25 @@
         }
       }
     } catch {
-      reasons.push("VALUATION_INSPECTION_FAILED");
+      arrayPush(reasons, "VALUATION_INSPECTION_FAILED");
     }
 
     return { reasons: uniqueReasons(reasons), finalValue, contractInspection };
   }
 
-  function validateValuationWithExpectedSnapshot(value, expectedSnapshot) {
-    const inspection = inspectValuation(value);
-    const reasons = inspection.reasons.slice();
+  function validateDetachedValuation(value, expectedSnapshot, supportedAuthorityTrusted) {
+    const inspection = inspectDetachedValuation(value);
+    const reasons = arraySlice(inspection.reasons);
     const contractInspection = inspection.contractInspection;
     if (expectedSnapshot && contractInspection?.snapshot
       && !contractsEqual(contractInspection.snapshot, expectedSnapshot)) {
-      reasons.push("VALUATION_CONTRACT_IDENTITY_MISMATCH");
+      arrayPush(reasons, "VALUATION_CONTRACT_IDENTITY_MISMATCH");
     }
-    if (!Number.isFinite(inspection.finalValue) || inspection.finalValue <= 0) {
-      reasons.push("ELIGIBLE_VALUE_NOT_FINITE_NONNEGATIVE");
+    if (!numberIsFinite(inspection.finalValue) || inspection.finalValue <= 0) {
+      arrayPush(reasons, "ELIGIBLE_VALUE_NOT_FINITE_NONNEGATIVE");
+    }
+    if (contractInspection?.eligible && !supportedAuthorityTrusted) {
+      arrayPush(reasons, "UNTRUSTED_PAID_AUTHORITY");
     }
     const unique = uniqueReasons(reasons);
     return {
@@ -389,25 +595,38 @@
   }
 
   function validateValuation(value, expectedContract) {
+    const trustedAuthority = expectedContract !== undefined && isTrustedTestContract(expectedContract);
+    const detached = cloneDataOnlyEnvelope({
+      contract: expectedContract === undefined ? null : expectedContract,
+      valuations: [value],
+    });
+    if (!detached.ok) return { valid: false, eligible: false, reasons: arraySlice(detached.reasons) };
+
     let expectedSnapshot = null;
     const expectedReasons = [];
     if (expectedContract !== undefined) {
-      const expectedInspection = inspectContract(expectedContract);
+      const expectedInspection = inspectDetachedContract(detached.snapshot.contract);
       if (!expectedInspection.valid) {
-        for (const reason of expectedInspection.reasons) {
-          expectedReasons.push(`EXPECTED_CONTRACT_INVALID:${reason}`);
+        for (let index = 0; index < expectedInspection.reasons.length; index += 1) {
+          arrayPush(expectedReasons, `EXPECTED_CONTRACT_INVALID:${expectedInspection.reasons[index]}`);
         }
       } else {
         expectedSnapshot = expectedInspection.snapshot;
       }
     }
-    const result = validateValuationWithExpectedSnapshot(value, expectedSnapshot);
+    const result = validateDetachedValuation(
+      detached.snapshot.valuations[0],
+      expectedSnapshot,
+      trustedAuthority,
+    );
     if (expectedReasons.length === 0) return result;
-    const reasons = uniqueReasons([...result.reasons, ...expectedReasons]);
+    const combinedReasons = arraySlice(result.reasons);
+    appendAll(combinedReasons, expectedReasons);
+    const reasons = uniqueReasons(combinedReasons);
     return { valid: false, eligible: false, reasons };
   }
 
-  function inspectValuationCollection(valuations) {
+  function inspectDetachedValuationCollection(valuations) {
     const reasons = [];
     const values = [];
     let valuationCount = 0;
@@ -422,12 +641,12 @@
           reasons: ["VALUATION_COLLECTION_NOT_ARRAY"],
         };
       }
-      if (objectGetPrototypeOf(valuations) !== Array.prototype) {
-        reasons.push("VALUATION_COLLECTION_NOT_PLAIN_ARRAY");
+      if (objectGetPrototypeOf(valuations) !== arrayPrototype) {
+        arrayPush(reasons, "VALUATION_COLLECTION_NOT_PLAIN_ARRAY");
       }
       const lengthDescriptor = objectGetOwnPropertyDescriptor(valuations, "length");
       if (!lengthDescriptor || !("value" in lengthDescriptor)
-        || !Number.isInteger(lengthDescriptor.value) || lengthDescriptor.value < 0) {
+        || !numberIsInteger(lengthDescriptor.value) || lengthDescriptor.value < 0) {
         return {
           valid: false,
           values,
@@ -447,29 +666,31 @@
         };
       }
 
-      for (const key of reflectOwnKeys(valuations)) {
+      const keys = reflectOwnKeys(valuations);
+      for (let index = 0; index < keys.length; index += 1) {
+        const key = keys[index];
         if (key === "length") continue;
         const supportedIndex = typeof key === "string"
-          && /^(0|[1-9]\d*)$/.test(key)
-          && Number(key) < valuationCount;
-        if (!supportedIndex) reasons.push("VALUATION_COLLECTION_UNSUPPORTED_OWN_PROPERTY");
+          && regExpTest(/^(0|[1-9]\d*)$/, key)
+          && nativeNumber(key) < valuationCount;
+        if (!supportedIndex) arrayPush(reasons, "VALUATION_COLLECTION_UNSUPPORTED_OWN_PROPERTY");
       }
 
       for (let index = 0; index < valuationCount; index += 1) {
         const descriptor = objectGetOwnPropertyDescriptor(valuations, String(index));
         checkedValueCount += 1;
         if (!descriptor) {
-          reasons.push(`VALUATION_${index}:SPARSE_SLOT`);
-          values.push(undefined);
+          arrayPush(reasons, `VALUATION_${index}:SPARSE_SLOT`);
+          arrayPush(values, undefined);
         } else if (!("value" in descriptor)) {
-          reasons.push(`VALUATION_${index}:ACCESSOR_SLOT`);
-          values.push(undefined);
+          arrayPush(reasons, `VALUATION_${index}:ACCESSOR_SLOT`);
+          arrayPush(values, undefined);
         } else {
-          values.push(descriptor.value);
+          arrayPush(values, descriptor.value);
         }
       }
     } catch {
-      reasons.push("VALUATION_COLLECTION_INSPECTION_FAILED");
+      arrayPush(reasons, "VALUATION_COLLECTION_INSPECTION_FAILED");
     }
 
     return {
@@ -481,26 +702,33 @@
     };
   }
 
-  function buildAnalysisEligibility(valuations, contract) {
-    const contractInspection = inspectContract(contract);
-    const collection = inspectValuationCollection(valuations);
-    const reasons = [...contractInspection.reasons, ...collection.reasons];
-    if (collection.valuationCount === 0) reasons.push("NO_ELIGIBLE_VALUATIONS");
+  function buildDetachedAnalysisEligibility(detachedEnvelope, supportedAuthorityTrusted) {
+    const contractInspection = inspectDetachedContract(detachedEnvelope.contract);
+    const collection = inspectDetachedValuationCollection(detachedEnvelope.valuations);
+    const reasons = arraySlice(contractInspection.reasons);
+    appendAll(reasons, collection.reasons);
+    if (collection.valuationCount === 0) arrayPush(reasons, "NO_ELIGIBLE_VALUATIONS");
 
     let allValuesEligible = collection.values.length === collection.valuationCount;
     for (let index = 0; index < collection.values.length; index += 1) {
-      const check = validateValuationWithExpectedSnapshot(
+      const check = validateDetachedValuation(
         collection.values[index],
         contractInspection.valid ? contractInspection.snapshot : null,
+        supportedAuthorityTrusted,
       );
-      for (const reason of check.reasons) reasons.push(`VALUATION_${index}:${reason}`);
+      for (let reasonIndex = 0; reasonIndex < check.reasons.length; reasonIndex += 1) {
+        arrayPush(reasons, `VALUATION_${index}:${check.reasons[reasonIndex]}`);
+      }
       if (!check.valid || !check.eligible) {
         allValuesEligible = false;
-        reasons.push(`VALUATION_${index}:INELIGIBLE`);
+        arrayPush(reasons, `VALUATION_${index}:INELIGIBLE`);
       }
     }
     if (contractInspection.valid && !contractInspection.eligible) {
-      for (const reason of contractInspection.snapshot.reason_codes) reasons.push(reason);
+      appendAll(reasons, contractInspection.snapshot.reason_codes);
+    }
+    if (contractInspection.eligible && !supportedAuthorityTrusted) {
+      arrayPush(reasons, "UNTRUSTED_PAID_AUTHORITY");
     }
 
     const outputContract = contractInspection.valid
@@ -512,7 +740,8 @@
       && collection.valid
       && collection.valuationCount > 0
       && collection.checkedValueCount === collection.valuationCount
-      && allValuesEligible;
+      && allValuesEligible
+      && supportedAuthorityTrusted;
     return {
       schema_version: ANALYSIS_VERSION,
       state: eligible ? "PAID_VALUE_ELIGIBLE" : "PAID_VALUE_INELIGIBLE",
@@ -525,9 +754,59 @@
     };
   }
 
+  function failedAnalysisEligibility(reasons) {
+    return {
+      schema_version: ANALYSIS_VERSION,
+      state: "PAID_VALUE_INELIGIBLE",
+      eligible: false,
+      numeric_paid_output_authorized: false,
+      contract: productionContract(),
+      valuation_count: 0,
+      checked_value_count: 0,
+      reason_codes: uniqueReasons(reasons),
+    };
+  }
+
+  function buildAnalysisEligibility(valuations, contract) {
+    const trustedAuthority = isTrustedTestContract(contract);
+    const detached = cloneDataOnlyEnvelope({ contract, valuations });
+    if (!detached.ok) return failedAnalysisEligibility(detached.reasons);
+    return buildDetachedAnalysisEligibility(detached.snapshot, trustedAuthority);
+  }
+
+  function buildRuntimeAnalysisEligibility(runtime) {
+    let trusted = false;
+    try {
+      trusted = weakSetHas(trustedRuntimes, runtime)
+        && weakSetHas(trustedRuntimeContracts, runtime.contract);
+      for (let index = 0; index < runtime.ledger.length; index += 1) {
+        if (!weakSetHas(trustedRuntimeValuations, runtime.ledger[index])) trusted = false;
+      }
+    } catch {
+      return failedAnalysisEligibility(["INTERNAL_AUTHORITY_INVALID"]);
+    }
+    const detached = cloneDataOnlyEnvelope({ contract: runtime.contract, valuations: runtime.ledger });
+    if (!detached.ok) return failedAnalysisEligibility(detached.reasons);
+    const envelope = buildDetachedAnalysisEligibility(detached.snapshot, trusted);
+    if (!trusted) {
+      envelope.eligible = false;
+      envelope.state = "PAID_VALUE_INELIGIBLE";
+      envelope.numeric_paid_output_authorized = false;
+      const reasons = arraySlice(envelope.reason_codes);
+      arrayPush(reasons, "INTERNAL_AUTHORITY_INVALID");
+      envelope.reason_codes = uniqueReasons(reasons);
+    }
+    return envelope;
+  }
+
   function isPaidMode(root) {
     try {
-      return new URLSearchParams(root.location?.search || "").get(PAID_MODE_PARAMETER) === "1";
+      if (!nativeURLSearchParams || typeof urlSearchParamsGet !== "function"
+        || !isObjectLike(root)) return false;
+      const search = root.location?.search;
+      if (typeof search !== "string") return false;
+      const params = new nativeURLSearchParams(search);
+      return reflectApply(urlSearchParamsGet, params, [PAID_MODE_PARAMETER]) === "1";
     } catch {
       return false;
     }
@@ -546,145 +825,246 @@
   }
 
   function blockedProjectionRequest() {
-    const error = new Error("PAID_BETA_LEGACY_WEEKLY_PROJECTION_REQUEST_BLOCKED");
+    const error = new nativeError("PAID_BETA_LEGACY_WEEKLY_PROJECTION_REQUEST_BLOCKED");
     error.code = "PAID_BETA_LEGACY_WEEKLY_PROJECTION_REQUEST_BLOCKED";
-    return Promise.reject(error);
+    return nativePromiseReject(error);
+  }
+
+  function normalizePathname(pathname) {
+    const segments = stringSplit(pathname, "/");
+    const normalized = [];
+    for (let index = 0; index < segments.length; index += 1) {
+      const segment = segments[index];
+      if (!segment || segment === ".") continue;
+      if (segment === "..") {
+        if (normalized.length > 0) normalized.length -= 1;
+      }
+      else arrayPush(normalized, segment);
+    }
+    return `/${arrayJoin(normalized, "/")}`;
+  }
+
+  function isForbiddenProjectionPath(pathname) {
+    return regExpTest(/\/projections\/nfl(?:\/|$)/i, normalizePathname(pathname));
   }
 
   function canonicalPaidRequestUrl(input) {
-    let raw;
-    if (typeof input === "string") {
-      raw = input;
-    } else {
-      if (typeof URL !== "function" || input === null || typeof input !== "object"
-        || objectGetPrototypeOf(input) !== URL.prototype) return null;
-      for (const key of ["href", "pathname", "toString"]) {
-        if (objectGetOwnPropertyDescriptor(input, key)) return null;
-      }
-      const hrefDescriptor = objectGetOwnPropertyDescriptor(URL.prototype, "href");
-      if (!hrefDescriptor || typeof hrefDescriptor.get !== "function") return null;
-      raw = hrefDescriptor.get.call(input);
-    }
-
-    if (!raw || raw !== raw.trim() || /[\\\u0000-\u001f\u007f]/.test(raw)) return null;
-    if (/%(?:25)*(?:2f|5c)/i.test(raw)) return null;
+    if (typeof input !== "string" || !nativeURL) return null;
+    const raw = input;
+    if (!raw || raw !== stringTrim(raw)
+      || regExpTest(/[\\\s\u0000-\u001f\u007f]/, raw)) return null;
 
     let parsed;
     try {
-      parsed = new URL(raw);
+      parsed = new nativeURL(raw);
     } catch {
       return null;
     }
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
-
-    let effectivePath = parsed.pathname;
+    if (!urlProtocolGetter || !urlPathnameGetter || !urlHrefGetter) return null;
+    let protocol;
+    let href;
+    let effectivePath;
     try {
-      for (let pass = 0; pass < 4; pass += 1) {
-        const decoded = decodeURIComponent(effectivePath);
-        if (decoded === effectivePath) break;
-        effectivePath = decoded;
-      }
+      protocol = reflectApply(urlProtocolGetter, parsed, []);
+      effectivePath = reflectApply(urlPathnameGetter, parsed, []);
+      href = reflectApply(urlHrefGetter, parsed, []);
     } catch {
       return null;
     }
-    if (effectivePath.includes("\\") || effectivePath.includes("//")) return null;
-    if (/\/projections\/nfl(?:\/|$)/i.test(effectivePath)) return null;
-    return parsed.href;
+    if (protocol !== "http:" && protocol !== "https:") return null;
+
+    for (let pass = 0; pass <= MAX_PATH_DECODE_PASSES; pass += 1) {
+      if (regExpTest(/[\\\s\u0000-\u001f\u007f]/, effectivePath)
+        || isForbiddenProjectionPath(effectivePath)) return null;
+      let decoded;
+      try {
+        decoded = nativeDecodeURIComponent(effectivePath);
+      } catch {
+        return null;
+      }
+      if (decoded === effectivePath) return href;
+      if (pass === MAX_PATH_DECODE_PASSES) return null;
+      effectivePath = decoded;
+    }
+    return href;
+  }
+
+  function inertDataAdapter() {
+    const adapter = {
+      request: () => blockedProjectionRequest(),
+      seasonProjections: async () => excludedProjectionResult(),
+    };
+    weakSetAdd(inertAdapters, adapter);
+    return objectFreeze(adapter);
   }
 
   function hardenDataAdapter(data) {
-    if (!data || data.__paidValueEligibilityV1DataBoundary) return data;
-    const originalRequest = typeof data.request === "function" ? data.request.bind(data) : null;
-    if (originalRequest) {
-      data.request = (url, options) => {
-        let canonicalUrl;
-        try {
-          canonicalUrl = canonicalPaidRequestUrl(url);
-        } catch {
-          canonicalUrl = null;
-        }
+    try {
+      if (!isPlainRecord(data)) return inertDataAdapter();
+      if (weakSetHas(hardenedAdapters, data)) return data;
+      const requestDescriptor = objectGetOwnPropertyDescriptor(data, "request");
+      const seasonDescriptor = objectGetOwnPropertyDescriptor(data, "seasonProjections");
+      const projectionWeekDescriptor = objectGetOwnPropertyDescriptor(data, "projectionWeek");
+      const originalRequest = requestDescriptor && "value" in requestDescriptor
+        && typeof requestDescriptor.value === "function"
+        ? requestDescriptor.value
+        : null;
+      if (!originalRequest) return inertDataAdapter();
+      const canReplaceRequest = requestDescriptor.configurable || requestDescriptor.writable;
+      const canReplaceSeason = !seasonDescriptor
+        ? objectIsExtensible(data)
+        : seasonDescriptor.configurable || seasonDescriptor.writable;
+      const canRemoveProjectionWeek = !projectionWeekDescriptor || projectionWeekDescriptor.configurable;
+      if (!canReplaceRequest || !canReplaceSeason || !canRemoveProjectionWeek) return inertDataAdapter();
+
+      const guardedRequest = (url, options) => {
+        const canonicalUrl = canonicalPaidRequestUrl(url);
         if (!canonicalUrl) return blockedProjectionRequest();
-        return originalRequest(canonicalUrl, options);
+        try {
+          return reflectApply(originalRequest, data, [canonicalUrl, options]);
+        } catch (error) {
+          return nativePromiseReject(error);
+        }
       };
+      objectDefineProperties(data, {
+        request: {
+          value: guardedRequest,
+          enumerable: requestDescriptor.enumerable,
+          configurable: requestDescriptor.configurable,
+          writable: requestDescriptor.writable,
+        },
+        seasonProjections: {
+          value: async () => excludedProjectionResult(),
+          enumerable: seasonDescriptor?.enumerable ?? true,
+          configurable: seasonDescriptor?.configurable ?? true,
+          writable: seasonDescriptor?.writable ?? true,
+        },
+      });
+      if (projectionWeekDescriptor) delete data.projectionWeek;
+      weakSetAdd(hardenedAdapters, data);
+      return data;
+    } catch {
+      return inertDataAdapter();
     }
-    data.seasonProjections = async () => excludedProjectionResult();
-    if (Object.prototype.hasOwnProperty.call(data, "projectionWeek")) delete data.projectionWeek;
-    Object.defineProperty(data, "__paidValueEligibilityV1DataBoundary", {
-      value: true,
-      enumerable: false,
-      configurable: false,
-      writable: false,
-    });
-    return data;
   }
 
   function installCoreBoundary(core, runtime) {
-    if (!core || core.__paidValueEligibilityV1CoreBoundary) return;
-    const originalCalculate = core.calculateValuation.bind(core);
-    core.calculateValuation = (input) => {
-      const result = calculatePaidValuation(originalCalculate, input, runtime.contract);
-      runtime.valuations.push(result);
-      return result;
-    };
-    core.paidValueEligibility = () => copyContractSnapshot(runtime.contract);
-    core.validatePaidValueEligibility = validateContract;
-    core.buildPaidValueAnalysisEligibility = buildAnalysisEligibility;
-    Object.defineProperty(core, "__paidValueEligibilityV1CoreBoundary", {
-      value: true,
-      enumerable: false,
-      configurable: false,
-      writable: false,
-    });
+    try {
+      if (!isPlainRecord(core) || weakSetHas(hardenedCores, core)) return false;
+      const calculateDescriptor = objectGetOwnPropertyDescriptor(core, "calculateValuation");
+      if (!calculateDescriptor || !("value" in calculateDescriptor)
+        || typeof calculateDescriptor.value !== "function" || !objectIsExtensible(core)) return false;
+      const originalCalculate = calculateDescriptor.value;
+      const wrappedCalculate = (input) => {
+        const result = calculatePaidValuation(
+          (safeInput) => reflectApply(originalCalculate, core, [safeInput]),
+          input,
+          runtime.contract,
+        );
+        const detached = cloneDataOnlyEnvelope({ contract: runtime.contract, valuations: [result] });
+        if (detached.ok) {
+          const snapshot = detached.snapshot.valuations[0];
+          weakSetAdd(trustedRuntimeValuations, snapshot);
+          arrayPush(runtime.ledger, snapshot);
+        } else {
+          arrayPush(runtime.ledger, {
+            paidValueEligibility: productionContract(),
+            reason_codes: arraySlice(detached.reasons),
+          });
+        }
+        return result;
+      };
+      objectDefineProperties(core, {
+        calculateValuation: {
+          value: wrappedCalculate,
+          enumerable: calculateDescriptor.enumerable,
+          configurable: calculateDescriptor.configurable,
+          writable: calculateDescriptor.writable,
+        },
+        paidValueEligibility: {
+          value: () => copyContractSnapshot(runtime.contract),
+          enumerable: true,
+          configurable: true,
+          writable: true,
+        },
+        validatePaidValueEligibility: {
+          value: validateContract,
+          enumerable: true,
+          configurable: true,
+          writable: true,
+        },
+        buildPaidValueAnalysisEligibility: {
+          value: buildAnalysisEligibility,
+          enumerable: true,
+          configurable: true,
+          writable: true,
+        },
+      });
+      weakSetAdd(hardenedCores, core);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   function installLastAnalysisGate(root, runtime) {
-    const descriptor = Object.getOwnPropertyDescriptor(root, "LeagueVectorLastAnalysis");
-    if (descriptor && descriptor.configurable === false) return;
-    let accepted = null;
-    Object.defineProperty(root, "LeagueVectorLastAnalysis", {
-      configurable: true,
-      enumerable: true,
-      get() { return accepted; },
-      set(value) {
-        const envelope = buildAnalysisEligibility(runtime.valuations, runtime.contract);
-        runtime.lastEnvelope = envelope;
-        accepted = envelope.eligible ? value : null;
-      },
-    });
-
-    if (typeof root.dispatchEvent === "function" && !runtime.originalDispatchEvent) {
-      runtime.originalDispatchEvent = root.dispatchEvent.bind(root);
-      root.dispatchEvent = (event) => {
-        if (event?.type === "leaguevector:analysis-ready") {
-          const envelope = buildAnalysisEligibility(runtime.valuations, runtime.contract);
+    try {
+      const descriptor = objectGetOwnPropertyDescriptor(root, "LeagueVectorLastAnalysis");
+      if (descriptor && descriptor.configurable === false) return false;
+      let accepted = null;
+      objectDefineProperty(root, "LeagueVectorLastAnalysis", {
+        configurable: true,
+        enumerable: true,
+        get() { return accepted; },
+        set(value) {
+          const envelope = buildRuntimeAnalysisEligibility(runtime);
           runtime.lastEnvelope = envelope;
-          if (!envelope.eligible) {
-            accepted = null;
-            if (typeof root.CustomEvent === "function") {
-              return runtime.originalDispatchEvent(new root.CustomEvent("leaguevector:analysis-blocked", {
-                detail: {
-                  state: envelope.state,
-                  reason_codes: [...envelope.reason_codes],
-                },
-              }));
+          accepted = envelope.eligible ? value : null;
+        },
+      });
+
+      if (typeof root.dispatchEvent === "function" && !runtime.originalDispatchEvent) {
+        const originalDispatchEvent = root.dispatchEvent;
+        runtime.originalDispatchEvent = (event) => reflectApply(originalDispatchEvent, root, [event]);
+        root.dispatchEvent = (event) => {
+          if (event?.type === "leaguevector:analysis-ready") {
+            const envelope = buildRuntimeAnalysisEligibility(runtime);
+            runtime.lastEnvelope = envelope;
+            if (!envelope.eligible) {
+              accepted = null;
+              if (typeof root.CustomEvent === "function") {
+                return runtime.originalDispatchEvent(new root.CustomEvent("leaguevector:analysis-blocked", {
+                  detail: {
+                    state: envelope.state,
+                    reason_codes: arraySlice(envelope.reason_codes),
+                  },
+                }));
+              }
+              return false;
             }
-            return false;
           }
-        }
-        return runtime.originalDispatchEvent(event);
-      };
+          return runtime.originalDispatchEvent(event);
+        };
+      }
+      return true;
+    } catch {
+      return false;
     }
   }
 
   function setStaticPaidModeCopy(document) {
     document.documentElement.dataset.paidBetaMode = "1";
-    for (const element of document.querySelectorAll(".section-sub")) {
-      if (/Final value =/i.test(element.textContent || "")) {
+    const sectionSubtitles = document.querySelectorAll(".section-sub");
+    for (let index = 0; index < sectionSubtitles.length; index += 1) {
+      const element = sectionSubtitles[index];
+      if (regExpTest(/Final value =/i, element.textContent || "")) {
         element.textContent = "Paid-beta values exclude legacy weekly projections. Numeric paid output is shown only after one analysis-wide eligibility contract validates every value and all required source-rights gates.";
       }
     }
-    for (const element of document.querySelectorAll(".source-note")) {
-      if (/Existing valuation projection adapter:/i.test(element.textContent || "")) {
+    const sourceNotes = document.querySelectorAll(".source-note");
+    for (let index = 0; index < sourceNotes.length; index += 1) {
+      const element = sourceNotes[index];
+      if (regExpTest(/Existing valuation projection adapter:/i, element.textContent || "")) {
         element.textContent = "Paid-beta mode does not request the undocumented legacy weekly projection source. Numeric IDP dynasty value remains unavailable. Paid delivery remains blocked until the separate source-rights gate is resolved.";
       }
     }
@@ -712,13 +1092,15 @@
     const copy = document.createElement("p");
     copy.textContent = envelope.eligible
       ? "The analysis-wide contract and every value passed the paid-value gate. Founder review is still required before delivery."
-      : `Numeric paid values were withheld. ${envelope.reason_codes.join(", ") || "Eligibility was not established."}`;
+      : `Numeric paid values were withheld. ${arrayJoin(envelope.reason_codes, ", ") || "Eligibility was not established."}`;
     notice.append(heading, copy);
   }
 
   function removeLegacyProjectionWarning(document) {
-    for (const item of document.querySelectorAll("#warningList li")) {
-      if (/Projection source is excluded/i.test(item.textContent || "")) item.remove();
+    const warningItems = document.querySelectorAll("#warningList li");
+    for (let index = 0; index < warningItems.length; index += 1) {
+      const item = warningItems[index];
+      if (regExpTest(/Projection source is excluded/i, item.textContent || "")) item.remove();
     }
     const warningList = document.getElementById("warningList");
     const panel = document.getElementById("analysisWarnings");
@@ -741,7 +1123,7 @@
     if (!status || !results || results.hidden || !status.classList.contains("success")) return;
     runtime.applying = true;
     try {
-      const envelope = buildAnalysisEligibility(runtime.valuations, runtime.contract);
+      const envelope = buildRuntimeAnalysisEligibility(runtime);
       runtime.lastEnvelope = envelope;
       root.__leagueVectorPaidValueEligibility = {
         schema_version: envelope.schema_version,
@@ -751,7 +1133,7 @@
         contract: copyContractSnapshot(envelope.contract),
         valuation_count: envelope.valuation_count,
         checked_value_count: envelope.checked_value_count,
-        reason_codes: envelope.reason_codes.slice(),
+        reason_codes: arraySlice(envelope.reason_codes),
       };
       results.dataset.paidValueState = envelope.state;
       results.dataset.projectionPolicy = envelope.contract.projection_policy;
@@ -767,7 +1149,9 @@
       if (!envelope.eligible) {
         unavailableBlock(document, "playerValues", "Paid player values unavailable because the analysis-wide paid-value gate did not pass.");
         unavailableBlock(document, "teamAnalysis", "Paid team values and ranks unavailable because the analysis-wide paid-value gate did not pass.");
-        for (const value of document.querySelectorAll("#teams .roster-value")) {
+        const rosterValues = document.querySelectorAll("#teams .roster-value");
+        for (let index = 0; index < rosterValues.length; index += 1) {
+          const value = rosterValues[index];
           value.textContent = "LV unavailable";
           value.classList.remove("roster-value");
           value.classList.add("paid-value-unavailable");
@@ -795,53 +1179,76 @@
   }
 
   function install(root, document) {
-    if (!isPaidMode(root) || root.__paidValueEligibilityV1Installed) return false;
-    const runtime = {
-      contract: productionContract(),
-      valuations: [],
-      lastEnvelope: null,
-      applying: false,
-      originalDispatchEvent: null,
-    };
-    root.__paidValueEligibilityV1Installed = true;
-    root.__paidValueEligibilityV1Runtime = runtime;
-    hardenDataAdapter(root.LeagueVectorData);
-    installCoreBoundary(root.LeagueVectorCore, runtime);
-    installLastAnalysisGate(root, runtime);
-    setStaticPaidModeCopy(document);
+    try {
+      if (!isObjectLike(root) || !isObjectLike(document) || !isPaidMode(root)
+        || weakSetHas(installedRoots, root)) return false;
+      if (typeof document.getElementById !== "function"
+        || typeof document.querySelectorAll !== "function"
+        || typeof document.createElement !== "function"
+        || !document.documentElement
+        || typeof root.MutationObserver !== "function") return false;
+      if (hasOwn(root, "__paidValueEligibilityV1Installed")) return false;
 
-    const reset = () => {
-      runtime.valuations = [];
-      runtime.lastEnvelope = null;
-      root.__leagueVectorPaidValueEligibility = {
-        schema_version: ANALYSIS_VERSION,
-        state: "PENDING",
-        eligible: false,
-        numeric_paid_output_authorized: false,
-        contract: copyContractSnapshot(runtime.contract),
-        valuation_count: 0,
-        checked_value_count: 0,
-        reason_codes: ["ANALYSIS_NOT_COMPLETED"],
+      const runtime = {
+        contract: internalProductionContract(),
+        ledger: [],
+        lastEnvelope: null,
+        applying: false,
+        originalDispatchEvent: null,
+        observer: null,
       };
-      const notice = document.getElementById("paidValueEligibility");
-      if (notice) notice.remove();
-    };
+      weakSetAdd(trustedRuntimes, runtime);
 
-    document.getElementById("go")?.addEventListener("click", reset, { capture: true });
-    document.getElementById("leagueId")?.addEventListener("keydown", (event) => {
-      if (event.key === "Enter") reset();
-    }, { capture: true });
+      const hardenedData = hardenDataAdapter(root.LeagueVectorData);
+      if (weakSetHas(inertAdapters, hardenedData)) return false;
+      if (!installCoreBoundary(root.LeagueVectorCore, runtime)) return false;
+      if (!installLastAnalysisGate(root, runtime)) return false;
+      setStaticPaidModeCopy(document);
 
-    const observer = new MutationObserver(() => applyAnalysisGate(root, document, runtime));
-    observer.observe(document.documentElement, {
-      attributes: true,
-      childList: true,
-      subtree: true,
-      characterData: true,
-      attributeFilter: ["class", "hidden"],
-    });
-    reset();
-    return true;
+      const reset = () => {
+        runtime.ledger.length = 0;
+        runtime.lastEnvelope = null;
+        root.__leagueVectorPaidValueEligibility = {
+          schema_version: ANALYSIS_VERSION,
+          state: "PENDING",
+          eligible: false,
+          numeric_paid_output_authorized: false,
+          contract: copyContractSnapshot(runtime.contract),
+          valuation_count: 0,
+          checked_value_count: 0,
+          reason_codes: ["ANALYSIS_NOT_COMPLETED"],
+        };
+        const notice = document.getElementById("paidValueEligibility");
+        if (notice) notice.remove();
+      };
+
+      document.getElementById("go")?.addEventListener("click", reset, { capture: true });
+      document.getElementById("leagueId")?.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") reset();
+      }, { capture: true });
+
+      const observer = new root.MutationObserver(() => applyAnalysisGate(root, document, runtime));
+      observer.observe(document.documentElement, {
+        attributes: true,
+        childList: true,
+        subtree: true,
+        characterData: true,
+        attributeFilter: ["class", "hidden"],
+      });
+      runtime.observer = observer;
+      weakSetAdd(installedRoots, root);
+      weakMapSet(runtimeByRoot, root, runtime);
+      objectDefineProperty(root, "__paidValueEligibilityV1Installed", {
+        value: true,
+        enumerable: false,
+        configurable: false,
+        writable: false,
+      });
+      reset();
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   return {
