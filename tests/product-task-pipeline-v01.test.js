@@ -81,13 +81,21 @@ function expectedEvidenceBinding() {
     implementation_run_identity: "6".repeat(64),
     implementation_workflow_run_id: "90",
     implementation_workflow_run_attempt: "1",
+    validation_dispatch_identity: "7".repeat(64),
     candidate_pr_number: 17,
+    expected_candidate_branch: "agent/product-task-sample-v01",
     expected_candidate_commit: CANDIDATE_COMMIT,
     expected_candidate_tree: CANDIDATE_TREE,
     expected_base_commit: START_COMMIT,
     expected_changed_paths: ["app.js"],
     workflow_run_id: "100",
-    run_attempt: "1"
+    run_attempt: "1",
+    validation_actor: pipeline.ACTIONS_BOT.login,
+    validation_triggering_actor: pipeline.ACTIONS_BOT.login,
+    validation_workflow_path: pipeline.VALIDATION_WORKFLOW_PATH,
+    validation_workflow_ref: pipeline.VALIDATION_WORKFLOW_REF,
+    validation_workflow_sha: START_COMMIT,
+    validation_event_name: "workflow_dispatch"
   };
 }
 
@@ -125,6 +133,18 @@ test("malformed or extra contract fields fail closed", () => {
   contract.unreviewed = true;
   assert.throws(() => pipeline.validateTaskContract(contract, {now: FIXED_NOW}), /task_contract_fields_invalid/);
   assert.throws(() => pipeline.parseContractIssue({body: "not a contract"}), /task_contract_missing_or_duplicate/);
+});
+
+test("authority-bearing tagged JSON rejects duplicate members at every depth and escape-equivalent names", () => {
+  const tagged = (json) => `${pipeline.MARKERS.contract}\n\n\`\`\`json\n${json}\n\`\`\``;
+  for (const json of [
+    '{"repository":"wrong","reposito\\u0072y":"right"}',
+    '{"authority":{"authorized_by":"wrong","authorized_\\u0062y":"right"}}',
+    '{"items":[{"task_id":"first","task_\\u0069d":"second"}]}'
+  ]) {
+    assert.throws(() => pipeline.parseTaggedRecords(tagged(json), pipeline.MARKERS.contract), /tagged_record_duplicate_member/);
+  }
+  assert.deepEqual(pipeline.parseTaggedRecords(tagged('{"outer":{"first":1,"second":2}}'), pipeline.MARKERS.contract), [{outer: {first: 1, second: 2}}]);
 });
 
 test("v0.1 rejects unimplemented extra controls and any unsupported provider budget", () => {
@@ -174,7 +194,7 @@ test("broad, traversing, and globbed paths fail closed", () => {
   }
 });
 
-test("workflow, dependency, data, credential, deployment, and control-plane paths are prohibited", () => {
+test("workflow, dependency, data, credential, deployment, customer, and control-plane paths are prohibited", () => {
   const files = [
     ".github/workflows/rogue.yml",
     "package.json",
@@ -182,6 +202,11 @@ test("workflow, dependency, data, credential, deployment, and control-plane path
     "secrets/api-token.txt",
     "deploy-prod.js",
     "scripts/predeploy-hook.js",
+    "customer.js",
+    "customers.js",
+    "lib/customerPortal.js",
+    "docs/customer-success.md",
+    "assets/noncustomer-copy.txt",
     "scripts/product-task-pipeline-v01.js",
     "protocol/product-task-pipeline-v01/qa-result.schema.json",
     "tests/product-task-pipeline-v01-regression.test.js"
@@ -256,6 +281,73 @@ test("exact-head authority requires one claim and implementation record bound to
   assert.equal(pipeline.assertImplementationAuthority(comments, expected).implementation.candidate_commit, CANDIDATE_COMMIT);
   assert.throws(() => pipeline.assertImplementationAuthority(comments, {...expected, implementation_workflow_run_attempt: "2"}), /trusted_claim|run_identity/);
   assert.throws(() => pipeline.assertImplementationAuthority([...comments, trustedComment(pipeline.MARKERS.implementation, implementation)], expected), /missing_or_duplicate/);
+});
+
+test("validation dispatch authority binds one bot-originated run, attempt, workflow, branch, and candidate", () => {
+  const contract = fixtureContract();
+  const taskContractIdentity = pipeline.deriveTaskContractIdentity(contract);
+  const implementationRunIdentity = pipeline.deriveImplementationRunIdentity({taskContractIdentity, runId: "90", runAttempt: "1"});
+  const binding = {
+    task_id: contract.task_id,
+    task_contract_identity: taskContractIdentity,
+    implementation_run_identity: implementationRunIdentity,
+    implementation_workflow_run_id: "90",
+    implementation_workflow_run_attempt: "1",
+    candidate_pr_number: 17,
+    candidate_branch: "agent/product-task-sample-v01",
+    base_commit: START_COMMIT,
+    candidate_commit: CANDIDATE_COMMIT,
+    candidate_tree: CANDIDATE_TREE,
+    changed_paths: ["app.js"]
+  };
+  const validationDispatchIdentity = pipeline.deriveValidationDispatchIdentity(binding);
+  const record = {
+    schema_version: pipeline.EXECUTION_SCHEMA_VERSION,
+    record_type: "VALIDATION_DISPATCH",
+    validation_dispatch_identity: validationDispatchIdentity,
+    ...binding,
+    idempotency_identity: contract.idempotency_identity,
+    validation_workflow_id: "1234",
+    validation_workflow_path: pipeline.VALIDATION_WORKFLOW_PATH,
+    validation_workflow_ref: pipeline.VALIDATION_WORKFLOW_REF,
+    validation_workflow_run_id: "100",
+    validation_workflow_run_attempt: "1",
+    validation_actor: {...pipeline.ACTIONS_BOT},
+    validation_triggering_actor: {...pipeline.ACTIONS_BOT},
+    created_at: "2026-08-30T12:02:00Z"
+  };
+  const expected = {
+    task_id: contract.task_id,
+    task_contract_identity: taskContractIdentity,
+    idempotency_identity: contract.idempotency_identity,
+    implementation_run_identity: implementationRunIdentity,
+    implementation_workflow_run_id: "90",
+    implementation_workflow_run_attempt: "1",
+    validation_dispatch_identity: validationDispatchIdentity,
+    workflow_run_id: "100",
+    run_attempt: "1",
+    validation_actor: pipeline.ACTIONS_BOT.login,
+    validation_triggering_actor: pipeline.ACTIONS_BOT.login,
+    candidate_pr_number: 17,
+    expected_candidate_branch: binding.candidate_branch,
+    expected_base_commit: START_COMMIT,
+    expected_candidate_commit: CANDIDATE_COMMIT,
+    expected_candidate_tree: CANDIDATE_TREE,
+    expected_changed_paths: ["app.js"]
+  };
+  const comment = trustedComment(pipeline.MARKERS.validationDispatch, record);
+  assert.equal(pipeline.assertValidationDispatchAuthority([comment], expected).validation_workflow_run_id, "100");
+  assert.equal(pipeline.assertValidationDispatchAvailable([], implementationRunIdentity), true);
+  assert.throws(() => pipeline.assertValidationDispatchAvailable([comment], implementationRunIdentity), /already_recorded/);
+  assert.throws(() => pipeline.assertValidationDispatchAuthority([], expected), /dispatch_missing/);
+  assert.throws(() => pipeline.assertValidationDispatchAuthority([comment, comment], expected), /dispatch_duplicate/);
+  assert.throws(() => pipeline.assertValidationDispatchAuthority([comment], {...expected, workflow_run_id: "101"}), /binding_mismatch/);
+  assert.throws(() => pipeline.assertValidationDispatchAuthority([comment], {...expected, run_attempt: "2"}), /binding_mismatch/);
+  assert.throws(() => pipeline.assertValidationDispatchAuthority([comment], {...expected, validation_actor: "wrong-actor"}), /binding_mismatch/);
+  assert.throws(() => pipeline.assertValidationDispatchAuthority([comment], {...expected, expected_candidate_branch: "agent/product-task-substituted-v01"}), /binding_mismatch/);
+  const wrongActor = structuredClone(record);
+  wrongActor.validation_actor = {login: "wrong-actor", id: 1, type: "User"};
+  assert.throws(() => pipeline.assertValidationDispatchAuthority([trustedComment(pipeline.MARKERS.validationDispatch, wrongActor)], expected), /binding_mismatch/);
 });
 
 test("untrusted comments cannot forge an authoritative duplicate", () => {
@@ -445,9 +537,21 @@ test("exact-head validation uses immutable base verifier and four exact commands
   assert.match(workflow, /git show "\$EXPECTED_BASE_COMMIT:scripts\/product-task-pipeline-v01\.js"/);
   assert.match(workflow, /persist-credentials: false/);
   assert.match(workflow, /implementation_workflow_run_attempt:/);
+  assert.match(workflow, /validation_dispatch_identity:/);
+  assert.match(workflow, /expected_candidate_branch:/);
   assert.match(qaWorkflow, /deterministic_workflow_run_attempt:/);
+  assert.match(qaWorkflow, /validation_dispatch_identity:/);
+  assert.match(qaWorkflow, /expected_candidate_branch:/);
   assert.match(helper, /p\.assertImplementationAuthority/);
   assert.match(helper, /implementation_workflow_run_provenance_mismatch/);
+  assert.match(helper, /return_run_details = true/);
+  assert.match(helper, /validation_dispatch_workflow_run_provenance_mismatch/);
+  assert.match(helper, /p\.assertValidationDispatchAvailable/);
+  assert.match(helper, /waitForValidationDispatchAuthority/);
+  assert.match(helper, /validation_workflow_run_provenance_mismatch/);
+  const exactValidation = helper.slice(helper.indexOf("async function exactHeadValidate"), helper.indexOf("async function persistValidation"));
+  assert.ok(exactValidation.indexOf("waitForValidationDispatchAuthority") < exactValidation.indexOf("runRequiredCommands()"));
+  assert.ok(exactValidation.indexOf("verifyValidationWorkflowRun") < exactValidation.indexOf("runRequiredCommands()"));
   assert.match(helper, /runRequiredCommands\(\)/);
   assert.deepEqual([...pipeline.REQUIRED_COMMANDS], ["npm ci", "npm run validate", "npx playwright install --with-deps chromium", "npm run test:e2e"]);
 });
@@ -480,6 +584,14 @@ test("all protocol schemas parse and reject unspecified object properties", () =
     const schema = JSON.parse(fs.readFileSync(path.join(ROOT, "protocol/product-task-pipeline-v01", name), "utf8"));
     assert.equal(schema.type, "object");
     assert.equal(schema.additionalProperties, false);
+  }
+});
+
+test("deterministic evidence schema binds validation dispatch, actor, workflow, and candidate branch", () => {
+  const schema = JSON.parse(fs.readFileSync(path.join(ROOT, "protocol/product-task-pipeline-v01/deterministic-evidence.schema.json"), "utf8"));
+  for (const field of ["validation_dispatch_identity", "expected_candidate_branch", "validation_actor", "validation_triggering_actor", "validation_workflow_path", "validation_workflow_ref", "validation_workflow_sha", "validation_event_name"]) {
+    assert.ok(schema.required.includes(field), field);
+    assert.ok(schema.properties[field], field);
   }
 });
 

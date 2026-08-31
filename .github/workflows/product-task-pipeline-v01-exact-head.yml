@@ -23,8 +23,16 @@ on:
         description: Exact implementation workflow run attempt
         required: true
         type: string
+      validation_dispatch_identity:
+        description: Unique trusted implementation-originated validation dispatch identity
+        required: true
+        type: string
       candidate_pr_number:
         description: Exact candidate draft PR number
+        required: true
+        type: string
+      expected_candidate_branch:
+        description: Exact candidate branch created by the implementation run
         required: true
         type: string
       expected_candidate_commit:
@@ -91,7 +99,9 @@ jobs:
           IMPLEMENTATION_RUN_IDENTITY: ${{ inputs.implementation_run_identity }}
           IMPLEMENTATION_WORKFLOW_RUN_ID: ${{ inputs.implementation_workflow_run_id }}
           IMPLEMENTATION_WORKFLOW_RUN_ATTEMPT: ${{ inputs.implementation_workflow_run_attempt }}
+          VALIDATION_DISPATCH_IDENTITY: ${{ inputs.validation_dispatch_identity }}
           CANDIDATE_PR_NUMBER: ${{ inputs.candidate_pr_number }}
+          EXPECTED_CANDIDATE_BRANCH: ${{ inputs.expected_candidate_branch }}
           EXPECTED_CANDIDATE_COMMIT: ${{ inputs.expected_candidate_commit }}
           EXPECTED_CANDIDATE_TREE: ${{ inputs.expected_candidate_tree }}
           EXPECTED_BASE_COMMIT: ${{ inputs.expected_base_commit }}
@@ -141,7 +151,9 @@ jobs:
           IMPLEMENTATION_RUN_IDENTITY: ${{ inputs.implementation_run_identity }}
           IMPLEMENTATION_WORKFLOW_RUN_ID: ${{ inputs.implementation_workflow_run_id }}
           IMPLEMENTATION_WORKFLOW_RUN_ATTEMPT: ${{ inputs.implementation_workflow_run_attempt }}
+          VALIDATION_DISPATCH_IDENTITY: ${{ inputs.validation_dispatch_identity }}
           CANDIDATE_PR_NUMBER: ${{ inputs.candidate_pr_number }}
+          EXPECTED_CANDIDATE_BRANCH: ${{ inputs.expected_candidate_branch }}
           EXPECTED_CANDIDATE_COMMIT: ${{ inputs.expected_candidate_commit }}
           EXPECTED_CANDIDATE_TREE: ${{ inputs.expected_candidate_tree }}
           EXPECTED_BASE_COMMIT: ${{ inputs.expected_base_commit }}
