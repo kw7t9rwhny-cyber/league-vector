@@ -141,7 +141,7 @@
     for (const key of PROJECTION_VALUE_FIELDS) {
       if (result && Object.prototype.hasOwnProperty.call(result, key)) reasons.push(`PROJECTION_FIELD_PRESENT:${key}`);
     }
-    if (check.eligible && (!Number.isFinite(result?.finalValue) || result.finalValue < 0)) {
+    if (check.eligible && (!Number.isFinite(result?.finalValue) || result.finalValue <= 0)) {
       reasons.push("ELIGIBLE_VALUE_NOT_FINITE_NONNEGATIVE");
     }
     return {

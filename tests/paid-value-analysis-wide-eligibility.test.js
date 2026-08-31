@@ -156,6 +156,74 @@ test("analysis-wide positive control requires every value to share the exact eli
   assert.deepEqual(envelope.reason_codes, []);
 });
 
+const rejectedFinalValueCases = [
+  ["zero", () => supportedValue({ finalValue: 0 })],
+  ["negative zero", () => supportedValue({ finalValue: -0 })],
+  ["missing", () => {
+    const value = supportedValue();
+    delete value.finalValue;
+    return value;
+  }],
+  ["numeric string", () => supportedValue({ finalValue: "1" })],
+  ["NaN", () => supportedValue({ finalValue: Number.NaN })],
+  ["positive Infinity", () => supportedValue({ finalValue: Number.POSITIVE_INFINITY })],
+  ["negative Infinity", () => supportedValue({ finalValue: Number.NEGATIVE_INFINITY })],
+  ["smallest-magnitude negative finite value", () => supportedValue({ finalValue: -Number.MIN_VALUE })],
+  ["ordinary negative finite value", () => supportedValue({ finalValue: -1 })],
+  ["largest-magnitude negative finite value", () => supportedValue({ finalValue: -Number.MAX_VALUE })],
+];
+
+for (const [label, makeValue] of rejectedFinalValueCases) {
+  test(`finalValue ${label} fails closed and invalidates the analysis-wide envelope`, () => {
+    const contract = Paid.contractFor("PAID_SUPPORTED");
+    const rejected = makeValue();
+    const valueCheck = Paid.validateValuation(rejected, contract);
+    assert.equal(valueCheck.valid, false);
+    assert.equal(valueCheck.eligible, false);
+    assert.ok(valueCheck.reasons.includes("ELIGIBLE_VALUE_NOT_FINITE_NONNEGATIVE"));
+
+    const envelope = Paid.buildAnalysisEligibility([
+      supportedValue({ finalValue: 1 }),
+      rejected,
+    ], contract);
+    assert.equal(envelope.eligible, false);
+    assert.equal(envelope.state, "PAID_VALUE_INELIGIBLE");
+    assert.equal(envelope.numeric_paid_output_authorized, false);
+    assert.equal(envelope.valuation_count, 2);
+    assert.equal(envelope.checked_value_count, 2);
+    assert.ok(envelope.reason_codes.includes("VALUATION_1:ELIGIBLE_VALUE_NOT_FINITE_NONNEGATIVE"));
+    assert.ok(envelope.reason_codes.includes("VALUATION_1:INELIGIBLE"));
+  });
+}
+
+const acceptedPositiveFinalValueCases = [
+  ["smallest positive finite value", Number.MIN_VALUE],
+  ["positive fraction", 0.000001],
+  ["positive integer", 1],
+  ["largest positive finite value", Number.MAX_VALUE],
+];
+
+for (const [label, finalValue] of acceptedPositiveFinalValueCases) {
+  test(`finalValue ${label} remains eligible in the synthetic PAID_SUPPORTED path`, () => {
+    const contract = Paid.contractFor("PAID_SUPPORTED");
+    const valuation = supportedValue({ finalValue });
+    const valueCheck = Paid.validateValuation(valuation, contract);
+    assert.equal(valueCheck.valid, true);
+    assert.equal(valueCheck.eligible, true);
+    assert.deepEqual(valueCheck.reasons, []);
+
+    const envelope = Paid.buildAnalysisEligibility([
+      valuation,
+      supportedValue({ finalValue: 1 }),
+    ], contract);
+    assert.equal(envelope.eligible, true);
+    assert.equal(envelope.state, "PAID_VALUE_ELIGIBLE");
+    assert.equal(envelope.numeric_paid_output_authorized, true);
+    assert.deepEqual(envelope.reason_codes, []);
+    assert.equal(contract.paid_delivery_authorized, false);
+  });
+}
+
 test("one contradictory value invalidates the entire analysis", () => {
   const contract = Paid.contractFor("PAID_SUPPORTED");
   const bad = supportedValue();
