@@ -7,7 +7,7 @@ const league = {
   season: "2026",
   total_rosters: 14,
   roster_positions: ["QB", "DL", "DL", "LB", "LB", "DB", "DB", "IDP_FLEX", "IDP_FLEX", "BN"],
-  scoring_settings: { pass_yd: 0.04, pass_td: 4, tkl_solo: 1.5, tkl_ast: 0.75, sack: 4, qb_hit: 1, int: 5, pass_def: 2, ff: 3, fum_rec: 2 },
+  scoring_settings: { pass_yd: 0.04, pass_td: 4, idp_tkl_solo: 1.5, idp_tkl_ast: 0.75, idp_sack: 4, idp_qb_hit: 1, idp_int: 5, idp_pass_def: 2, idp_ff: 3, idp_fum_rec: 2 },
   settings: { draft_rounds: 6, playoff_week_start: 15 },
 };
 const rosters = Array.from({ length: 14 }, (_, i) => ({ roster_id: i + 1, owner_id: `u${i + 1}`, players: [], starters: [], taxi: [], reserve: [] }));
