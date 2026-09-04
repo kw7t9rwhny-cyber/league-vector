@@ -15,7 +15,7 @@
         <svg class="brand-mark" viewBox="0 0 48 48" aria-hidden="true"><defs><linearGradient id="brandGold" x1="3" y1="2" x2="44" y2="47"><stop stop-color="#ffe4a4"/><stop offset=".5" stop-color="#e6b349"/><stop offset="1" stop-color="#8c5812"/></linearGradient></defs><path fill="url(#brandGold)" d="M3 8h10.5L24 25.2 34.5 8H45L24 43z"/><path fill="#050604" d="M13.4 12h6.9l3.7 6.1 3.7-6.1h6.9L24 29.4z"/></svg>
         <span class="brand-copy">LEAGUE VECTOR<small>Dynasty + IDP Intelligence</small></span>
       </a>
-      <nav class="primary-nav" aria-label="Primary navigation"><a href="#top" aria-current="page">Home</a><a href="#features">Features</a><a href="#preview">Product</a><a href="#data-status">Data Status</a><a href="#methodology">Methodology</a></nav>
+      <nav class="primary-nav" aria-label="Primary navigation"><a href="#top" aria-current="page">Home</a><a href="rankings.html">Rankings · Pilot</a><a href="#features">Features</a><a href="#preview">Product</a><a href="#data-status">Data Status</a><a href="#methodology">Methodology</a></nav>
       <div class="header-actions"><a class="header-login" href="#data-status">Current Status</a><a class="header-cta" href="#leagueId">Get Started</a></div>
     </header>
   `);
