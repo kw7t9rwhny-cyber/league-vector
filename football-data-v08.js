@@ -5,12 +5,13 @@
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
-  const TRANSFORMATION_VERSION = "lv-football-normalization-v1";
+  const TRANSFORMATION_VERSION = "lv-football-normalization-v1.1";
   const DATA_STATE = Object.freeze({
     VALUE: "value",
     NULL: "null",
     UNAVAILABLE: "unavailable",
     NOT_APPLICABLE: "not_applicable",
+    UNSUPPORTED: "unsupported",
     SOURCE_ERROR: "source_error",
   });
   const LICENSE = Object.freeze({
@@ -32,7 +33,7 @@
 
   const OFFENSE_MAP = Object.freeze({
     attempts: ["attempts", "passing_attempts"], completions: ["completions"], passing_yards: ["passing_yards"], passing_td: ["passing_tds", "passing_td"],
-    interceptions: ["interceptions", "passing_interceptions"], sacks: ["sacks_suffered", "sacks"], sack_yards: ["sack_yards"], passing_epa: ["passing_epa"], cpoe: ["passing_cpoe", "cpoe"],
+    interceptions: ["interceptions", "passing_interceptions"], sacks: ["sacks_suffered", "sacks"], sack_yards: ["sack_yards", "sack_yards_lost"], passing_epa: ["passing_epa"], cpoe: ["passing_cpoe", "cpoe"],
     carries: ["carries", "rushing_attempts"], rushing_yards: ["rushing_yards"], rushing_td: ["rushing_tds", "rushing_td"], rushing_fumbles: ["rushing_fumbles"],
     targets: ["targets"], receptions: ["receptions"], receiving_yards: ["receiving_yards"], receiving_td: ["receiving_tds", "receiving_td"], air_yards: ["receiving_air_yards", "air_yards"], yards_after_catch: ["receiving_yards_after_catch", "yards_after_catch"],
     target_share: ["target_share"], rush_share: ["carry_share", "rush_share"], team_pass_attempts: ["team_pass_attempts"], team_rush_attempts: ["team_rush_attempts"],
@@ -40,10 +41,10 @@
   });
 
   const IDP_MAP = Object.freeze({
-    solo_tackles: ["def_tackles_solo", "solo_tackles"], assisted_tackles: ["def_tackles_with_assist", "assisted_tackles"], total_tackles: ["def_tackles", "total_tackles"],
+    solo_tackles: ["def_tackles_solo", "solo_tackles"], assisted_tackles: ["assisted_tackles"], total_tackles: ["def_tackles", "total_tackles"],
     tackles_for_loss: ["def_tackles_for_loss", "tackles_for_loss"], sacks: ["def_sacks", "sacks"], sack_yards: ["def_sack_yards", "sack_yards"], qb_hits: ["def_qb_hits", "qb_hits"],
     pressures: ["pressures"], interceptions: ["def_interceptions", "interceptions"], interception_yards: ["def_interception_yards", "interception_yards"], passes_defended: ["def_pass_defended", "passes_defended"],
-    forced_fumbles: ["def_fumbles_forced", "forced_fumbles"], fumble_recoveries: ["def_fumbles", "fumble_recoveries"], defensive_td: ["def_tds", "defensive_td"], safeties: ["def_safeties", "safeties"],
+    forced_fumbles: ["def_fumbles_forced", "forced_fumbles"], fumble_recoveries: ["fumble_recoveries"], defensive_td: ["def_tds", "defensive_td"], safeties: ["def_safeties", "safeties"],
     defensive_snaps: ["defensive_snaps"], snap_share: ["defensive_snap_share", "snap_share"],
   });
 
@@ -62,16 +63,38 @@
     for (const key of keys) if (Object.prototype.hasOwnProperty.call(row || {}, key) && row[key] !== "" && row[key] != null) return row[key];
     return undefined;
   }
-  function numberOrNull(value) { if (value === undefined || value === null || value === "") return null; const n = Number(value); return Number.isFinite(n) ? n : null; }
+  function numberOrNull(value) {
+    if (typeof value !== "number" && (typeof value !== "string" || !value.trim())) return null;
+    const n = Number(value); return Number.isFinite(n) ? n : null;
+  }
   function stateful(value, state = null) {
-    if (state) return { state, value: state === DATA_STATE.VALUE ? value : null };
-    if (value === undefined) return { state: DATA_STATE.UNAVAILABLE, value: null };
-    if (value === null || value === "") return { state: DATA_STATE.NULL, value: null };
-    const numeric = Number(value);
-    return Number.isFinite(numeric) ? { state: DATA_STATE.VALUE, value: numeric } : { state: DATA_STATE.NULL, value: null };
+    if (state && state !== DATA_STATE.VALUE) return {state, value: null};
+    if (value === undefined) return {state: DATA_STATE.UNAVAILABLE, value: null};
+    const numeric = numberOrNull(value);
+    return numeric === null ? {state: DATA_STATE.NULL, value: null} : {state: DATA_STATE.VALUE, value: numeric};
   }
   function mapStats(row, mapping) {
-    return Object.fromEntries(Object.entries(mapping).map(([canonical, keys]) => [canonical, stateful(firstPresent(row, keys))]));
+    const stats = Object.fromEntries(Object.entries(mapping).map(([canonical, keys]) => {
+      const present = keys.filter(key => Object.prototype.hasOwnProperty.call(row || {}, key));
+      const cells = present.map(key => stateful(row[key]));
+      const values = cells.filter(c => c.state === DATA_STATE.VALUE).map(c => c.value);
+      if (new Set(values).size > 1) return [canonical, {state: DATA_STATE.SOURCE_ERROR, value: null, reason: 'conflicting_aliases'}];
+      return [canonical, cells.find(c => c.state === DATA_STATE.VALUE) || cells[0] || {state: DATA_STATE.UNAVAILABLE, value: null, reason: 'missing_column'}];
+    }));
+    if (mapping === IDP_MAP) {
+      // Preserve nflverse event categories; their scoring-credit mapping is not
+      // interchangeable with canonical assisted tackles or recoveries.
+      stats.source_tackle_solo = stateful(row.def_tackles_solo);
+      stats.source_tackle_with_assist = stateful(row.def_tackles_with_assist);
+      stats.source_tackle_assists = stateful(row.def_tackle_assists);
+      stats.source_fumbles_committed = stateful(row.def_fumbles);
+      stats.source_recovery_own = stateful(row.fumble_recovery_own);
+      stats.source_recovery_opp = stateful(row.fumble_recovery_opp);
+      for (const key of ['assisted_tackles', 'fumble_recoveries']) {
+        if (stats[key].state === DATA_STATE.UNAVAILABLE) stats[key] = {state: DATA_STATE.UNSUPPORTED, value: null, reason: 'source_credit_mapping_unverified'};
+      }
+    }
+    return stats;
   }
   function canonicalPlayerId(ids) {
     if (ids?.gsis_id) return `lv:gsis:${ids.gsis_id}`;
@@ -160,7 +183,7 @@
       position: position.source_position, position_group: position.normalized_position, role_hint: position.role_hint,
       stats: mapStats(row, isDefense ? IDP_MAP : OFFENSE_MAP),
       source: { provider: options.provider || "nflverse", dataset: options.dataset || "stats_player", source_version: options.source_version || null, retrieved_at: options.retrieved_at || null, source_url_or_identifier: options.source_url_or_identifier || null, license_classification: options.license_classification || LICENSE.APPROVED_WITH_ATTRIBUTION },
-      timing: { event_date: options.event_date || row?.game_date || null, source_updated_at: options.source_updated_at || null, retrieved_at: options.retrieved_at || null, feature_available_at: options.feature_available_at || options.retrieved_at || null },
+      timing: { event_date: options.event_date || row?.game_date || null, source_updated_at: options.source_updated_at || null, retrieved_at: options.retrieved_at || null, feature_available_at: options.feature_available_at ?? null },
       transformation: { version: TRANSFORMATION_VERSION, generated_at: options.generated_at || new Date().toISOString() },
     };
   }
@@ -196,7 +219,7 @@
     if (!Number.isFinite(cutoffTime)) throw new Error("Invalid cutoff");
     const eligible = [], withheld = [], unknown = [];
     for (const row of observations || []) {
-      const available = row?.timing?.feature_available_at || row?.timing?.retrieved_at || row?.timing?.event_date;
+      const available = row?.timing?.feature_available_at;
       const time = available ? new Date(available).getTime() : NaN;
       if (!Number.isFinite(time)) unknown.push(row); else if (time <= cutoffTime) eligible.push(row); else withheld.push(row);
     }
