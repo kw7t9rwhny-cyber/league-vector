@@ -12,6 +12,8 @@ const VERSION = 'lv-projection-evaluation/1';
 const playerKey = M.playerKey;
 const CANDIDATES = ['weighted_603010', 'ridge_noage_v03', 'ridge_age_v03', 'shrink_v03'];
 const PROHIBITED = ['calibrated_probability', 'universal_accuracy', 'guaranteed_future_performance', 'best_model', 'dynasty_accuracy'];
+const CLAIMS = {allowed_after_assessment: ['historical_error_exact_set', 'observed_coverage_exact_set', 'ordinal_performance_exact_unit'], prohibited: PROHIBITED,
+  heuristic_confidence: true, synthetic_is_accuracy_evidence: false, prediction_provenance: 'Caller must independently retain and timestamp this hash before outcomes; hash alone is not historical publication proof.'};
 function canonical(value) {
   if (value === null || typeof value === 'boolean' || typeof value === 'string') return JSON.stringify(value);
   if (typeof value === 'number' && Number.isFinite(value)) return JSON.stringify(value);
@@ -31,6 +33,28 @@ function unique(rows, key, label) {
   const seen = new Set();
   for (const row of rows) { const id = key(row); requireThat(!seen.has(id), `Duplicate ${label}: ${id}`); seen.add(id); }
 }
+// The one-season contract uses positive, four-digit UTC calendar year numbers.
+// Validate transport before any comparison; strings are never converted.
+const season = value => Number.isInteger(value) && value >= 1 && value <= 9999;
+const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+function exactKeys(value, keys, label) {
+  requireThat(object(value) && canonical(Object.keys(value).sort()) === canonical([...keys].sort()), `Invalid ${label} schema`);
+}
+function reconcileIdentities(rows) {
+  const aliases = new Map(), players = new Map();
+  for (const row of rows) {
+    requireThat(object(row) && typeof playerKey(row) === 'string' && playerKey(row).trim().length > 0, 'Canonical identity required');
+    const id = playerKey(row), alias = row.gsis_id;
+    requireThat(alias == null || (typeof alias === 'string' && alias.trim().length > 0), 'Invalid optional external alias');
+    if (!players.has(id)) players.set(id, null);
+    if (alias == null) continue;
+    requireThat(!aliases.has(alias) || aliases.get(alias) === id, `Conflicting external alias binding: ${alias}`);
+    requireThat(players.get(id) === null || players.get(id) === alias, `Conflicting canonical identity alias: ${id}`);
+    aliases.set(alias, id); players.set(id, alias);
+  }
+  return [...players].map(([player_id, gsis_id]) => ({player_id, gsis_id}));
+}
+const originIdentities = o => [...o.universe.members, ...o.universe.exclusions, ...(o.outcomes || [])];
 function sourceManifest(sources) {
   requireThat(Array.isArray(sources) && sources.length > 0, 'Exact source manifest required');
   unique(sources, s => s.id, 'source');
@@ -60,7 +84,7 @@ function universeId(origin) {
     exclusions: [...origin.universe.exclusions].sort((a, b) => playerKey(a).localeCompare(playerKey(b)))});
 }
 function validateOrigin(o, sources) {
-  requireThat(typeof o.id === 'string' && o.id && Number.isInteger(o.target_season), 'Origin identity required');
+  requireThat(typeof o.id === 'string' && o.id && season(o.target_season), 'Origin identity required');
   requireThat(o.horizon_seasons === 1, 'Existing control models support one-season production only; multi-season ranking model not implemented');
   requireThat(time(o.forecast_cutoff) < time(o.target_start) && time(o.target_start) < time(o.target_end), 'Forecast must precede target window');
   requireThat(Number(o.target_start.slice(0, 4)) === o.target_season, 'Target season and window disagree');
@@ -108,7 +132,7 @@ function seasonRows(input, sources, missingness, records) {
   unique(input.season_rows.filter(r => r.gsis_id), r => `${r.gsis_id}|${r.season}`, 'historical external alias');
   return input.season_rows.map(r => {
     bind(r, records);
-    requireThat(sources.has(r.source_id) && typeof playerKey(r) === 'string' && playerKey(r) && P.POSITIONS.includes(r.position) && Number.isInteger(r.season), 'Invalid historical row identity/source');
+    requireThat(sources.has(r.source_id) && typeof playerKey(r) === 'string' && playerKey(r) && P.POSITIONS.includes(r.position) && season(r.season), 'Invalid historical row identity/source');
     requireThat(time(r.forecast_cutoff) < time(r.target_start) && time(r.target_start) < time(r.target_end), 'Historical target window invalid');
     requireThat(Number(r.target_start.slice(0, 4)) === r.season, 'Historical season and target window disagree');
     requireThat(time(r.target_end) - time(r.target_start) <= 366 * 86400000, 'Multi-season training targets require a separately implemented horizon model');
@@ -163,14 +187,18 @@ function predict(origin, rows, birth, selection = null) {
     model_fits: Object.fromEntries([...models].sort(([a], [b]) => a.localeCompare(b)).map(([key, model]) => [key, {...model.fit, training_examples: model.fit.training_examples.map(({gsis_id, ...example}) => ({player_id: gsis_id, ...example}))}])),
     admitted_training_rows: history.included.map(r => ({player_id: playerKey(r), gsis_id: r.gsis_id ?? null, season: r.season, forecast_cutoff: r.forecast_cutoff, target_end: r.target_end, label_available_at: r.label_available_at, feature_available_at: r.feature_available_at}))};
 }
-function attachOutcomes(origin, forecasts, outcomes, evaluationCutoff, sources, records) {
+function attachOutcomes(origin, forecasts, outcomes, evaluationCutoff, sources, records, identities = []) {
   requireThat(time(evaluationCutoff) > time(origin.target_end), 'Evaluation cutoff must follow complete target window');
   unique(outcomes, playerKey, 'outcome player-season');
-  const members = new Set(origin.universe.members.map(playerKey));
+  reconcileIdentities([...identities, ...originIdentities(origin), ...forecasts, ...outcomes]);
+  const members = new Map(origin.universe.members.map(m => [playerKey(m), m]));
   const values = new Map(), missingness = {};
   for (const outcome of outcomes) {
     bind(outcome, records);
     requireThat(members.has(playerKey(outcome)), 'Outcome outside frozen eligible universe');
+    // In this contract an optional position asserts the frozen board position.
+    // Historical season positions may differ; they are not identity aliases.
+    requireThat(!Object.hasOwn(outcome, 'position') || outcome.position === members.get(playerKey(outcome)).position, 'Outcome position conflicts with frozen cutoff position');
     requireThat(outcome.target_season === origin.target_season && outcome.universe_id === origin.universe.id, 'Outcome period/universe mismatch');
     requireThat(sources.has(outcome.source_id), 'Outcome source missing');
     requireThat(time(outcome.available_at) > time(origin.target_end) && time(outcome.available_at) <= time(evaluationCutoff), 'Outcome availability outside evaluation cutoff');
@@ -222,6 +250,7 @@ function freeze(input) {
     bind(o.universe, records);
     [...o.universe.members, ...o.universe.exclusions].forEach(m => bind(m, records));
   });
+  reconcileIdentities([...input.season_rows, ...origins.flatMap(originIdentities)]);
   requireThat(origins.every(o => ['selection', 'calibration', 'final'].includes(o.stage)), 'Invalid stage');
   const select = origins.filter(o => o.stage === 'selection'), calibration = origins.filter(o => o.stage === 'calibration'), finals = origins.filter(o => o.stage === 'final');
   requireThat(select.length > 0 && calibration.length > 0 && finals.length === 1, 'Need earlier selection, separate calibration, one final origin');
@@ -229,7 +258,9 @@ function freeze(input) {
   requireThat(rows.every(r => r.season < final.target_season && time(r.target_end) < time(final.forecast_cutoff)), 'Final/future labels cannot enter construction input');
   requireThat(time(final.forecast_cutoff) <= time(input.frozen_at) && time(input.frozen_at) < time(final.target_start), 'Forecast artifact must be frozen before target begins');
   requireThat(!Object.hasOwn(final, 'outcomes') && !Object.hasOwn(final, 'evaluation_cutoff'), 'Final outcomes cannot enter forecast construction');
-  requireThat(Array.isArray(input.consumed_periods) && !input.consumed_periods.includes(final.target_season), 'Previously inspected period cannot be untouched');
+  requireThat(Array.isArray(input.consumed_periods) && Array.from(input.consumed_periods).every(season), 'consumed_periods must contain only canonical integer season numbers (1..9999)');
+  unique(input.consumed_periods, s => s, 'consumed period');
+  requireThat(!input.consumed_periods.includes(final.target_season), 'Previously inspected period cannot be untouched');
   requireThat(input.data_kind === 'synthetic' || (input.data_kind === 'real' && final.target_season > 2025), 'Known historical development periods cannot be relabeled untouched');
   for (const stage of [select, calibration]) for (const o of stage) requireThat(o.outcomes && time(o.evaluation_cutoff) > time(o.target_end), 'Development outcomes/cutoff required');
   for (const s of select) for (const c of calibration) requireThat(time(s.evaluation_cutoff) < time(c.forecast_cutoff), 'Selection evidence must mature before calibration');
@@ -270,24 +301,56 @@ function freeze(input) {
       'Ridge missing predictors use training-column means; missing targets are never imputed.',
       'No real data accuracy, externally calibrated probability, data rights, or publication approval follows from a synthetic fixture.'],
     development, final_forecast: {origin: final, ...finalPredictions}, final_untouched_evaluation: {status: 'awaiting_separate_outcomes', result: null},
-    claims: {allowed_after_assessment: ['historical_error_exact_set', 'observed_coverage_exact_set', 'ordinal_performance_exact_unit'], prohibited: PROHIBITED,
-      heuristic_confidence: true, synthetic_is_accuracy_evidence: false, prediction_provenance: 'Caller must independently retain and timestamp this hash before outcomes; hash alone is not historical publication proof.'}};
+    claims: structuredClone(CLAIMS)};
   return {...artifact, artifact_sha256: hash(artifact)};
 }
 function verifyFrozen(frozen) {
   const {artifact_sha256, ...payload} = frozen;
   requireThat(artifact_sha256 === hash(payload), 'Frozen forecast hash mismatch');
   requireThat(frozen.version === VERSION, 'Unsupported frozen evaluation');
-  requireThat(frozen.final_forecast.origin.universe.id === universeId(frozen.final_forecast.origin), 'Changed frozen universe');
+  const forecast = frozen.final_forecast, origin = forecast.origin;
+  validateOrigin(origin, new Set(frozen.source_manifest.map(s => s.id)));
+  const finals = frozen.origins.filter(o => o.stage === 'final');
+  requireThat(finals.length === 1 && canonical(finals[0]) === canonical(origin), 'Conflicting frozen final origin');
+  requireThat(canonical(frozen.claims) === canonical(CLAIMS), 'Invalid frozen claims: heuristic confidence is not calibrated probability');
+  requireThat(Array.isArray(forecast.rows) && forecast.rows.length === origin.universe.members.length, 'Forecast ledger must contain exactly one row per universe member');
+  unique(forecast.rows, playerKey, 'forecast member');
+  const members = new Map(origin.universe.members.map(m => [playerKey(m), m]));
+  for (const row of forecast.rows) {
+    exactKeys(row, ['player_id', 'gsis_id', 'position', 'cohorts', 'model', 'models', 'projected_stats', 'missing_inputs', 'abstention_reasons', 'history_seasons', 'confidence', 'corrections', 'intervals'], 'saved forecast row');
+    const member = members.get(row.player_id);
+    requireThat(member && row.player_id === playerKey(member), 'Forecast canonical identity outside frozen universe');
+    requireThat((member.gsis_id ?? null) === row.gsis_id, 'Forecast alias differs from frozen universe');
+    requireThat(row.position === member.position && canonical(row.cohorts) === canonical(member.cohorts), 'Forecast position/cohorts differ from frozen universe');
+    requireThat(row.model === 'selected' && object(row.models) && Object.values(row.models).every(m => CANDIDATES.includes(m)), 'Invalid saved model disposition');
+    requireThat(object(row.projected_stats) && Object.values(row.projected_stats).every(Number.isFinite), 'Saved forecasts must be finite numbers; missing forecasts must remain absent');
+    const missing = Object.entries(origin.scoring[row.position] || {}).filter(([k, w]) => w !== 0 && !Number.isFinite(row.projected_stats[k])).map(([k]) => k);
+    requireThat(Array.isArray(row.missing_inputs) && canonical([...row.missing_inputs].sort()) === canonical(missing.sort()), 'Saved missing-input disposition conflicts with forecast');
+    requireThat(Array.isArray(row.history_seasons) && row.history_seasons.every(s => season(s) && s < origin.target_season) && Array.isArray(row.corrections) && object(row.abstention_reasons), 'Invalid saved forecast disposition');
+    exactKeys(row.confidence, ['label', 'type'], 'heuristic confidence');
+    requireThat(row.confidence.type === 'HEURISTIC' && ['High', 'Medium', 'Low'].includes(row.confidence.label), 'Only heuristic confidence labels are allowed');
+    // An absent target key is the explicit no-interval state in v1. A present
+    // band is complete even when its later outcome is missing or unscorable.
+    requireThat(object(row.intervals), 'Explicit interval map required');
+    for (const [target, band] of Object.entries(row.intervals)) {
+      exactKeys(band, ['p80_low', 'p80_high', 'p90_low', 'p90_high', 'type', 'calibrated_probability'], 'saved interval');
+      requireThat(Number.isFinite(row.projected_stats[target]), 'Interval requires a finite saved forecast');
+      requireThat(band.type === 'historical_residual_band' && band.calibrated_probability === false, 'Only historical residual bands are allowed');
+      for (const level of ['p80', 'p90']) requireThat(Number.isFinite(band[`${level}_low`]) && Number.isFinite(band[`${level}_high`]) && band[`${level}_low`] <= band[`${level}_high`], 'Interval endpoints must be finite ordered numbers');
+    }
+  }
+  // Retained admitted/excluded history covers every construction row, so an
+  // alias omitted from the final universe still has its known binding checked.
+  return reconcileIdentities([...frozen.origins.flatMap(originIdentities), ...forecast.admitted_training_rows, ...forecast.history_exclusions, ...forecast.rows]);
 }
 function assess(frozen, assessment) {
-  verifyFrozen(frozen);
+  const identities = verifyFrozen(frozen);
   assertClaims(assessment.requested_claims || []);
   const manifest = sourceManifest(assessment.sources), sources = new Set(manifest.map(s => s.id)), records = sourceRecords(assessment.sources);
   requireThat(assessment.forecast_sha256 === frozen.artifact_sha256, 'Assessment must bind exact saved forecast');
   const origin = frozen.final_forecast.origin;
   requireThat(assessment.universe_id === origin.universe.id, 'Changed assessment universe');
-  const joined = attachOutcomes(origin, frozen.final_forecast.rows, assessment.outcomes, assessment.evaluation_cutoff, sources, records);
+  const joined = attachOutcomes(origin, frozen.final_forecast.rows, assessment.outcomes, assessment.evaluation_cutoff, sources, records, identities);
   const result = summarize(origin, joined.ledger), intervalGroups = new Map();
   for (const row of joined.ledger) for (const [target, band] of Object.entries(row.intervals)) {
     const id = `${row.position}|${target}`;
