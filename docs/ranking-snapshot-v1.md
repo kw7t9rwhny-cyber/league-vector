@@ -13,9 +13,11 @@ completeness, never success probabilities or model quality.
 ## Contract
 
 This document and the exported validator define `lv-ranking-snapshot/v1`. Every
-listed property is required, including nullable properties. Unknown fields fail
-closed at every object level. No defaults, numeric coercion or missing-to-zero
-conversion occurs. Arrays contain only the documented type. Empty arrays mean
+listed property is required, including nullable properties, except the explicitly
+optional fact `format_derivation`. Unknown fields fail closed at every object level. No defaults, numeric coercion or missing-to-zero
+conversion occurs. Arrays contain only the documented type, with an own enumerable
+data member at every numeric index and no additional properties beyond `length`.
+Empty arrays mean
 nothing recorded; `null` means the explicitly absent value. Strings are bounded,
 trimmed and control-free. IDs are nonempty ASCII tokens; player IDs start `lv:`.
 Synthetic players must have `lv:synthetic:` IDs and `Synthetic ` names.
@@ -32,7 +34,7 @@ Synthetic players must have `lv:synthetic:` IDs and `Synthetic ` names.
 | Board | `assumptions_id`, `universe`, `entries` |
 | Universe | `id`, `definition`, `supported_positions` (QB/RB/WR/TE), `eligible_player_ids`, `coverage_count`, `exclusions`. Eligible IDs match exactly the ranked entries. Coverage counts ranked players; total covered records is `entries.length`. |
 | Player entry | `player_id`, `name`, `aliases`, `identity_state`, `position`, `team`, `team_state`, `status`, `age`, `identity_evidence_refs`, `ranking_status`, `rank`, `evidence_state`, `unsupported_reason`, `evidence_gaps`, `facts`, `drivers`, `primary_reason`, `limitations`, `change_conditions`, `history` |
-| Fact | Run-wide unique `id`, `run_id`, `format`, `player_id`, `field`, `value`, nullable `unit`, `period`, `as_of`, `source_id` |
+| Fact | Run-wide unique `id`, `run_id`, `format`, `player_id`, `field`, `value`, nullable `unit`, `period`, `as_of`, `source_id`; optional `format_derivation` as defined below |
 | Fact value | `state` (`KNOWN`, `MISSING`, `UNKNOWN`, `UNSUPPORTED`) and `value`. KNOWN accepts a finite number, boolean or at most 80 characters of observed text. Other states require null. An observed numeric zero is valid only as KNOWN. |
 | Driver | Run-wide unique `id`, `component_id`, `direction` (`supports`, `hurts`, `neutral`, `unknown`), `use` (`ranking`, `context`), 1–3 `fact_refs` |
 | Primary reason | `template_id: "observed-support/v1"`, `driver_id`; null for an unsupported player |
@@ -52,6 +54,21 @@ Both boards share run, method and source identities. Shared player IDs must have
 identical identity fields across formats. Fact references explicitly bind player,
 format and run; drivers and reasons inherit that binding through their containing
 entry and cannot reference another entry. Fact fields are unique within an entry.
+
+Facts without `format_derivation` declare shared source observations. The same
+player, source manifest reference/content hash, field, unit, period and as-of must
+have the same value/state everywhere in a run, including through source-ID aliases.
+Contradictions reject the entire run before canonicalization or consumer use.
+Different ranks do not create different source observations.
+
+A format-derived input may explicitly carry `format_derivation` with exactly
+`component_id`, `assumptions_id` and `reference`. Its component must declare the
+fact's field as an input, its assumptions must match its containing board, and its
+nonempty reference must identify the documented derivation/provenance. This scope
+is bound to the fact's format and distinguishes a derived input from the shared
+observation. Omit the property for shared observations; explicit null is invalid.
+This declaration does not verify external derivation truth or authorize a model.
+No format-dependent computation is added by the validator.
 
 `ASSUMPTIONS` exports the two immutable profiles, bound by board `assumptions_id`:
 12 teams; 1 QB, 2 RB, 3 WR, 1 TE, two RB/WR/TE flex slots; Superflex adds one
@@ -155,8 +172,14 @@ For untrusted serialized artifacts, use this strict parser rather than calling
 `createPreviousRun(publishedSnapshot)` produces a frozen compact summary containing
 `run_id`, `artifact_id`, `published_at`, `data_cutoff`, full `method`, and both format
 boards with `assumptions_id`, `universe`, and entries of `player_id`, `rank`,
-`ranking_status` and facts `{field,value}`. No live source access is needed. The
-prior summary must precede current generation, have a nonfuture cutoff, valid ranks,
+`ranking_status` and facts `{field,value,unit,period,as_of,input_source,format_derivation}`.
+`input_source` preserves the source's `manifest_ref` and `content_hash` rather than
+its local source-ID alias. `format_derivation` is the exact derivation declaration
+or null for a shared observation. No live source access is needed. Legacy compact
+summaries containing only field/value reject because they cannot establish input
+comparability; regenerate from the complete authenticated predecessor. This is a
+repair to the unreleased v1 candidate, not an in-place rewrite of existing artifacts.
+The prior summary must precede current generation, have a nonfuture cutoff, valid ranks,
 and KNOWN required inputs for every previously ranked player.
 
 History states are derived and validated, never trusted as free-form narration:
@@ -166,14 +189,17 @@ History states are derived and validated, never trusted as free-form narration:
 - NEW_PLAYER if not ranked in that predecessor.
 - NOT_COMPARABLE for previously ranked players when universe metadata/membership differs.
 - COMPARABLE otherwise, with exact prior rank and changed current fact IDs whose
-  value/state differs from the same prior field. A newly recorded field counts as changed.
+  value/state, unit, period, as-of, input manifest/hash, or format derivation differs
+  from the same prior field. A newly recorded field counts as changed.
+- NOT_COMPARABLE if a prior field was removed, since no current fact can identify it.
 
 Noncomparable states require null previous rank and an empty change list. Comparable
 movement is `previous_rank - rank`; zero is a real unchanged rank. A changed rank
 with no changed facts means the stored ordering changed without evidence of new
-player inputs; it does not imply player news. Comparison history makes no claims
-about changed drivers or removed fields; only the retained value/state comparison
-is supported in v1. Consumers show at most three changed facts.
+player inputs; it does not imply player news. Source manifest/hash changes
+conservatively count as changed input provenance even when a scalar is equal. Run/fact IDs, source aliases and administrative source
+refresh times do not by themselves change input meaning. History makes no claims
+about changed explanation drivers. Consumers show at most three changed facts.
 
 Standalone validation checks summary consistency; it cannot authenticate a claimed
 predecessor from its hash alone. `validateSnapshotCatalog` requires the complete
@@ -224,11 +250,14 @@ would require a separately reviewed schema/implementation extension.
 
 Fixtures include both complete format boards, tied ranked veterans, unsupported
 rookie/insufficient-history/unresolved records, missing age/team/context/conditions,
-known numeric zero, prior/no-prior state, rank movement and unchanged-player-input
-movement. `invalid-cases.json` contains named mutations of the valid current fixture
+known numeric zero, prior/no-prior state and rank movement. The repaired current
+fixture uses run ID `synthetic-current-v1-p1`; its changed source/as-of inputs are
+explicitly reported in history. Regression tests also construct authenticated
+successors with unchanged inputs to verify that unchanged remains unchanged.
+`invalid-cases.json` contains named mutations of the valid current fixture
 for negative tests; it is a test recipe, never a snapshot to serve.
 
-Run `node --test tests/ranking-snapshot-v1.test.js`, then `npm run validate`.
+Run `node --test tests/ranking-snapshot-v1*.test.js`, then `npm run validate`.
 Tests cover canonical bytes/digests, Node/browser parity, strict validation, lineage,
 ties, ordering, optional data, source/evidence binding and consumer abstention.
 Passing deterministic checks is implementation evidence, not independent QA,

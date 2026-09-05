@@ -1,6 +1,6 @@
 {
   "schema_version": "lv-ranking-snapshot/v1",
-  "run_id": "synthetic-current-v1",
+  "run_id": "synthetic-current-v1-p1",
   "data_kind": "SYNTHETIC",
   "generated_at": "2026-09-04T10:00:00.000Z",
   "published_at": "2026-09-04T11:00:00.000Z",
@@ -99,7 +99,7 @@
           "facts": [
             {
               "id": "current-1qb-alpha-signal",
-              "run_id": "synthetic-current-v1",
+              "run_id": "synthetic-current-v1-p1",
               "format": "dynasty-1qb",
               "player_id": "lv:synthetic:alpha",
               "field": "synthetic_signal",
@@ -174,7 +174,7 @@
           "facts": [
             {
               "id": "current-1qb-bravo-signal",
-              "run_id": "synthetic-current-v1",
+              "run_id": "synthetic-current-v1-p1",
               "format": "dynasty-1qb",
               "player_id": "lv:synthetic:bravo",
               "field": "synthetic_signal",
@@ -218,7 +218,9 @@
           "history": {
             "state": "COMPARABLE",
             "previous_rank": 1,
-            "changed_fact_refs": []
+            "changed_fact_refs": [
+              "current-1qb-bravo-signal"
+            ]
           }
         },
         {
@@ -249,7 +251,7 @@
           "facts": [
             {
               "id": "current-1qb-charlie-signal",
-              "run_id": "synthetic-current-v1",
+              "run_id": "synthetic-current-v1-p1",
               "format": "dynasty-1qb",
               "player_id": "lv:synthetic:charlie",
               "field": "synthetic_signal",
@@ -264,7 +266,7 @@
             },
             {
               "id": "current-1qb-charlie-optional",
-              "run_id": "synthetic-current-v1",
+              "run_id": "synthetic-current-v1-p1",
               "format": "dynasty-1qb",
               "player_id": "lv:synthetic:charlie",
               "field": "optional_context",
@@ -300,7 +302,10 @@
           "history": {
             "state": "COMPARABLE",
             "previous_rank": 1,
-            "changed_fact_refs": []
+            "changed_fact_refs": [
+              "current-1qb-charlie-optional",
+              "current-1qb-charlie-signal"
+            ]
           }
         },
         {
@@ -329,7 +334,7 @@
           "facts": [
             {
               "id": "current-1qb-delta-signal",
-              "run_id": "synthetic-current-v1",
+              "run_id": "synthetic-current-v1-p1",
               "format": "dynasty-1qb",
               "player_id": "lv:synthetic:delta",
               "field": "synthetic_signal",
@@ -373,7 +378,9 @@
           "history": {
             "state": "COMPARABLE",
             "previous_rank": 4,
-            "changed_fact_refs": []
+            "changed_fact_refs": [
+              "current-1qb-delta-signal"
+            ]
           }
         },
         {
@@ -402,7 +409,7 @@
           "facts": [
             {
               "id": "current-1qb-echo-signal",
-              "run_id": "synthetic-current-v1",
+              "run_id": "synthetic-current-v1-p1",
               "format": "dynasty-1qb",
               "player_id": "lv:synthetic:echo",
               "field": "synthetic_signal",
@@ -446,7 +453,9 @@
           "history": {
             "state": "COMPARABLE",
             "previous_rank": 5,
-            "changed_fact_refs": []
+            "changed_fact_refs": [
+              "current-1qb-echo-signal"
+            ]
           }
         },
         {
@@ -596,7 +605,7 @@
           "facts": [
             {
               "id": "current-sf-alpha-signal",
-              "run_id": "synthetic-current-v1",
+              "run_id": "synthetic-current-v1-p1",
               "format": "dynasty-superflex",
               "player_id": "lv:synthetic:alpha",
               "field": "synthetic_signal",
@@ -671,7 +680,7 @@
           "facts": [
             {
               "id": "current-sf-delta-signal",
-              "run_id": "synthetic-current-v1",
+              "run_id": "synthetic-current-v1-p1",
               "format": "dynasty-superflex",
               "player_id": "lv:synthetic:delta",
               "field": "synthetic_signal",
@@ -715,7 +724,9 @@
           "history": {
             "state": "COMPARABLE",
             "previous_rank": 1,
-            "changed_fact_refs": []
+            "changed_fact_refs": [
+              "current-sf-delta-signal"
+            ]
           }
         },
         {
@@ -744,7 +755,7 @@
           "facts": [
             {
               "id": "current-sf-bravo-signal",
-              "run_id": "synthetic-current-v1",
+              "run_id": "synthetic-current-v1-p1",
               "format": "dynasty-superflex",
               "player_id": "lv:synthetic:bravo",
               "field": "synthetic_signal",
@@ -788,7 +799,9 @@
           "history": {
             "state": "COMPARABLE",
             "previous_rank": 3,
-            "changed_fact_refs": []
+            "changed_fact_refs": [
+              "current-sf-bravo-signal"
+            ]
           }
         },
         {
@@ -819,7 +832,7 @@
           "facts": [
             {
               "id": "current-sf-charlie-signal",
-              "run_id": "synthetic-current-v1",
+              "run_id": "synthetic-current-v1-p1",
               "format": "dynasty-superflex",
               "player_id": "lv:synthetic:charlie",
               "field": "synthetic_signal",
@@ -834,7 +847,7 @@
             },
             {
               "id": "current-sf-charlie-optional",
-              "run_id": "synthetic-current-v1",
+              "run_id": "synthetic-current-v1-p1",
               "format": "dynasty-superflex",
               "player_id": "lv:synthetic:charlie",
               "field": "optional_context",
@@ -870,7 +883,10 @@
           "history": {
             "state": "COMPARABLE",
             "previous_rank": 4,
-            "changed_fact_refs": []
+            "changed_fact_refs": [
+              "current-sf-charlie-optional",
+              "current-sf-charlie-signal"
+            ]
           }
         },
         {
@@ -899,7 +915,7 @@
           "facts": [
             {
               "id": "current-sf-echo-signal",
-              "run_id": "synthetic-current-v1",
+              "run_id": "synthetic-current-v1-p1",
               "format": "dynasty-superflex",
               "player_id": "lv:synthetic:echo",
               "field": "synthetic_signal",
@@ -943,7 +959,9 @@
           "history": {
             "state": "COMPARABLE",
             "previous_rank": 5,
-            "changed_fact_refs": []
+            "changed_fact_refs": [
+              "current-sf-echo-signal"
+            ]
           }
         },
         {
@@ -1106,7 +1124,15 @@
                 "value": {
                   "state": "KNOWN",
                   "value": 20
-                }
+                },
+                "unit": "synthetic-observation",
+                "period": "Synthetic fixture observation period",
+                "as_of": "2026-09-01T00:00:00.000Z",
+                "input_source": {
+                  "manifest_ref": "synthetic://ranking-snapshot-v1/inputs-2026-09-01",
+                  "content_hash": "sha256:793989bb0502e0787460e2c2925af89545baf895afc722bfd825748e76b01723"
+                },
+                "format_derivation": null
               }
             ]
           },
@@ -1120,7 +1146,15 @@
                 "value": {
                   "state": "KNOWN",
                   "value": 21
-                }
+                },
+                "unit": "synthetic-observation",
+                "period": "Synthetic fixture observation period",
+                "as_of": "2026-09-01T00:00:00.000Z",
+                "input_source": {
+                  "manifest_ref": "synthetic://ranking-snapshot-v1/inputs-2026-09-01",
+                  "content_hash": "sha256:793989bb0502e0787460e2c2925af89545baf895afc722bfd825748e76b01723"
+                },
+                "format_derivation": null
               }
             ]
           },
@@ -1134,14 +1168,30 @@
                 "value": {
                   "state": "MISSING",
                   "value": null
-                }
+                },
+                "unit": null,
+                "period": "Synthetic fixture observation period",
+                "as_of": "2026-09-01T00:00:00.000Z",
+                "input_source": {
+                  "manifest_ref": "synthetic://ranking-snapshot-v1/inputs-2026-09-01",
+                  "content_hash": "sha256:793989bb0502e0787460e2c2925af89545baf895afc722bfd825748e76b01723"
+                },
+                "format_derivation": null
               },
               {
                 "field": "synthetic_signal",
                 "value": {
                   "state": "KNOWN",
                   "value": 22
-                }
+                },
+                "unit": "synthetic-observation",
+                "period": "Synthetic fixture observation period",
+                "as_of": "2026-09-01T00:00:00.000Z",
+                "input_source": {
+                  "manifest_ref": "synthetic://ranking-snapshot-v1/inputs-2026-09-01",
+                  "content_hash": "sha256:793989bb0502e0787460e2c2925af89545baf895afc722bfd825748e76b01723"
+                },
+                "format_derivation": null
               }
             ]
           },
@@ -1155,7 +1205,15 @@
                 "value": {
                   "state": "KNOWN",
                   "value": 23
-                }
+                },
+                "unit": "synthetic-observation",
+                "period": "Synthetic fixture observation period",
+                "as_of": "2026-09-01T00:00:00.000Z",
+                "input_source": {
+                  "manifest_ref": "synthetic://ranking-snapshot-v1/inputs-2026-09-01",
+                  "content_hash": "sha256:793989bb0502e0787460e2c2925af89545baf895afc722bfd825748e76b01723"
+                },
+                "format_derivation": null
               }
             ]
           },
@@ -1169,7 +1227,15 @@
                 "value": {
                   "state": "KNOWN",
                   "value": 0
-                }
+                },
+                "unit": "synthetic-observation",
+                "period": "Synthetic fixture observation period",
+                "as_of": "2026-09-01T00:00:00.000Z",
+                "input_source": {
+                  "manifest_ref": "synthetic://ranking-snapshot-v1/inputs-2026-09-01",
+                  "content_hash": "sha256:793989bb0502e0787460e2c2925af89545baf895afc722bfd825748e76b01723"
+                },
+                "format_derivation": null
               }
             ]
           },
@@ -1229,7 +1295,15 @@
                 "value": {
                   "state": "KNOWN",
                   "value": 20
-                }
+                },
+                "unit": "synthetic-observation",
+                "period": "Synthetic fixture observation period",
+                "as_of": "2026-09-01T00:00:00.000Z",
+                "input_source": {
+                  "manifest_ref": "synthetic://ranking-snapshot-v1/inputs-2026-09-01",
+                  "content_hash": "sha256:793989bb0502e0787460e2c2925af89545baf895afc722bfd825748e76b01723"
+                },
+                "format_derivation": null
               }
             ]
           },
@@ -1243,7 +1317,15 @@
                 "value": {
                   "state": "KNOWN",
                   "value": 21
-                }
+                },
+                "unit": "synthetic-observation",
+                "period": "Synthetic fixture observation period",
+                "as_of": "2026-09-01T00:00:00.000Z",
+                "input_source": {
+                  "manifest_ref": "synthetic://ranking-snapshot-v1/inputs-2026-09-01",
+                  "content_hash": "sha256:793989bb0502e0787460e2c2925af89545baf895afc722bfd825748e76b01723"
+                },
+                "format_derivation": null
               }
             ]
           },
@@ -1257,14 +1339,30 @@
                 "value": {
                   "state": "MISSING",
                   "value": null
-                }
+                },
+                "unit": null,
+                "period": "Synthetic fixture observation period",
+                "as_of": "2026-09-01T00:00:00.000Z",
+                "input_source": {
+                  "manifest_ref": "synthetic://ranking-snapshot-v1/inputs-2026-09-01",
+                  "content_hash": "sha256:793989bb0502e0787460e2c2925af89545baf895afc722bfd825748e76b01723"
+                },
+                "format_derivation": null
               },
               {
                 "field": "synthetic_signal",
                 "value": {
                   "state": "KNOWN",
                   "value": 22
-                }
+                },
+                "unit": "synthetic-observation",
+                "period": "Synthetic fixture observation period",
+                "as_of": "2026-09-01T00:00:00.000Z",
+                "input_source": {
+                  "manifest_ref": "synthetic://ranking-snapshot-v1/inputs-2026-09-01",
+                  "content_hash": "sha256:793989bb0502e0787460e2c2925af89545baf895afc722bfd825748e76b01723"
+                },
+                "format_derivation": null
               }
             ]
           },
@@ -1278,7 +1376,15 @@
                 "value": {
                   "state": "KNOWN",
                   "value": 23
-                }
+                },
+                "unit": "synthetic-observation",
+                "period": "Synthetic fixture observation period",
+                "as_of": "2026-09-01T00:00:00.000Z",
+                "input_source": {
+                  "manifest_ref": "synthetic://ranking-snapshot-v1/inputs-2026-09-01",
+                  "content_hash": "sha256:793989bb0502e0787460e2c2925af89545baf895afc722bfd825748e76b01723"
+                },
+                "format_derivation": null
               }
             ]
           },
@@ -1292,7 +1398,15 @@
                 "value": {
                   "state": "KNOWN",
                   "value": 0
-                }
+                },
+                "unit": "synthetic-observation",
+                "period": "Synthetic fixture observation period",
+                "as_of": "2026-09-01T00:00:00.000Z",
+                "input_source": {
+                  "manifest_ref": "synthetic://ranking-snapshot-v1/inputs-2026-09-01",
+                  "content_hash": "sha256:793989bb0502e0787460e2c2925af89545baf895afc722bfd825748e76b01723"
+                },
+                "format_derivation": null
               }
             ]
           },

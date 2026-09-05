@@ -34,7 +34,7 @@
       "facts": [
         {
           "id": "current-1qb-alpha-signal",
-          "run_id": "synthetic-current-v1",
+          "run_id": "synthetic-current-v1-p1",
           "format": "dynasty-1qb",
           "player_id": "lv:synthetic:alpha",
           "field": "synthetic_signal",
