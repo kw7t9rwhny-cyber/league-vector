@@ -69,7 +69,10 @@
     check(array ? proto === Array.prototype : proto === Object.prototype || proto === null, "non-JSON prototype");
     const keys = Reflect.ownKeys(value);
     check(keys.every(k => typeof k === "string"), "symbol key");
-    if (array) check(keys.length === value.length + 1 && keys.includes("length"), "sparse or decorated array");
+    if (array) {
+      check(keys.length === value.length + 1 && keys.includes("length"), "sparse or decorated array");
+      for (let index = 0; index < value.length; index++) check(Object.hasOwn(value, index), "sparse or decorated array");
+    }
     ancestors.add(value);
     for (const key of keys) {
       if (array && key === "length") continue;
@@ -142,7 +145,21 @@
         one(e.ranking_status, ["RANKED", "NOT_RANKED"], "prior rank state");
         if (e.ranking_status === "RANKED") integer(e.rank, "prior rank", 1); else check(e.rank === null, "prior unsupported rank");
         list(e.facts, "prior facts", 64); unique(e.facts.map(f => f.field), "prior fact field");
-        e.facts.forEach(f => { exact(f, ["field", "value"], "prior fact"); token(f.field, "prior field"); validateValue(f.value); });
+        e.facts.forEach(f => {
+          exact(f, ["field", "value", "unit", "period", "as_of", "input_source", "format_derivation"], "prior fact");
+          token(f.field, "prior field"); validateValue(f.value);
+          if (f.unit !== null) text(f.unit, "prior unit", 40); text(f.period, "prior period", 80);
+          check(timestamp(f.as_of, "prior fact as of") <= timestamp(previous.data_cutoff, "prior cutoff"), "prior fact after cutoff");
+          exact(f.input_source, ["manifest_ref", "content_hash"], "prior input source");
+          text(f.input_source.manifest_ref, "prior manifest reference", 500); digestText(f.input_source.content_hash, "prior source content hash");
+          if (f.format_derivation !== null) {
+            exact(f.format_derivation, ["component_id", "assumptions_id", "reference"], "prior format derivation");
+            const component = previous.method.components.find(c => c.id === f.format_derivation.component_id);
+            check(component && component.required_fields.includes(f.field), "prior format derivation requires input component");
+            check(f.format_derivation.assumptions_id === board.assumptions_id, "prior format derivation assumptions mismatch");
+            text(f.format_derivation.reference, "prior format derivation reference", 500);
+          }
+        });
         if (e.ranking_status === "RANKED") for (const field of new Set(previous.method.components.flatMap(c => c.required_fields))) {
           check(e.facts.some(f => f.field === field && f.value.state === "KNOWN"), "prior ranked input missing");
         }
@@ -152,6 +169,11 @@
   }
   function normalUniverse(u) { return { ...u, supported_positions: [...u.supported_positions].sort(), eligible_player_ids: [...u.eligible_player_ids].sort(), exclusions: [...u.exclusions].sort() }; }
   function normalMethod(m) { return { ...m, components: m.components.map(c => ({ ...c, required_fields: [...c.required_fields].sort() })), limitations: [...m.limitations].sort((a, b) => lexical(a.id, b.id)) }; }
+  function factSemantics(snapshot, fact) {
+    const source = snapshot.sources.find(s => s.source_id === fact.source_id);
+    return { field: fact.field, value: copy(fact.value), unit: fact.unit, period: fact.period, as_of: fact.as_of,
+      input_source: { manifest_ref: source.manifest_ref, content_hash: source.content_hash }, format_derivation: copy(fact.format_derivation || null) };
+  }
   function historyFor(snapshot, format, entry) {
     const empty = { previous_rank: null, changed_fact_refs: [] };
     if (entry.ranking_status === "NOT_RANKED") return { state: "NOT_RANKED", ...empty };
@@ -162,9 +184,10 @@
     const old = before.entries.find(e => e.player_id === entry.player_id);
     if (!old || old.ranking_status !== "RANKED") return { state: "NEW_PLAYER", ...empty };
     if (canonical(normalUniverse(before.universe)) !== canonical(normalUniverse(board.universe))) return { state: "NOT_COMPARABLE", ...empty };
+    if (old.facts.some(f => !entry.facts.some(current => current.field === f.field))) return { state: "NOT_COMPARABLE", ...empty };
     const changed = entry.facts.filter(f => {
       const oldFact = old.facts.find(p => p.field === f.field);
-      return !oldFact || canonical(oldFact.value) !== canonical(f.value);
+      return !oldFact || canonical(oldFact) !== canonical(factSemantics(snapshot, f));
     }).map(f => f.id).sort();
     return { state: "COMPARABLE", previous_rank: old.rank, changed_fact_refs: changed };
   }
@@ -190,12 +213,20 @@
     list(entry.facts, "facts", 64); unique(entry.facts.map(f => f.id), "fact"); unique(entry.facts.map(f => f.field), "fact field");
     const facts = new Map();
     entry.facts.forEach(f => {
-      exact(f, ["id", "run_id", "format", "player_id", "field", "value", "unit", "period", "as_of", "source_id"], "fact");
+      exact(f, ["id", "run_id", "format", "player_id", "field", "value", "unit", "period", "as_of", "source_id", ...(Object.hasOwn(f, "format_derivation") ? ["format_derivation"] : [])], "fact");
       token(f.id, "fact id"); token(f.field, "fact field");
       check(f.run_id === snapshot.run_id && f.format === format && f.player_id === entry.player_id, "cross-run/format/player evidence");
       validateValue(f.value); if (f.unit !== null) text(f.unit, "unit", 40); text(f.period, "period", 80);
       const source = sources.get(f.source_id); check(source, "missing fact source");
       check(timestamp(f.as_of, "fact as of") <= timestamp(source.data_cutoff, "source cutoff"), "fact after source cutoff");
+      if (Object.hasOwn(f, "format_derivation")) {
+        const derivation = f.format_derivation;
+        exact(derivation, ["component_id", "assumptions_id", "reference"], "format derivation");
+        const component = snapshot.method.components.find(c => c.id === derivation.component_id);
+        check(component && component.required_fields.includes(f.field), "format derivation needs declared input component");
+        check(derivation.assumptions_id === snapshot.formats[format].assumptions_id, "format derivation assumptions mismatch");
+        text(derivation.reference, "format derivation reference", 500);
+      }
       facts.set(f.id, f);
     });
     const components = new Map(snapshot.method.components.map(c => [c.id, c]));
@@ -293,6 +324,15 @@
     const allEntries = FORMATS.flatMap(format => snapshot.formats[format].entries);
     unique(allEntries.flatMap(e => e.facts.map(f => f.id)), "run fact");
     unique(allEntries.flatMap(e => e.drivers.map(d => d.id)), "run driver");
+    const observations = new Map();
+    for (const entry of allEntries) for (const fact of entry.facts) {
+      const source = sources.get(fact.source_id);
+      const identity = canonical({ player_id: fact.player_id, manifest_ref: source.manifest_ref, content_hash: source.content_hash, field: fact.field, unit: fact.unit, period: fact.period, as_of: fact.as_of,
+        format_derivation: fact.format_derivation ? { format: fact.format, ...fact.format_derivation } : null });
+      const value = canonical(fact.value);
+      check(!observations.has(identity) || observations.get(identity) === value, "conflicting shared source observation");
+      observations.set(identity, value);
+    }
     const first = new Map(snapshot.formats[FORMATS[0]].entries.map(e => [e.player_id, e]));
     const identityKeys = ["player_id", "name", "aliases", "identity_state", "position", "team", "team_state", "status", "age", "identity_evidence_refs"];
     snapshot.formats[FORMATS[1]].entries.forEach(e => {
@@ -356,7 +396,7 @@
     const prior = { run_id: s.run_id, artifact_id: await snapshotArtifactId(s), published_at: s.published_at, data_cutoff: s.data_cutoff, method: copy(s.method), formats: {} };
     for (const format of FORMATS) {
       const b = s.formats[format];
-      prior.formats[format] = { assumptions_id: b.assumptions_id, universe: copy(b.universe), entries: b.entries.map(e => ({ player_id: e.player_id, rank: e.rank, ranking_status: e.ranking_status, facts: e.facts.map(f => ({ field: f.field, value: copy(f.value) })) })) };
+      prior.formats[format] = { assumptions_id: b.assumptions_id, universe: copy(b.universe), entries: b.entries.map(e => ({ player_id: e.player_id, rank: e.rank, ranking_status: e.ranking_status, facts: e.facts.map(f => factSemantics(s, f)) })) };
     }
     return freeze(normalPrior(prior));
   }

@@ -77,6 +77,7 @@ for (const example of readFixture('invalid-cases.json')) {
     if (example.append) parent[key].push(clone(example.value));
     else parent[key] = clone(example.value);
     invalid(() => Snapshot.validateSnapshot(value));
+    if (example.name === 'duplicate-player') assert.throws(() => Snapshot.validateSnapshot(value), error => error.code === 'invalid_snapshot' && error.message === 'player: duplicate identity');
   });
 }
 
@@ -180,9 +181,12 @@ test('null optional facts remain null with honest limitations; observed numeric 
   const fact = ranked(value)[0].facts.find(item => item.value.state === 'KNOWN' && typeof item.value.value === 'number');
   assert.ok(fact);
   fact.value.value = 0;
+  invalid(() => Snapshot.validateSnapshot(value));
+  for (const format of formats) board(value, format).entries.find(entry => entry.player_id === fact.player_id).facts.find(item => item.field === fact.field).value.value = 0;
   assert.equal(Snapshot.validateSnapshot(value), true);
   const restored = Snapshot.parseCanonicalSnapshot(Snapshot.canonicalizeSnapshot(value));
   assert.equal(ranked(restored)[0].facts.find(item => item.id === fact.id).value.value, 0);
+  for (const format of formats) assert.equal(board(restored, format).entries.find(entry => entry.player_id === fact.player_id).facts.find(item => item.field === fact.field).value.value, 0);
 });
 
 test('canonical round-trip preserves every explicit state and is independent of object key insertion order', async () => {
@@ -224,7 +228,12 @@ test('artifact identity binds safety-bearing provenance, method, limitation and 
     value => { value.method.summary += ' Additional declared synthetic assumption.'; },
     value => { value.method.limitations[0].text += ' Additional synthetic limitation.'; },
     value => { value.publication.reference += '-revision'; },
-    value => { const fact = ranked(value)[0].facts.find(item => typeof item.value.value === 'number'); fact.value.value += 1; },
+    value => {
+      const fact = ranked(value)[0].facts.find(item => typeof item.value.value === 'number');
+      fact.value.value += 1;
+      invalid(() => Snapshot.validateSnapshot(value));
+      for (const format of formats) board(value, format).entries.find(entry => entry.player_id === fact.player_id).facts.find(item => item.field === fact.field).value.value = fact.value.value;
+    },
   ];
   for (const change of changes) {
     const value = clone(prior);
