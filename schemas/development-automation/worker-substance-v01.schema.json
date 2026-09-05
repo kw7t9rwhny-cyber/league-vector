@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "worker-substance/v1",
+  "title": "League Vector Worker Substance v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["status","claims_or_findings","evidence_refs","artifact_refs","limitations","recommended_next_action"],
+  "properties": {
+    "status": {"enum":["COMPLETE","PASS","FAIL","BLOCKED"]},
+    "claims_or_findings": {"type":"array","maxItems":32,"items":{"type":"string","maxLength":2000}},
+    "evidence_refs": {"type":"array","maxItems":32,"items":{"type":"string","minLength":1,"maxLength":500}},
+    "artifact_refs": {"type":"array","maxItems":16,"items":{"type":"string","minLength":1,"maxLength":500}},
+    "limitations": {"type":"string","maxLength":2000},
+    "recommended_next_action": {"type":"string","maxLength":1000}
+  }
+}
