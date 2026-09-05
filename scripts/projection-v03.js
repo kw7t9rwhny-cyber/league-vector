@@ -24,26 +24,11 @@ function activeRelevant(id, player) {
 }
 
 function yearsExp(player) {
-  const value = Number(player?.years_exp);
+  const value = player?.years_exp;
   return Number.isFinite(value) ? value : null;
 }
 
-function rankReport(rows) {
-  const result = [];
-  const limits = { QB: [12, 24], RB: [12, 24, 36], WR: [12, 24, 36, 48], TE: [12, 24], DL: [12, 24], LB: [12, 24], DB: [12, 24] };
-  for (const pos of P.POSITIONS) {
-    const actual = rows.filter((row) => row.position === pos).sort((a, b) => b.actual_points - a.actual_points);
-    const predicted = [...actual].sort((a, b) => b.predicted_points - a.predicted_points);
-    for (const n of limits[pos] || []) {
-      if (actual.length < n) continue;
-      const actualIds = new Set(actual.slice(0, n).map((row) => row.gsis_id));
-      const projectedIds = predicted.slice(0, n).map((row) => row.gsis_id);
-      const hit = projectedIds.filter((id) => actualIds.has(id)).length;
-      result.push({ position: pos, top_n: n, overlap: hit, precision: hit / n, recall: hit / n });
-    }
-  }
-  return result;
-}
+function rankReport(rows) { return require('../projection-evaluation-metrics.js').rankReport(rows); }
 
 function projectionForIdentity(candidate, context) {
   const { psIndex, models, uncMap } = context;
@@ -106,6 +91,13 @@ function projectionForIdentity(candidate, context) {
 }
 
 async function run(options = {}) {
+  // Evaluation now consumes frozen local evidence. No mutable roster/source
+  // retrieval can silently stand in for a historical forecast-time universe.
+  if (!options.evaluationInput) throw new Error('Frozen evaluationInput required; use scripts/evaluate-projections.js. Legacy retrospective reports are not final evidence.');
+  return require('./evaluate-projections.js').run(options);
+}
+
+async function legacyUnfrozenRun(options = {}) {
   const seasons = options.seasons || SEASONS;
   const folds = (options.folds || FOLDS).filter((season) => seasons.includes(season));
   const dir = path.resolve(options.outputDir || "data/reports/projection-v03");
@@ -290,6 +282,7 @@ if (require.main === module) {
   const args = {};
   for (let i = 2; i < process.argv.length; i += 2) args[process.argv[i].replace(/^--/, "")] = process.argv[i + 1];
   run({
+    evaluationInput: args.input,
     seasons: (args.seasons || SEASONS.join(",")).split(",").map(Number),
     folds: (args.folds || FOLDS.join(",")).split(",").map(Number),
     cacheDir: args.cache,

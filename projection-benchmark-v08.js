@@ -53,24 +53,7 @@
 
   function cellValue(cell) { return cell?.state === "value" && Number.isFinite(cell.value) ? cell.value : null; }
   function aggregatePlayerSeasons(observations) {
-    const map = new Map();
-    for (const row of observations || []) {
-      if (!row?.gsis_id || !Number.isInteger(row.season) || !POSITIONS.includes(row.position_group)) continue;
-      const key = `${row.gsis_id}|${row.season}|${row.position_group}`;
-      if (!map.has(key)) map.set(key, { league_vector_player_id: row.league_vector_player_id, gsis_id: row.gsis_id, season: row.season, position: row.position_group, teams: new Set(), games: new Set(), totals: {}, source: row.source });
-      const rec = map.get(key); if (row.team) rec.teams.add(row.team); if (Number.isInteger(row.week)) rec.games.add(row.week);
-      for (const target of TARGETS[row.position_group] || []) {
-        if (target === "total_tackles") continue;
-        const v = cellValue(row.stats?.[target]);
-        if (v != null) rec.totals[target] = number(rec.totals[target]) + v;
-      }
-    }
-    const rows = [];
-    for (const rec of map.values()) {
-      if (["DL","LB","DB"].includes(rec.position)) rec.totals.total_tackles = number(rec.totals.solo_tackles) + number(rec.totals.assisted_tackles);
-      rows.push({ ...rec, teams: [...rec.teams], games: rec.games.size, totals: rec.totals, per_game: Object.fromEntries(Object.entries(rec.totals).map(([k,v])=>[k,rec.games.size?v/rec.games.size:0])) });
-    }
-    return rows;
+    return require('./projection-observations.js').aggregate(observations, TARGETS, POSITIONS);
   }
 
   function indexSeasons(rows) { const byPlayer=new Map(); for(const row of rows){const arr=byPlayer.get(row.gsis_id)||[];arr.push(row);byPlayer.set(row.gsis_id,arr);} for(const arr of byPlayer.values()) arr.sort((a,b)=>a.season-b.season); return byPlayer; }
