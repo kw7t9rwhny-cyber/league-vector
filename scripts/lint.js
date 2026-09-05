@@ -1,7 +1,7 @@
 const fs = require("node:fs");
 const path = require("node:path");
 
-const roots = ["app.js", "core-v08.js", "data-sources-v08.js", "playwright.config.js", "index.html", "styles.css", "README.md", "docs", "scripts", "tests"];
+const roots = ["pilot-ui.js", "pilot-fixture-adapter.js", "pilot.css", "rankings.html", "player.html", "compare.html", "app.js", "core-v08.js", "data-sources-v08.js", "playwright.config.js", "index.html", "styles.css", "README.md", "docs", "scripts", "tests"];
 const files = [];
 function collect(target) {
   const stat = fs.statSync(target);

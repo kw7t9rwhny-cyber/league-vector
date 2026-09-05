@@ -24,7 +24,7 @@
     const footer = premium.createFooter();
     const skipLink = premium.element('<a class="skip-link" href="#leagueId">Skip to league import</a>');
     const proof = premium.element('<div class="hero-proof" aria-label="League Vector product strengths"><span><i>↗</i>League-aware values</span><span><i>◆</i>IDP context built in</span><span><i>✓</i>Evidence disclosed</span><span><i>β</i>Foundation beta v0.8</span></div>');
-    const secondary = premium.element('<div class="hero-secondary-row"><a class="secondary-cta" href="#features"><span class="play-dot" aria-hidden="true">▶</span>See how it works</a></div>');
+    const secondary = premium.element('<div class="hero-secondary-row"><a class="secondary-cta" href="rankings.html">Explore demo rankings →</a></div>');
     const trust = premium.element('<div class="hero-trust"><div class="manager-stack" aria-hidden="true"><i>LV</i><i>IDP</i><i>SF</i><i>β</i></div><div><strong>Foundation beta for serious dynasty managers</strong><span>Supported, experimental and unavailable outputs stay clearly separated.</span></div></div>');
     if (!header || !heroVisual || !preview || !marketing || !footer || !skipLink || !proof || !secondary || !trust) return false;
 

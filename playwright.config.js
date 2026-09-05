@@ -14,6 +14,7 @@ module.exports = defineConfig({
   projects: [
     { name: "desktop-chromium", use: { ...devices["Desktop Chrome"] } },
     { name: "mobile-chromium", use: { ...devices["Pixel 5"] } },
+    { name: "iphone-webkit", testMatch: /(?:^|[\/])pilot[^\/]*\.spec\.js$/, use: { ...devices["iPhone 13"] } },
   ],
   webServer: {
     command: "node scripts/serve.js",
