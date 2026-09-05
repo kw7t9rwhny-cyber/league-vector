@@ -101,6 +101,17 @@ test('empty evaluation population returns null metrics and zero counts, never su
   const frozen = E.freeze(F.rebind(input)), result = E.assess(frozen, F.assessment(frozen)).final_untouched_evaluation;
   assert.equal(result.status, 'empty_population'); assert.equal(result.metrics.mae, null); assert.equal(result.population.eligible, 0);
 });
+test('canonical rookie identity without a GSIS alias remains eligible and can join outcomes', () => {
+  const input = F.fixture(), rookie = input.origins[2].universe.members.find(m => m.gsis_id === 'ROOKIE');
+  rookie.player_id = 'lv:player:rookie'; delete rookie.gsis_id;
+  const frozen = E.freeze(F.rebind(input)), row = frozen.final_forecast.rows.find(r => r.player_id === rookie.player_id);
+  assert.equal(row.gsis_id, null); assert.ok(row.missing_inputs.length > 0);
+  const outcome = {player_id: rookie.player_id, target_season: 2025, universe_id: frozen.final_forecast.origin.universe.id, source_id: F.sourceId, available_at: F.stamp(2026, '03'), stats: {passing_yards: F.value(0)}};
+  const a = F.rebindAssessment({forecast_sha256: frozen.artifact_sha256, universe_id: frozen.final_forecast.origin.universe.id, evaluation_cutoff: F.stamp(2026, '04'), outcomes: [outcome]});
+  const result = E.assess(frozen, a).final_untouched_evaluation;
+  assert.equal(result.population.eligible, 27);
+  assert.equal(result.ledger.find(r => r.player_id === rookie.player_id).outcome_status, 'supplied');
+});
 test('changed universe, mixed seasons and premature outcomes fail closed', () => {
   const frozen = E.freeze(F.fixture()), a = F.assessment(frozen); a.universe_id = 'another-universe';
   assert.throws(() => E.assess(frozen, a), /Changed assessment universe/);

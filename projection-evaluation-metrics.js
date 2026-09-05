@@ -2,11 +2,12 @@
 
 const B = require('./projection-benchmark-v08.js');
 const BASELINE = 'weighted_603010';
-const key = row => JSON.stringify([row.target_season, row.position, row.target, row.gsis_id]);
+const playerKey = row => row.player_id ?? row.gsis_id;
+const key = row => JSON.stringify([row.target_season, row.position, row.target, playerKey(row)]);
 function unique(rows) {
   const seen = new Set();
   for (const row of rows) {
-    if (!row.gsis_id || !row.position || !row.target || !Number.isInteger(row.target_season) || !row.model) throw new Error('Prediction identity/period required');
+    if (!playerKey(row) || !row.position || !row.target || !Number.isInteger(row.target_season) || !row.model) throw new Error('Prediction identity/period required');
     const id = `${key(row)}|${row.model}`;
     if (seen.has(id)) throw new Error(`Duplicate prediction: ${id}`);
     seen.add(id);
@@ -79,8 +80,8 @@ function rankReport(rows) {
     if (!Number.isInteger(row.target_season)) throw new Error('Ranking requires target season');
     if (typeof row.forecast_cutoff !== 'string' || !Number.isFinite(Date.parse(row.forecast_cutoff)) || !row.format || !row.universe_id || !row.position) throw new Error('Ranking requires forecast cutoff, format, universe and position');
     const unit = JSON.stringify([row.forecast_cutoff, row.target_season, row.format, row.universe_id, row.position]);
-    const id = `${unit}|${row.gsis_id}`;
-    if (!row.gsis_id || seen.has(id)) throw new Error('Duplicate player-season in ranking unit');
+    const id = `${unit}|${playerKey(row)}`;
+    if (!playerKey(row) || seen.has(id)) throw new Error('Duplicate player-season in ranking unit');
     seen.add(id);
     if (!Number.isFinite(row.predicted_points) || !Number.isFinite(row.actual_points)) throw new Error('Ranking requires finite scored rows');
     if (!groups.has(unit)) groups.set(unit, []);
@@ -89,7 +90,7 @@ function rankReport(rows) {
   const limits = {QB: [12, 24], RB: [12, 24, 36], WR: [12, 24, 36, 48], TE: [12, 24], DL: [12, 24], LB: [12, 24], DB: [12, 24]};
   return [...groups].sort(([a], [b]) => a.localeCompare(b)).map(([unit, group]) => {
     const [forecast_cutoff, target_season, format, universe_id, position] = JSON.parse(unit);
-    const sort = field => [...group].sort((a, b) => b[field] - a[field] || a.gsis_id.localeCompare(b.gsis_id));
+    const sort = field => [...group].sort((a, b) => b[field] - a[field] || playerKey(a).localeCompare(playerKey(b)));
     const actual = sort('actual_points'), predicted = sort('predicted_points');
     let paired = 0, reversed = 0, tied = 0;
     for (let i = 0; i < group.length; i++) for (let j = i + 1; j < group.length; j++) {
@@ -101,10 +102,10 @@ function rankReport(rows) {
       pairwise: {comparable: paired, reversed, tied, error_rate: paired ? reversed / paired : null},
       tie_policy: 'average ranks for Spearman; canonical ID breaks top-N boundary ties; tied pairs separate',
       top_n: (limits[position] || []).map(requested => {
-        const n = Math.min(requested, group.length), ids = new Set(actual.slice(0, n).map(r => r.gsis_id));
-        const hits = predicted.slice(0, n).filter(r => ids.has(r.gsis_id)).length;
+        const n = Math.min(requested, group.length), ids = new Set(actual.slice(0, n).map(playerKey));
+        const hits = predicted.slice(0, n).filter(r => ids.has(playerKey(r))).length;
         return {requested_n: requested, effective_n: n, overlap: hits, precision: n ? hits / n : null};
       })};
   });
 }
-module.exports = {BASELINE, key, compare, uncertainty, rankReport, errors};
+module.exports = {BASELINE, playerKey, key, compare, uncertainty, rankReport, errors};

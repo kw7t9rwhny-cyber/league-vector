@@ -9,6 +9,7 @@ const P = require('./projection-v03.js');
 const Complete = require('./projection-v03-complete.js');
 const M = require('./projection-evaluation-metrics.js');
 const VERSION = 'lv-projection-evaluation/1';
+const playerKey = M.playerKey;
 const CANDIDATES = ['weighted_603010', 'ridge_noage_v03', 'ridge_age_v03', 'shrink_v03'];
 const PROHIBITED = ['calibrated_probability', 'universal_accuracy', 'guaranteed_future_performance', 'best_model', 'dynasty_accuracy'];
 function canonical(value) {
@@ -55,8 +56,8 @@ function codeIdentity() {
 function universeId(origin) {
   return hash({forecast_cutoff: origin.forecast_cutoff, target_season: origin.target_season, target_start: origin.target_start,
     target_end: origin.target_end, format: origin.format, scoring: origin.scoring, eligibility_rule: origin.eligibility_rule,
-    members: [...origin.universe.members].sort((a, b) => a.gsis_id.localeCompare(b.gsis_id)),
-    exclusions: [...origin.universe.exclusions].sort((a, b) => a.gsis_id.localeCompare(b.gsis_id))});
+    members: [...origin.universe.members].sort((a, b) => playerKey(a).localeCompare(playerKey(b))),
+    exclusions: [...origin.universe.exclusions].sort((a, b) => playerKey(a).localeCompare(playerKey(b)))});
 }
 function validateOrigin(o, sources) {
   requireThat(typeof o.id === 'string' && o.id && Number.isInteger(o.target_season), 'Origin identity required');
@@ -74,13 +75,14 @@ function validateOrigin(o, sources) {
   const u = o.universe;
   requireThat(u && Array.isArray(u.members) && Array.isArray(u.exclusions), 'Frozen eligible population and exclusions required');
   requireThat(sources.has(u.source_id) && time(u.available_at) <= time(o.forecast_cutoff), 'Universe source must exist by prediction cutoff');
-  unique([...u.members, ...u.exclusions], r => r.gsis_id, 'universe identity');
+  unique([...u.members, ...u.exclusions], playerKey, 'universe identity');
+  unique([...u.members, ...u.exclusions].filter(m => m.gsis_id), m => m.gsis_id, 'universe external alias');
   for (const m of u.members) {
-    requireThat(typeof m.gsis_id === 'string' && m.gsis_id && P.POSITIONS.includes(m.position), 'Canonical identity/position required');
+    requireThat(typeof playerKey(m) === 'string' && playerKey(m) && P.POSITIONS.includes(m.position), 'Canonical identity/position required');
     requireThat(Array.isArray(m.cohorts) && m.cohorts.length > 0 && m.cohorts.every(c => typeof c === 'string' && c), 'Explicit cohort flags required');
     requireThat(m.source_id && sources.has(m.source_id) && time(m.available_at) <= time(o.forecast_cutoff), 'Future membership/position/role feature');
   }
-  for (const m of u.exclusions) requireThat(m.gsis_id && m.reason && sources.has(m.source_id) && time(m.available_at) <= time(o.forecast_cutoff), 'Exclusion reason and as-of source required');
+  for (const m of u.exclusions) requireThat(playerKey(m) && m.reason && sources.has(m.source_id) && time(m.available_at) <= time(o.forecast_cutoff), 'Exclusion reason and as-of source required');
   requireThat(u.id === universeId(o), 'Changed universe: content identity mismatch');
 }
 function quantities(cells, counts, sources) {
@@ -102,10 +104,11 @@ function quantities(cells, counts, sources) {
   return values;
 }
 function seasonRows(input, sources, missingness, records) {
-  unique(input.season_rows, r => `${r.gsis_id}|${r.season}`, 'player-season');
+  unique(input.season_rows, r => `${playerKey(r)}|${r.season}`, 'player-season');
+  unique(input.season_rows.filter(r => r.gsis_id), r => `${r.gsis_id}|${r.season}`, 'historical external alias');
   return input.season_rows.map(r => {
     bind(r, records);
-    requireThat(sources.has(r.source_id) && r.gsis_id && P.POSITIONS.includes(r.position) && Number.isInteger(r.season), 'Invalid historical row identity/source');
+    requireThat(sources.has(r.source_id) && typeof playerKey(r) === 'string' && playerKey(r) && P.POSITIONS.includes(r.position) && Number.isInteger(r.season), 'Invalid historical row identity/source');
     requireThat(time(r.forecast_cutoff) < time(r.target_start) && time(r.target_start) < time(r.target_end), 'Historical target window invalid');
     requireThat(Number(r.target_start.slice(0, 4)) === r.season, 'Historical season and target window disagree');
     requireThat(time(r.target_end) - time(r.target_start) <= 366 * 86400000, 'Multi-season training targets require a separately implemented horizon model');
@@ -123,15 +126,18 @@ function eligibleHistory(rows, origin) {
     if (r.season >= origin.target_season) reason = 'target_or_future_season';
     else if (time(r.target_end) >= time(origin.forecast_cutoff) || time(r.label_available_at) >= time(origin.forecast_cutoff)) reason = 'unmatured_or_unavailable_label';
     else if (time(r.feature_available_at) > time(origin.forecast_cutoff)) reason = 'future_feature_vintage';
-    if (reason) exclusions.push({gsis_id: r.gsis_id, season: r.season, reason}); else included.push(r);
+    if (reason) exclusions.push({player_id: playerKey(r), gsis_id: r.gsis_id ?? null, season: r.season, reason}); else included.push(r);
   }
   return {included, exclusions};
 }
 function predict(origin, rows, birth, selection = null) {
   const history = eligibleHistory(rows, origin), models = new Map(), ledger = [];
+  // The legacy learner's index field is internal here; saved evidence retains
+  // the canonical player key separately from an optional external GSIS alias.
+  const modelRows = history.included.map(r => ({...r, gsis_id: playerKey(r)}));
   const births = Object.fromEntries(Object.entries(birth).map(([id, b]) => [id, {...b, forecast_cutoff: origin.forecast_cutoff}]));
-  for (const member of [...origin.universe.members].sort((a, b) => a.gsis_id.localeCompare(b.gsis_id))) {
-    const h = P.history(P.index(history.included), member.gsis_id, origin.target_season);
+  for (const member of [...origin.universe.members].sort((a, b) => playerKey(a).localeCompare(playerKey(b)))) {
+    const h = P.history(P.index(modelRows), playerKey(member), origin.target_season);
     const candidates = selection ? ['selected'] : CANDIDATES;
     for (const candidate of candidates) {
       const raw = {}, used = {}, reasons = {};
@@ -139,8 +145,8 @@ function predict(origin, rows, birth, selection = null) {
         const modelName = selection ? selection.find(s => s.position === member.position && s.target === target)?.selected.model || M.BASELINE : candidate;
         if (modelName === 'shrink_v03' && !P.RARE.has(target)) continue;
         const key = `${member.position}|${target}|${modelName}`;
-        if (!models.has(key)) models.set(key, Complete.finalModel(history.included, member.position, target, births, {selected: {model: modelName}}, origin.target_season));
-        const value = models.get(key).buildFor(member.gsis_id);
+        if (!models.has(key)) models.set(key, Complete.finalModel(modelRows, member.position, target, births, {selected: {model: modelName}}, origin.target_season));
+        const value = models.get(key).buildFor(playerKey(member));
         used[target] = modelName;
         if (Number.isFinite(value)) raw[target] = value;
         else reasons[target] = !h.length ? (member.cohorts.includes('rookie') ? 'rookie_model_not_implemented' : 'insufficient_history') : 'missing_required_history_or_fit';
@@ -148,33 +154,33 @@ function predict(origin, rows, birth, selection = null) {
       const clean = P.sanitizeLine(raw, member.position);
       const stats = Object.fromEntries(Object.entries(clean.stats).map(([k, v]) => [k, round(v)]));
       const missing = Object.entries(origin.scoring[member.position] || {}).filter(([k, w]) => w !== 0 && !Number.isFinite(stats[k])).map(([k]) => k);
-      ledger.push({gsis_id: member.gsis_id, position: member.position, cohorts: member.cohorts, model: candidate, models: used,
+      ledger.push({player_id: playerKey(member), gsis_id: member.gsis_id ?? null, position: member.position, cohorts: member.cohorts, model: candidate, models: used,
         projected_stats: stats, missing_inputs: missing, abstention_reasons: reasons, history_seasons: h.map(r => r.season),
         confidence: P.confidence(h.length, missing, true), corrections: clean.corrections, intervals: {}});
     }
   }
   return {rows: ledger, training_cutoff: origin.forecast_cutoff, history_exclusions: history.exclusions,
-    model_fits: Object.fromEntries([...models].sort(([a], [b]) => a.localeCompare(b)).map(([key, model]) => [key, model.fit])),
-    admitted_training_rows: history.included.map(r => ({gsis_id: r.gsis_id, season: r.season, forecast_cutoff: r.forecast_cutoff, target_end: r.target_end, label_available_at: r.label_available_at, feature_available_at: r.feature_available_at}))};
+    model_fits: Object.fromEntries([...models].sort(([a], [b]) => a.localeCompare(b)).map(([key, model]) => [key, {...model.fit, training_examples: model.fit.training_examples.map(({gsis_id, ...example}) => ({player_id: gsis_id, ...example}))}])),
+    admitted_training_rows: history.included.map(r => ({player_id: playerKey(r), gsis_id: r.gsis_id ?? null, season: r.season, forecast_cutoff: r.forecast_cutoff, target_end: r.target_end, label_available_at: r.label_available_at, feature_available_at: r.feature_available_at}))};
 }
 function attachOutcomes(origin, forecasts, outcomes, evaluationCutoff, sources, records) {
   requireThat(time(evaluationCutoff) > time(origin.target_end), 'Evaluation cutoff must follow complete target window');
-  unique(outcomes, r => r.gsis_id, 'outcome player-season');
-  const members = new Set(origin.universe.members.map(m => m.gsis_id));
+  unique(outcomes, playerKey, 'outcome player-season');
+  const members = new Set(origin.universe.members.map(playerKey));
   const values = new Map(), missingness = {};
   for (const outcome of outcomes) {
     bind(outcome, records);
-    requireThat(members.has(outcome.gsis_id), 'Outcome outside frozen eligible universe');
+    requireThat(members.has(playerKey(outcome)), 'Outcome outside frozen eligible universe');
     requireThat(outcome.target_season === origin.target_season && outcome.universe_id === origin.universe.id, 'Outcome period/universe mismatch');
     requireThat(sources.has(outcome.source_id), 'Outcome source missing');
     requireThat(time(outcome.available_at) > time(origin.target_end) && time(outcome.available_at) <= time(evaluationCutoff), 'Outcome availability outside evaluation cutoff');
-    values.set(outcome.gsis_id, quantities(outcome.stats, missingness, sources));
+    values.set(playerKey(outcome), quantities(outcome.stats, missingness, sources));
   }
-  const ledger = forecasts.map(f => ({...f, actual: values.get(f.gsis_id) || {}, outcome_status: values.has(f.gsis_id) ? 'supplied' : 'absent_from_outcome_data'}));
+  const ledger = forecasts.map(f => ({...f, actual: values.get(playerKey(f)) || {}, outcome_status: values.has(playerKey(f)) ? 'supplied' : 'absent_from_outcome_data'}));
   return {ledger, missingness};
 }
 function predictionRows(origin, ledger, selected = false) {
-  return ledger.flatMap(f => Object.entries(f.projected_stats).filter(([target]) => Number.isFinite(f.actual[target])).map(([target, prediction]) => ({gsis_id: f.gsis_id, position: f.position, target, target_season: origin.target_season, model: selected ? f.models[target] : f.model, prediction, actual: f.actual[target]})));
+  return ledger.flatMap(f => Object.entries(f.projected_stats).filter(([target]) => Number.isFinite(f.actual[target])).map(([target, prediction]) => ({player_id: playerKey(f), gsis_id: f.gsis_id, position: f.position, target, target_season: origin.target_season, model: selected ? f.models[target] : f.model, prediction, actual: f.actual[target]})));
 }
 function score(stats, rules) {
   const active = Object.entries(rules || {}).filter(([, w]) => w !== 0);
@@ -196,7 +202,7 @@ function summarize(origin, ledger) {
     population: counts(rows), cohorts: Object.fromEntries(cohorts.map(c => [c, counts(rows.filter(r => r.cohorts.includes(c)))])),
     metrics: {...M.errors(evaluated.map(r => ({prediction: r.predicted_points, actual: r.actual_points}))), weighting: 'one observed player in this forecast unit', conditional_on: 'finite forecast and observed outcome'},
     rankings: M.rankReport(evaluated.map(r => ({...r, target_season: origin.target_season, forecast_cutoff: origin.forecast_cutoff, format: origin.format, universe_id: origin.universe.id}))),
-    exclusions: rows.filter(r => r.evaluation_exclusion).map(r => ({gsis_id: r.gsis_id, reason: r.evaluation_exclusion, unknown_outcome: r.actual_points === null, missing_inputs: r.missing_inputs})), ledger: rows};
+    exclusions: rows.filter(r => r.evaluation_exclusion).map(r => ({player_id: playerKey(r), gsis_id: r.gsis_id, reason: r.evaluation_exclusion, unknown_outcome: r.actual_points === null, missing_inputs: r.missing_inputs})), ledger: rows};
 }
 function assertClaims(claims = []) {
   requireThat(Array.isArray(claims) && claims.every(c => ['historical_error_exact_set', 'observed_coverage_exact_set', 'ordinal_performance_exact_unit'].includes(c)), 'Unsupported claim; heuristic confidence is not calibrated probability');
