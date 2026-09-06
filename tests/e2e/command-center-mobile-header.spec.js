@@ -43,8 +43,9 @@ test("uses a compact mobile header while the command center is open and restores
   await expect(page.locator("#commandCenterChooser")).toBeVisible();
   await expect(page.locator(".site-header .header-actions")).toBeHidden();
 
-  const compactHeight = await page.locator(".site-header").evaluate((node) => node.getBoundingClientRect().height);
-  expect(compactHeight).toBeLessThanOrEqual(46);
+  await expect.poll(() => page.locator(".site-header").evaluate((node) => node.getBoundingClientRect().height), {
+    timeout: 5000,
+  }).toBeLessThanOrEqual(46);
 
   await page.getByRole("button", { name: /Select Test Team/ }).click();
   await expect(page.locator("#commandCenterDashboard")).toBeVisible();
