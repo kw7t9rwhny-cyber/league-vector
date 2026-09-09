@@ -48,7 +48,7 @@
     const n = Number(value);
     return Number.isFinite(n) ? n : 0;
   };
-  const finite = (value) => Number.isFinite(Number(value));
+  const finite = (value) => typeof value === 'number' && Number.isFinite(value);
   const mean = (values) => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
   function median(values) {
     if (!values.length) return null;
@@ -65,7 +65,8 @@
   function scoreStatLine(stats = {}, scoring = {}) {
     let total = 0;
     for (const [stat, weight] of Object.entries(scoring || {})) {
-      if (finite(stats[stat]) && finite(weight)) total += Number(stats[stat]) * Number(weight);
+      if (!finite(weight) || (weight !== 0 && !finite(stats[stat]))) return null;
+      if (weight !== 0) total += stats[stat] * weight;
     }
     return total;
   }
@@ -97,9 +98,8 @@
       if (!POSITIONS.includes(row?.position) || !Number.isInteger(row?.season)) continue;
       if (seasons && !seasons.has(row.season)) continue;
       if (number(row.games) < minGames) continue;
-      const perGame = row.per_game || {};
-      const hasDefensiveProduction = STATS.some((stat) => number(perGame[stat]) > 0);
-      if (!hasDefensiveProduction) continue;
+      // A supplied eligible participant with no known events must still count
+      // toward each field's expected support; absence is not positive production.
       const key = `${row.position}|${row.season}`;
       const records = byPositionSeason.get(key) || [];
       records.push(row);
@@ -109,10 +109,11 @@
     const profiles = [];
     for (const [key, rows] of byPositionSeason) {
       const [position, seasonText] = key.split("|");
-      const stats = {};
+      const stats = {}, support = {};
       for (const stat of STATS) {
-        const values = rows.map((row) => number(row.per_game?.[stat]));
-        stats[stat] = round(mean(values), 4);
+        const values = rows.map((row) => row.per_game?.[stat]).filter(finite);
+        support[stat] = {known: values.length, expected: rows.length};
+        stats[stat] = values.length === rows.length ? round(mean(values), 4) : null;
       }
       profiles.push({
         position,
@@ -120,7 +121,7 @@
         sample_size: rows.length,
         min_games: minGames,
         aggregation: "mean_player_per_game_then_median_across_seasons",
-        stats,
+        stats, support,
       });
     }
     profiles.sort((a, b) => a.position.localeCompare(b.position) || a.season - b.season);
