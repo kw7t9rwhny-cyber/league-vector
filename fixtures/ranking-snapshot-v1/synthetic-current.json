@@ -1,0 +1,1321 @@
+{
+  "schema_version": "lv-ranking-snapshot/v1",
+  "run_id": "synthetic-current-v1",
+  "data_kind": "SYNTHETIC",
+  "generated_at": "2026-09-04T10:00:00.000Z",
+  "published_at": "2026-09-04T11:00:00.000Z",
+  "data_cutoff": "2026-09-04T00:00:00.000Z",
+  "valid_until": "2026-09-10T00:00:00.000Z",
+  "publication": {
+    "state": "PUBLISHED",
+    "rights_state": "SYNTHETIC_ONLY",
+    "reference": "synthetic-fixture-only"
+  },
+  "method": {
+    "id": "synthetic-fixture-method",
+    "version": "1",
+    "summary": "Synthetic fixture only. Prepared ordinal examples exercise the consumer contract; no football method or player prediction is supplied.",
+    "components": [
+      {
+        "id": "synthetic-signal",
+        "version": "1",
+        "label": "Synthetic recorded signal",
+        "required_fields": [
+          "synthetic_signal"
+        ]
+      }
+    ],
+    "limitations": [
+      {
+        "id": "synthetic-only",
+        "text": "Synthetic examples are prepared for contract testing and do not describe real players or establish a ranking method.",
+        "reviewed": true
+      }
+    ]
+  },
+  "sources": [
+    {
+      "source_id": "synthetic-source",
+      "manifest_ref": "synthetic://ranking-snapshot-v1/inputs-2026-09-04",
+      "content_hash": "sha256:dec29917e04d1d8cd17a6ad0b2b08f7dc6bf2f0230e601d3a9390faf57d202af",
+      "observed_at": "2026-09-04T09:00:00.000Z",
+      "data_cutoff": "2026-09-04T00:00:00.000Z",
+      "valid_until": "2026-09-10T00:00:00.000Z",
+      "delivery_state": "SYNTHETIC_ONLY",
+      "eligibility_ref": "synthetic-fixture-only",
+      "attribution": "League Vector synthetic contract fixture; no real athlete data."
+    }
+  ],
+  "formats": {
+    "dynasty-1qb": {
+      "assumptions_id": "lv-pilot-dynasty-1qb/v1",
+      "universe": {
+        "id": "synthetic-universe-v1",
+        "definition": "Synthetic contract fixture: five supported example identities and three explicitly unsupported examples.",
+        "supported_positions": [
+          "QB",
+          "RB",
+          "WR",
+          "TE"
+        ],
+        "eligible_player_ids": [
+          "lv:synthetic:alpha",
+          "lv:synthetic:bravo",
+          "lv:synthetic:charlie",
+          "lv:synthetic:delta",
+          "lv:synthetic:echo"
+        ],
+        "coverage_count": 5,
+        "exclusions": [
+          "Synthetic rookies without a supported method",
+          "Synthetic players with insufficient history",
+          "Synthetic identities awaiting resolution"
+        ]
+      },
+      "entries": [
+        {
+          "player_id": "lv:synthetic:alpha",
+          "name": "Synthetic Alpha",
+          "aliases": [
+            "Synthetic Alpha Alias"
+          ],
+          "identity_state": "VERIFIED",
+          "position": "WR",
+          "team": "Synthetic Club",
+          "team_state": "KNOWN",
+          "status": "ACTIVE",
+          "age": {
+            "years": 24,
+            "as_of": "2026-09-04T00:00:00.000Z"
+          },
+          "identity_evidence_refs": [
+            "synthetic-source"
+          ],
+          "ranking_status": "RANKED",
+          "rank": 1,
+          "evidence_state": "DOCUMENTED",
+          "unsupported_reason": null,
+          "evidence_gaps": [],
+          "facts": [
+            {
+              "id": "current-1qb-alpha-signal",
+              "run_id": "synthetic-current-v1",
+              "format": "dynasty-1qb",
+              "player_id": "lv:synthetic:alpha",
+              "field": "synthetic_signal",
+              "value": {
+                "state": "KNOWN",
+                "value": 22
+              },
+              "unit": "synthetic-observation",
+              "period": "Synthetic fixture observation period",
+              "as_of": "2026-09-04T00:00:00.000Z",
+              "source_id": "synthetic-source"
+            }
+          ],
+          "drivers": [
+            {
+              "id": "current-1qb-alpha-support",
+              "component_id": "synthetic-signal",
+              "direction": "supports",
+              "use": "ranking",
+              "fact_refs": [
+                "current-1qb-alpha-signal"
+              ]
+            }
+          ],
+          "primary_reason": {
+            "template_id": "observed-support/v1",
+            "driver_id": "current-1qb-alpha-support"
+          },
+          "limitations": [
+            "synthetic-only"
+          ],
+          "change_conditions": [
+            {
+              "fact_id": "current-1qb-alpha-signal",
+              "direction": "increase",
+              "basis_driver_id": "current-1qb-alpha-support",
+              "kind": "EDITORIAL",
+              "reviewed": true
+            }
+          ],
+          "history": {
+            "state": "COMPARABLE",
+            "previous_rank": 3,
+            "changed_fact_refs": [
+              "current-1qb-alpha-signal"
+            ]
+          }
+        },
+        {
+          "player_id": "lv:synthetic:bravo",
+          "name": "Synthetic Bravo",
+          "aliases": [
+            "Synthetic Bravo Alias"
+          ],
+          "identity_state": "VERIFIED",
+          "position": "WR",
+          "team": "Synthetic Club",
+          "team_state": "KNOWN",
+          "status": "ACTIVE",
+          "age": {
+            "years": 25,
+            "as_of": "2026-09-04T00:00:00.000Z"
+          },
+          "identity_evidence_refs": [
+            "synthetic-source"
+          ],
+          "ranking_status": "RANKED",
+          "rank": 1,
+          "evidence_state": "DOCUMENTED",
+          "unsupported_reason": null,
+          "evidence_gaps": [],
+          "facts": [
+            {
+              "id": "current-1qb-bravo-signal",
+              "run_id": "synthetic-current-v1",
+              "format": "dynasty-1qb",
+              "player_id": "lv:synthetic:bravo",
+              "field": "synthetic_signal",
+              "value": {
+                "state": "KNOWN",
+                "value": 21
+              },
+              "unit": "synthetic-observation",
+              "period": "Synthetic fixture observation period",
+              "as_of": "2026-09-04T00:00:00.000Z",
+              "source_id": "synthetic-source"
+            }
+          ],
+          "drivers": [
+            {
+              "id": "current-1qb-bravo-support",
+              "component_id": "synthetic-signal",
+              "direction": "supports",
+              "use": "ranking",
+              "fact_refs": [
+                "current-1qb-bravo-signal"
+              ]
+            }
+          ],
+          "primary_reason": {
+            "template_id": "observed-support/v1",
+            "driver_id": "current-1qb-bravo-support"
+          },
+          "limitations": [
+            "synthetic-only"
+          ],
+          "change_conditions": [
+            {
+              "fact_id": "current-1qb-bravo-signal",
+              "direction": "increase",
+              "basis_driver_id": "current-1qb-bravo-support",
+              "kind": "EDITORIAL",
+              "reviewed": true
+            }
+          ],
+          "history": {
+            "state": "COMPARABLE",
+            "previous_rank": 1,
+            "changed_fact_refs": []
+          }
+        },
+        {
+          "player_id": "lv:synthetic:charlie",
+          "name": "Synthetic Charlie",
+          "aliases": [
+            "Synthetic Charlie Alias"
+          ],
+          "identity_state": "VERIFIED",
+          "position": "WR",
+          "team": null,
+          "team_state": "UNKNOWN",
+          "status": "ACTIVE",
+          "age": null,
+          "identity_evidence_refs": [
+            "synthetic-source"
+          ],
+          "ranking_status": "RANKED",
+          "rank": 3,
+          "evidence_state": "LIMITED",
+          "unsupported_reason": null,
+          "evidence_gaps": [
+            "missing_change_condition",
+            "missing_age",
+            "missing_team",
+            "optional_input_missing"
+          ],
+          "facts": [
+            {
+              "id": "current-1qb-charlie-signal",
+              "run_id": "synthetic-current-v1",
+              "format": "dynasty-1qb",
+              "player_id": "lv:synthetic:charlie",
+              "field": "synthetic_signal",
+              "value": {
+                "state": "KNOWN",
+                "value": 22
+              },
+              "unit": "synthetic-observation",
+              "period": "Synthetic fixture observation period",
+              "as_of": "2026-09-04T00:00:00.000Z",
+              "source_id": "synthetic-source"
+            },
+            {
+              "id": "current-1qb-charlie-optional",
+              "run_id": "synthetic-current-v1",
+              "format": "dynasty-1qb",
+              "player_id": "lv:synthetic:charlie",
+              "field": "optional_context",
+              "value": {
+                "state": "MISSING",
+                "value": null
+              },
+              "unit": null,
+              "period": "Synthetic fixture observation period",
+              "as_of": "2026-09-04T00:00:00.000Z",
+              "source_id": "synthetic-source"
+            }
+          ],
+          "drivers": [
+            {
+              "id": "current-1qb-charlie-support",
+              "component_id": "synthetic-signal",
+              "direction": "supports",
+              "use": "ranking",
+              "fact_refs": [
+                "current-1qb-charlie-signal"
+              ]
+            }
+          ],
+          "primary_reason": {
+            "template_id": "observed-support/v1",
+            "driver_id": "current-1qb-charlie-support"
+          },
+          "limitations": [
+            "synthetic-only"
+          ],
+          "change_conditions": [],
+          "history": {
+            "state": "COMPARABLE",
+            "previous_rank": 1,
+            "changed_fact_refs": []
+          }
+        },
+        {
+          "player_id": "lv:synthetic:delta",
+          "name": "Synthetic Delta",
+          "aliases": [
+            "Synthetic Delta Alias"
+          ],
+          "identity_state": "VERIFIED",
+          "position": "QB",
+          "team": "Synthetic Club",
+          "team_state": "KNOWN",
+          "status": "ACTIVE",
+          "age": {
+            "years": 27,
+            "as_of": "2026-09-04T00:00:00.000Z"
+          },
+          "identity_evidence_refs": [
+            "synthetic-source"
+          ],
+          "ranking_status": "RANKED",
+          "rank": 4,
+          "evidence_state": "DOCUMENTED",
+          "unsupported_reason": null,
+          "evidence_gaps": [],
+          "facts": [
+            {
+              "id": "current-1qb-delta-signal",
+              "run_id": "synthetic-current-v1",
+              "format": "dynasty-1qb",
+              "player_id": "lv:synthetic:delta",
+              "field": "synthetic_signal",
+              "value": {
+                "state": "KNOWN",
+                "value": 23
+              },
+              "unit": "synthetic-observation",
+              "period": "Synthetic fixture observation period",
+              "as_of": "2026-09-04T00:00:00.000Z",
+              "source_id": "synthetic-source"
+            }
+          ],
+          "drivers": [
+            {
+              "id": "current-1qb-delta-support",
+              "component_id": "synthetic-signal",
+              "direction": "supports",
+              "use": "ranking",
+              "fact_refs": [
+                "current-1qb-delta-signal"
+              ]
+            }
+          ],
+          "primary_reason": {
+            "template_id": "observed-support/v1",
+            "driver_id": "current-1qb-delta-support"
+          },
+          "limitations": [
+            "synthetic-only"
+          ],
+          "change_conditions": [
+            {
+              "fact_id": "current-1qb-delta-signal",
+              "direction": "increase",
+              "basis_driver_id": "current-1qb-delta-support",
+              "kind": "EDITORIAL",
+              "reviewed": true
+            }
+          ],
+          "history": {
+            "state": "COMPARABLE",
+            "previous_rank": 4,
+            "changed_fact_refs": []
+          }
+        },
+        {
+          "player_id": "lv:synthetic:echo",
+          "name": "Synthetic Echo",
+          "aliases": [
+            "Synthetic Echo Alias"
+          ],
+          "identity_state": "VERIFIED",
+          "position": "RB",
+          "team": "Synthetic Club",
+          "team_state": "KNOWN",
+          "status": "ACTIVE",
+          "age": {
+            "years": 28,
+            "as_of": "2026-09-04T00:00:00.000Z"
+          },
+          "identity_evidence_refs": [
+            "synthetic-source"
+          ],
+          "ranking_status": "RANKED",
+          "rank": 5,
+          "evidence_state": "DOCUMENTED",
+          "unsupported_reason": null,
+          "evidence_gaps": [],
+          "facts": [
+            {
+              "id": "current-1qb-echo-signal",
+              "run_id": "synthetic-current-v1",
+              "format": "dynasty-1qb",
+              "player_id": "lv:synthetic:echo",
+              "field": "synthetic_signal",
+              "value": {
+                "state": "KNOWN",
+                "value": 0
+              },
+              "unit": "synthetic-observation",
+              "period": "Synthetic fixture observation period",
+              "as_of": "2026-09-04T00:00:00.000Z",
+              "source_id": "synthetic-source"
+            }
+          ],
+          "drivers": [
+            {
+              "id": "current-1qb-echo-support",
+              "component_id": "synthetic-signal",
+              "direction": "supports",
+              "use": "ranking",
+              "fact_refs": [
+                "current-1qb-echo-signal"
+              ]
+            }
+          ],
+          "primary_reason": {
+            "template_id": "observed-support/v1",
+            "driver_id": "current-1qb-echo-support"
+          },
+          "limitations": [
+            "synthetic-only"
+          ],
+          "change_conditions": [
+            {
+              "fact_id": "current-1qb-echo-signal",
+              "direction": "increase",
+              "basis_driver_id": "current-1qb-echo-support",
+              "kind": "EDITORIAL",
+              "reviewed": true
+            }
+          ],
+          "history": {
+            "state": "COMPARABLE",
+            "previous_rank": 5,
+            "changed_fact_refs": []
+          }
+        },
+        {
+          "player_id": "lv:synthetic:rookie",
+          "name": "Synthetic Rookie",
+          "aliases": [],
+          "identity_state": "VERIFIED",
+          "position": "WR",
+          "team": null,
+          "team_state": "UNKNOWN",
+          "status": "UNKNOWN",
+          "age": null,
+          "identity_evidence_refs": [
+            "synthetic-source"
+          ],
+          "ranking_status": "NOT_RANKED",
+          "rank": null,
+          "evidence_state": "UNAVAILABLE",
+          "unsupported_reason": "rookie_method_unavailable",
+          "evidence_gaps": [],
+          "facts": [],
+          "drivers": [],
+          "primary_reason": null,
+          "limitations": [
+            "synthetic-only"
+          ],
+          "change_conditions": [],
+          "history": {
+            "state": "NOT_RANKED",
+            "previous_rank": null,
+            "changed_fact_refs": []
+          }
+        },
+        {
+          "player_id": "lv:synthetic:limited-history",
+          "name": "Synthetic Limited history",
+          "aliases": [],
+          "identity_state": "VERIFIED",
+          "position": "WR",
+          "team": null,
+          "team_state": "UNKNOWN",
+          "status": "UNKNOWN",
+          "age": null,
+          "identity_evidence_refs": [
+            "synthetic-source"
+          ],
+          "ranking_status": "NOT_RANKED",
+          "rank": null,
+          "evidence_state": "UNAVAILABLE",
+          "unsupported_reason": "insufficient_history",
+          "evidence_gaps": [],
+          "facts": [],
+          "drivers": [],
+          "primary_reason": null,
+          "limitations": [
+            "synthetic-only"
+          ],
+          "change_conditions": [],
+          "history": {
+            "state": "NOT_RANKED",
+            "previous_rank": null,
+            "changed_fact_refs": []
+          }
+        },
+        {
+          "player_id": "lv:synthetic:unresolved-identity",
+          "name": "Synthetic Unresolved identity",
+          "aliases": [],
+          "identity_state": "UNRESOLVED",
+          "position": "WR",
+          "team": null,
+          "team_state": "UNKNOWN",
+          "status": "UNKNOWN",
+          "age": null,
+          "identity_evidence_refs": [
+            "synthetic-source"
+          ],
+          "ranking_status": "NOT_RANKED",
+          "rank": null,
+          "evidence_state": "UNAVAILABLE",
+          "unsupported_reason": "identity_unresolved",
+          "evidence_gaps": [],
+          "facts": [],
+          "drivers": [],
+          "primary_reason": null,
+          "limitations": [
+            "synthetic-only"
+          ],
+          "change_conditions": [],
+          "history": {
+            "state": "NOT_RANKED",
+            "previous_rank": null,
+            "changed_fact_refs": []
+          }
+        }
+      ]
+    },
+    "dynasty-superflex": {
+      "assumptions_id": "lv-pilot-dynasty-superflex/v1",
+      "universe": {
+        "id": "synthetic-universe-v1",
+        "definition": "Synthetic contract fixture: five supported example identities and three explicitly unsupported examples.",
+        "supported_positions": [
+          "QB",
+          "RB",
+          "WR",
+          "TE"
+        ],
+        "eligible_player_ids": [
+          "lv:synthetic:alpha",
+          "lv:synthetic:bravo",
+          "lv:synthetic:charlie",
+          "lv:synthetic:delta",
+          "lv:synthetic:echo"
+        ],
+        "coverage_count": 5,
+        "exclusions": [
+          "Synthetic rookies without a supported method",
+          "Synthetic players with insufficient history",
+          "Synthetic identities awaiting resolution"
+        ]
+      },
+      "entries": [
+        {
+          "player_id": "lv:synthetic:alpha",
+          "name": "Synthetic Alpha",
+          "aliases": [
+            "Synthetic Alpha Alias"
+          ],
+          "identity_state": "VERIFIED",
+          "position": "WR",
+          "team": "Synthetic Club",
+          "team_state": "KNOWN",
+          "status": "ACTIVE",
+          "age": {
+            "years": 24,
+            "as_of": "2026-09-04T00:00:00.000Z"
+          },
+          "identity_evidence_refs": [
+            "synthetic-source"
+          ],
+          "ranking_status": "RANKED",
+          "rank": 1,
+          "evidence_state": "DOCUMENTED",
+          "unsupported_reason": null,
+          "evidence_gaps": [],
+          "facts": [
+            {
+              "id": "current-sf-alpha-signal",
+              "run_id": "synthetic-current-v1",
+              "format": "dynasty-superflex",
+              "player_id": "lv:synthetic:alpha",
+              "field": "synthetic_signal",
+              "value": {
+                "state": "KNOWN",
+                "value": 22
+              },
+              "unit": "synthetic-observation",
+              "period": "Synthetic fixture observation period",
+              "as_of": "2026-09-04T00:00:00.000Z",
+              "source_id": "synthetic-source"
+            }
+          ],
+          "drivers": [
+            {
+              "id": "current-sf-alpha-support",
+              "component_id": "synthetic-signal",
+              "direction": "supports",
+              "use": "ranking",
+              "fact_refs": [
+                "current-sf-alpha-signal"
+              ]
+            }
+          ],
+          "primary_reason": {
+            "template_id": "observed-support/v1",
+            "driver_id": "current-sf-alpha-support"
+          },
+          "limitations": [
+            "synthetic-only"
+          ],
+          "change_conditions": [
+            {
+              "fact_id": "current-sf-alpha-signal",
+              "direction": "increase",
+              "basis_driver_id": "current-sf-alpha-support",
+              "kind": "EDITORIAL",
+              "reviewed": true
+            }
+          ],
+          "history": {
+            "state": "COMPARABLE",
+            "previous_rank": 1,
+            "changed_fact_refs": [
+              "current-sf-alpha-signal"
+            ]
+          }
+        },
+        {
+          "player_id": "lv:synthetic:delta",
+          "name": "Synthetic Delta",
+          "aliases": [
+            "Synthetic Delta Alias"
+          ],
+          "identity_state": "VERIFIED",
+          "position": "QB",
+          "team": "Synthetic Club",
+          "team_state": "KNOWN",
+          "status": "ACTIVE",
+          "age": {
+            "years": 27,
+            "as_of": "2026-09-04T00:00:00.000Z"
+          },
+          "identity_evidence_refs": [
+            "synthetic-source"
+          ],
+          "ranking_status": "RANKED",
+          "rank": 1,
+          "evidence_state": "DOCUMENTED",
+          "unsupported_reason": null,
+          "evidence_gaps": [],
+          "facts": [
+            {
+              "id": "current-sf-delta-signal",
+              "run_id": "synthetic-current-v1",
+              "format": "dynasty-superflex",
+              "player_id": "lv:synthetic:delta",
+              "field": "synthetic_signal",
+              "value": {
+                "state": "KNOWN",
+                "value": 23
+              },
+              "unit": "synthetic-observation",
+              "period": "Synthetic fixture observation period",
+              "as_of": "2026-09-04T00:00:00.000Z",
+              "source_id": "synthetic-source"
+            }
+          ],
+          "drivers": [
+            {
+              "id": "current-sf-delta-support",
+              "component_id": "synthetic-signal",
+              "direction": "supports",
+              "use": "ranking",
+              "fact_refs": [
+                "current-sf-delta-signal"
+              ]
+            }
+          ],
+          "primary_reason": {
+            "template_id": "observed-support/v1",
+            "driver_id": "current-sf-delta-support"
+          },
+          "limitations": [
+            "synthetic-only"
+          ],
+          "change_conditions": [
+            {
+              "fact_id": "current-sf-delta-signal",
+              "direction": "increase",
+              "basis_driver_id": "current-sf-delta-support",
+              "kind": "EDITORIAL",
+              "reviewed": true
+            }
+          ],
+          "history": {
+            "state": "COMPARABLE",
+            "previous_rank": 1,
+            "changed_fact_refs": []
+          }
+        },
+        {
+          "player_id": "lv:synthetic:bravo",
+          "name": "Synthetic Bravo",
+          "aliases": [
+            "Synthetic Bravo Alias"
+          ],
+          "identity_state": "VERIFIED",
+          "position": "WR",
+          "team": "Synthetic Club",
+          "team_state": "KNOWN",
+          "status": "ACTIVE",
+          "age": {
+            "years": 25,
+            "as_of": "2026-09-04T00:00:00.000Z"
+          },
+          "identity_evidence_refs": [
+            "synthetic-source"
+          ],
+          "ranking_status": "RANKED",
+          "rank": 3,
+          "evidence_state": "DOCUMENTED",
+          "unsupported_reason": null,
+          "evidence_gaps": [],
+          "facts": [
+            {
+              "id": "current-sf-bravo-signal",
+              "run_id": "synthetic-current-v1",
+              "format": "dynasty-superflex",
+              "player_id": "lv:synthetic:bravo",
+              "field": "synthetic_signal",
+              "value": {
+                "state": "KNOWN",
+                "value": 21
+              },
+              "unit": "synthetic-observation",
+              "period": "Synthetic fixture observation period",
+              "as_of": "2026-09-04T00:00:00.000Z",
+              "source_id": "synthetic-source"
+            }
+          ],
+          "drivers": [
+            {
+              "id": "current-sf-bravo-support",
+              "component_id": "synthetic-signal",
+              "direction": "supports",
+              "use": "ranking",
+              "fact_refs": [
+                "current-sf-bravo-signal"
+              ]
+            }
+          ],
+          "primary_reason": {
+            "template_id": "observed-support/v1",
+            "driver_id": "current-sf-bravo-support"
+          },
+          "limitations": [
+            "synthetic-only"
+          ],
+          "change_conditions": [
+            {
+              "fact_id": "current-sf-bravo-signal",
+              "direction": "increase",
+              "basis_driver_id": "current-sf-bravo-support",
+              "kind": "EDITORIAL",
+              "reviewed": true
+            }
+          ],
+          "history": {
+            "state": "COMPARABLE",
+            "previous_rank": 3,
+            "changed_fact_refs": []
+          }
+        },
+        {
+          "player_id": "lv:synthetic:charlie",
+          "name": "Synthetic Charlie",
+          "aliases": [
+            "Synthetic Charlie Alias"
+          ],
+          "identity_state": "VERIFIED",
+          "position": "WR",
+          "team": null,
+          "team_state": "UNKNOWN",
+          "status": "ACTIVE",
+          "age": null,
+          "identity_evidence_refs": [
+            "synthetic-source"
+          ],
+          "ranking_status": "RANKED",
+          "rank": 4,
+          "evidence_state": "LIMITED",
+          "unsupported_reason": null,
+          "evidence_gaps": [
+            "missing_change_condition",
+            "missing_age",
+            "missing_team",
+            "optional_input_missing"
+          ],
+          "facts": [
+            {
+              "id": "current-sf-charlie-signal",
+              "run_id": "synthetic-current-v1",
+              "format": "dynasty-superflex",
+              "player_id": "lv:synthetic:charlie",
+              "field": "synthetic_signal",
+              "value": {
+                "state": "KNOWN",
+                "value": 22
+              },
+              "unit": "synthetic-observation",
+              "period": "Synthetic fixture observation period",
+              "as_of": "2026-09-04T00:00:00.000Z",
+              "source_id": "synthetic-source"
+            },
+            {
+              "id": "current-sf-charlie-optional",
+              "run_id": "synthetic-current-v1",
+              "format": "dynasty-superflex",
+              "player_id": "lv:synthetic:charlie",
+              "field": "optional_context",
+              "value": {
+                "state": "MISSING",
+                "value": null
+              },
+              "unit": null,
+              "period": "Synthetic fixture observation period",
+              "as_of": "2026-09-04T00:00:00.000Z",
+              "source_id": "synthetic-source"
+            }
+          ],
+          "drivers": [
+            {
+              "id": "current-sf-charlie-support",
+              "component_id": "synthetic-signal",
+              "direction": "supports",
+              "use": "ranking",
+              "fact_refs": [
+                "current-sf-charlie-signal"
+              ]
+            }
+          ],
+          "primary_reason": {
+            "template_id": "observed-support/v1",
+            "driver_id": "current-sf-charlie-support"
+          },
+          "limitations": [
+            "synthetic-only"
+          ],
+          "change_conditions": [],
+          "history": {
+            "state": "COMPARABLE",
+            "previous_rank": 4,
+            "changed_fact_refs": []
+          }
+        },
+        {
+          "player_id": "lv:synthetic:echo",
+          "name": "Synthetic Echo",
+          "aliases": [
+            "Synthetic Echo Alias"
+          ],
+          "identity_state": "VERIFIED",
+          "position": "RB",
+          "team": "Synthetic Club",
+          "team_state": "KNOWN",
+          "status": "ACTIVE",
+          "age": {
+            "years": 28,
+            "as_of": "2026-09-04T00:00:00.000Z"
+          },
+          "identity_evidence_refs": [
+            "synthetic-source"
+          ],
+          "ranking_status": "RANKED",
+          "rank": 5,
+          "evidence_state": "DOCUMENTED",
+          "unsupported_reason": null,
+          "evidence_gaps": [],
+          "facts": [
+            {
+              "id": "current-sf-echo-signal",
+              "run_id": "synthetic-current-v1",
+              "format": "dynasty-superflex",
+              "player_id": "lv:synthetic:echo",
+              "field": "synthetic_signal",
+              "value": {
+                "state": "KNOWN",
+                "value": 0
+              },
+              "unit": "synthetic-observation",
+              "period": "Synthetic fixture observation period",
+              "as_of": "2026-09-04T00:00:00.000Z",
+              "source_id": "synthetic-source"
+            }
+          ],
+          "drivers": [
+            {
+              "id": "current-sf-echo-support",
+              "component_id": "synthetic-signal",
+              "direction": "supports",
+              "use": "ranking",
+              "fact_refs": [
+                "current-sf-echo-signal"
+              ]
+            }
+          ],
+          "primary_reason": {
+            "template_id": "observed-support/v1",
+            "driver_id": "current-sf-echo-support"
+          },
+          "limitations": [
+            "synthetic-only"
+          ],
+          "change_conditions": [
+            {
+              "fact_id": "current-sf-echo-signal",
+              "direction": "increase",
+              "basis_driver_id": "current-sf-echo-support",
+              "kind": "EDITORIAL",
+              "reviewed": true
+            }
+          ],
+          "history": {
+            "state": "COMPARABLE",
+            "previous_rank": 5,
+            "changed_fact_refs": []
+          }
+        },
+        {
+          "player_id": "lv:synthetic:rookie",
+          "name": "Synthetic Rookie",
+          "aliases": [],
+          "identity_state": "VERIFIED",
+          "position": "WR",
+          "team": null,
+          "team_state": "UNKNOWN",
+          "status": "UNKNOWN",
+          "age": null,
+          "identity_evidence_refs": [
+            "synthetic-source"
+          ],
+          "ranking_status": "NOT_RANKED",
+          "rank": null,
+          "evidence_state": "UNAVAILABLE",
+          "unsupported_reason": "rookie_method_unavailable",
+          "evidence_gaps": [],
+          "facts": [],
+          "drivers": [],
+          "primary_reason": null,
+          "limitations": [
+            "synthetic-only"
+          ],
+          "change_conditions": [],
+          "history": {
+            "state": "NOT_RANKED",
+            "previous_rank": null,
+            "changed_fact_refs": []
+          }
+        },
+        {
+          "player_id": "lv:synthetic:limited-history",
+          "name": "Synthetic Limited history",
+          "aliases": [],
+          "identity_state": "VERIFIED",
+          "position": "WR",
+          "team": null,
+          "team_state": "UNKNOWN",
+          "status": "UNKNOWN",
+          "age": null,
+          "identity_evidence_refs": [
+            "synthetic-source"
+          ],
+          "ranking_status": "NOT_RANKED",
+          "rank": null,
+          "evidence_state": "UNAVAILABLE",
+          "unsupported_reason": "insufficient_history",
+          "evidence_gaps": [],
+          "facts": [],
+          "drivers": [],
+          "primary_reason": null,
+          "limitations": [
+            "synthetic-only"
+          ],
+          "change_conditions": [],
+          "history": {
+            "state": "NOT_RANKED",
+            "previous_rank": null,
+            "changed_fact_refs": []
+          }
+        },
+        {
+          "player_id": "lv:synthetic:unresolved-identity",
+          "name": "Synthetic Unresolved identity",
+          "aliases": [],
+          "identity_state": "UNRESOLVED",
+          "position": "WR",
+          "team": null,
+          "team_state": "UNKNOWN",
+          "status": "UNKNOWN",
+          "age": null,
+          "identity_evidence_refs": [
+            "synthetic-source"
+          ],
+          "ranking_status": "NOT_RANKED",
+          "rank": null,
+          "evidence_state": "UNAVAILABLE",
+          "unsupported_reason": "identity_unresolved",
+          "evidence_gaps": [],
+          "facts": [],
+          "drivers": [],
+          "primary_reason": null,
+          "limitations": [
+            "synthetic-only"
+          ],
+          "change_conditions": [],
+          "history": {
+            "state": "NOT_RANKED",
+            "previous_rank": null,
+            "changed_fact_refs": []
+          }
+        }
+      ]
+    }
+  },
+  "previous_run": {
+    "run_id": "synthetic-prior-v1",
+    "artifact_id": "sha256:bcdbc7601f24fd8d89527593b8a370204da337448d628a4978fb2a9c27bb9a88",
+    "published_at": "2026-09-01T11:00:00.000Z",
+    "data_cutoff": "2026-09-01T00:00:00.000Z",
+    "method": {
+      "components": [
+        {
+          "id": "synthetic-signal",
+          "label": "Synthetic recorded signal",
+          "required_fields": [
+            "synthetic_signal"
+          ],
+          "version": "1"
+        }
+      ],
+      "id": "synthetic-fixture-method",
+      "limitations": [
+        {
+          "id": "synthetic-only",
+          "reviewed": true,
+          "text": "Synthetic examples are prepared for contract testing and do not describe real players or establish a ranking method."
+        }
+      ],
+      "summary": "Synthetic fixture only. Prepared ordinal examples exercise the consumer contract; no football method or player prediction is supplied.",
+      "version": "1"
+    },
+    "formats": {
+      "dynasty-1qb": {
+        "assumptions_id": "lv-pilot-dynasty-1qb/v1",
+        "universe": {
+          "coverage_count": 5,
+          "definition": "Synthetic contract fixture: five supported example identities and three explicitly unsupported examples.",
+          "eligible_player_ids": [
+            "lv:synthetic:alpha",
+            "lv:synthetic:bravo",
+            "lv:synthetic:charlie",
+            "lv:synthetic:delta",
+            "lv:synthetic:echo"
+          ],
+          "exclusions": [
+            "Synthetic identities awaiting resolution",
+            "Synthetic players with insufficient history",
+            "Synthetic rookies without a supported method"
+          ],
+          "id": "synthetic-universe-v1",
+          "supported_positions": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ]
+        },
+        "entries": [
+          {
+            "player_id": "lv:synthetic:alpha",
+            "rank": 3,
+            "ranking_status": "RANKED",
+            "facts": [
+              {
+                "field": "synthetic_signal",
+                "value": {
+                  "state": "KNOWN",
+                  "value": 20
+                }
+              }
+            ]
+          },
+          {
+            "player_id": "lv:synthetic:bravo",
+            "rank": 1,
+            "ranking_status": "RANKED",
+            "facts": [
+              {
+                "field": "synthetic_signal",
+                "value": {
+                  "state": "KNOWN",
+                  "value": 21
+                }
+              }
+            ]
+          },
+          {
+            "player_id": "lv:synthetic:charlie",
+            "rank": 1,
+            "ranking_status": "RANKED",
+            "facts": [
+              {
+                "field": "optional_context",
+                "value": {
+                  "state": "MISSING",
+                  "value": null
+                }
+              },
+              {
+                "field": "synthetic_signal",
+                "value": {
+                  "state": "KNOWN",
+                  "value": 22
+                }
+              }
+            ]
+          },
+          {
+            "player_id": "lv:synthetic:delta",
+            "rank": 4,
+            "ranking_status": "RANKED",
+            "facts": [
+              {
+                "field": "synthetic_signal",
+                "value": {
+                  "state": "KNOWN",
+                  "value": 23
+                }
+              }
+            ]
+          },
+          {
+            "player_id": "lv:synthetic:echo",
+            "rank": 5,
+            "ranking_status": "RANKED",
+            "facts": [
+              {
+                "field": "synthetic_signal",
+                "value": {
+                  "state": "KNOWN",
+                  "value": 0
+                }
+              }
+            ]
+          },
+          {
+            "player_id": "lv:synthetic:limited-history",
+            "rank": null,
+            "ranking_status": "NOT_RANKED",
+            "facts": []
+          },
+          {
+            "player_id": "lv:synthetic:rookie",
+            "rank": null,
+            "ranking_status": "NOT_RANKED",
+            "facts": []
+          },
+          {
+            "player_id": "lv:synthetic:unresolved-identity",
+            "rank": null,
+            "ranking_status": "NOT_RANKED",
+            "facts": []
+          }
+        ]
+      },
+      "dynasty-superflex": {
+        "assumptions_id": "lv-pilot-dynasty-superflex/v1",
+        "universe": {
+          "coverage_count": 5,
+          "definition": "Synthetic contract fixture: five supported example identities and three explicitly unsupported examples.",
+          "eligible_player_ids": [
+            "lv:synthetic:alpha",
+            "lv:synthetic:bravo",
+            "lv:synthetic:charlie",
+            "lv:synthetic:delta",
+            "lv:synthetic:echo"
+          ],
+          "exclusions": [
+            "Synthetic identities awaiting resolution",
+            "Synthetic players with insufficient history",
+            "Synthetic rookies without a supported method"
+          ],
+          "id": "synthetic-universe-v1",
+          "supported_positions": [
+            "QB",
+            "RB",
+            "TE",
+            "WR"
+          ]
+        },
+        "entries": [
+          {
+            "player_id": "lv:synthetic:alpha",
+            "rank": 1,
+            "ranking_status": "RANKED",
+            "facts": [
+              {
+                "field": "synthetic_signal",
+                "value": {
+                  "state": "KNOWN",
+                  "value": 20
+                }
+              }
+            ]
+          },
+          {
+            "player_id": "lv:synthetic:bravo",
+            "rank": 3,
+            "ranking_status": "RANKED",
+            "facts": [
+              {
+                "field": "synthetic_signal",
+                "value": {
+                  "state": "KNOWN",
+                  "value": 21
+                }
+              }
+            ]
+          },
+          {
+            "player_id": "lv:synthetic:charlie",
+            "rank": 4,
+            "ranking_status": "RANKED",
+            "facts": [
+              {
+                "field": "optional_context",
+                "value": {
+                  "state": "MISSING",
+                  "value": null
+                }
+              },
+              {
+                "field": "synthetic_signal",
+                "value": {
+                  "state": "KNOWN",
+                  "value": 22
+                }
+              }
+            ]
+          },
+          {
+            "player_id": "lv:synthetic:delta",
+            "rank": 1,
+            "ranking_status": "RANKED",
+            "facts": [
+              {
+                "field": "synthetic_signal",
+                "value": {
+                  "state": "KNOWN",
+                  "value": 23
+                }
+              }
+            ]
+          },
+          {
+            "player_id": "lv:synthetic:echo",
+            "rank": 5,
+            "ranking_status": "RANKED",
+            "facts": [
+              {
+                "field": "synthetic_signal",
+                "value": {
+                  "state": "KNOWN",
+                  "value": 0
+                }
+              }
+            ]
+          },
+          {
+            "player_id": "lv:synthetic:limited-history",
+            "rank": null,
+            "ranking_status": "NOT_RANKED",
+            "facts": []
+          },
+          {
+            "player_id": "lv:synthetic:rookie",
+            "rank": null,
+            "ranking_status": "NOT_RANKED",
+            "facts": []
+          },
+          {
+            "player_id": "lv:synthetic:unresolved-identity",
+            "rank": null,
+            "ranking_status": "NOT_RANKED",
+            "facts": []
+          }
+        ]
+      }
+    }
+  }
+}
