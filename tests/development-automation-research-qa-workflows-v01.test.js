@@ -1,0 +1,24 @@
+'use strict';
+const test=require('node:test');const assert=require('node:assert/strict');const fs=require('node:fs');const path=require('node:path');
+const root=path.resolve(__dirname,'..');
+const controller=fs.readFileSync(path.join(root,'.github/workflows/development-research-qa-controller-v01.yml'),'utf8');
+const research=fs.readFileSync(path.join(root,'.github/workflows/development-research-worker-v01.yml'),'utf8');
+const qa=fs.readFileSync(path.join(root,'.github/workflows/development-qa-worker-v01.yml'),'utf8');
+const all=[controller,research,qa].join('\n');
+
+test('all reusable workflows are explicit workflow_dispatch only',()=>{for(const text of [controller,research,qa]){assert.match(text,/workflow_dispatch:/);assert.doesNotMatch(text,/repository_dispatch:/);assert.doesNotMatch(text,/workflow_run:/);assert.doesNotMatch(text,/\bpush:/);assert.doesNotMatch(text,/pull_request/);}});
+test('dispatch payload is described as wake-up not authority',()=>{assert.match(controller,/Wake-up only; not authority/);assert.match(controller,/Re-read durable work item/);});
+test('no contents write permission exists',()=>{assert.doesNotMatch(all,/contents:\s*write/);});
+test('no merge install deploy release or remediation implementation path exists',()=>{assert.doesNotMatch(all,/github\.rest\.pulls\.merge|enable_auto_merge|git push|github\.rest\.repos\.createRelease|github\.rest\.repos\.createDeployment|remediation-worker/);});
+test('controller has only read contents plus issue/dispatch infrastructure writes',()=>{assert.match(controller,/contents: read/);assert.match(controller,/issues: write/);assert.match(controller,/actions: write/);});
+test('Research model job is read-only and cannot write Issue',()=>{const model=research.slice(research.indexOf('  research:'),research.indexOf('  persist:'));assert.match(model,/permission-profile: ":read-only"/);assert.match(model,/contents: read/);assert.doesNotMatch(model,/issues: write/);assert.doesNotMatch(model,/actions: write/);});
+test('QA model job is fresh read-only execution',()=>{const model=qa.slice(qa.indexOf('  qa:'),qa.indexOf('  persist:'));assert.match(model,/FRESH independent QA worker/);assert.match(model,/permission-profile: ":read-only"/);assert.doesNotMatch(model,/issues: write/);});
+test('Research terminal proof precedes Controller wake-up',()=>{const terminal=research.slice(research.indexOf('  terminal:'));assert.match(terminal,/authoritativeResultsFor/);assert.match(terminal,/createWorkflowDispatch/);assert.ok(terminal.indexOf('authoritativeResultsFor')<terminal.indexOf('createWorkflowDispatch'));});
+test('QA terminal proves durability and has no downstream dispatch',()=>{const terminal=qa.slice(qa.indexOf('  terminal:'));assert.match(terminal,/authoritativeResultsFor/);assert.match(terminal,/founder_stop/);assert.doesNotMatch(terminal,/createWorkflowDispatch/);});
+test('Controller dispatches Research or QA only after durable claim readback',()=>{assert.match(controller,/dispatch_claim_readback_ambiguity/);assert.match(controller,/createWorkflowDispatch/);assert.ok(controller.indexOf('dispatch_claim_readback_ambiguity')<controller.indexOf('createWorkflowDispatch'));});
+test('Controller reconciles dispatch observation instead of blind retry',()=>{assert.match(controller,/dispatch_unreconciled/);assert.match(controller,/listWorkflowRunsForRepo/);});
+test('worker concurrency keys isolate mutable scope by work item issue',()=>{assert.match(controller,/reusable-research-qa-controller-\$\{\{ inputs\.issue_number \}\}/);assert.match(research,/reusable-research-\$\{\{ inputs\.issue_number \}\}/);assert.match(qa,/reusable-qa-\$\{\{ inputs\.issue_number \}\}/);});
+test('run ceilings and role time ceilings are bounded',()=>{assert.match(controller,/enforceRunBudget/);assert.match(research,/timeout-minutes: 10/);assert.match(qa,/timeout-minutes: 10/);});
+test('immutable input SHA is checked out separately from protocol code',()=>{assert.match(research,/ref: \$\{\{ needs\.preflight\.outputs\.input_sha \}\}/);assert.match(qa,/ref: \$\{\{ needs\.preflight\.outputs\.input_sha \}\}/);assert.match(controller,/immutable_input_mismatch/);});
+test('private required context fails closed in public runtime',()=>{assert.match(controller,/required_private_context_unavailable_in_public_runtime/);assert.match(research,/required_private_context_unavailable/);});
+test('no pilot-specific Stage 3C fixture identities are embedded',()=>{assert.doesNotMatch(all,/Issue #53|stage3c-v0\.1-r[1-9]|docs\/ARCHITECTURE\.md|STAGE3C_/);});

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "research-qa-terminal-result/v1",
+  "title": "League Vector Authoritative Terminal Result Envelope v0.1",
+  "description": "Infrastructure-authored/verified envelope. Worker/model substance is confined to the nested substance field.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version","result_id","work_item_id","role","role_instance_id","worker_run_id","run_attempt","input_identity","upstream_result_ids","writer_identity","created_at","terminal_state","substance","telemetry"],
+  "properties": {
+    "schema_version": {"const":"research-qa-terminal-result/v1"},
+    "result_id": {"type":"string","pattern":"^[a-f0-9]{64}$"},
+    "work_item_id": {"type":"string"},
+    "role": {"enum":["research","qa"]},
+    "role_instance_id": {"enum":["research-primary","qa-primary"]},
+    "worker_run_id": {"type":"integer","minimum":1},
+    "run_attempt": {"const":1},
+    "input_identity": {"type":"object"},
+    "upstream_result_ids": {"type":"array","maxItems":1,"items":{"type":"string","pattern":"^[a-f0-9]{64}$"}},
+    "writer_identity": {"type":"object","additionalProperties":false,"required":["login","type"],"properties":{"login":{"const":"github-actions[bot]"},"type":{"const":"Bot"}}},
+    "created_at": {"type":"string"},
+    "terminal_state": {"const":"terminal"},
+    "substance": {"$ref":"worker-substance/v1"},
+    "telemetry": {"type":"object"}
+  }
+}

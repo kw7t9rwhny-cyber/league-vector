@@ -1,0 +1,176 @@
+name: Reusable QA Worker v0.1
+run-name: QA ${{ inputs.dispatch_identity }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        required: true
+        type: string
+      dispatch_identity:
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  issues: read
+
+concurrency:
+  group: reusable-qa-${{ inputs.issue_number }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    outputs:
+      input_sha: ${{ steps.prove.outputs.input_sha }}
+      research_result_id: ${{ steps.prove.outputs.research_result_id }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Prove durable QA eligibility and exact Research correlation
+        id: prove
+        uses: actions/github-script@v9
+        env:
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          DISPATCH_IDENTITY: ${{ inputs.dispatch_identity }}
+        with:
+          script: |
+            const fs=require('node:fs');
+            const p=require(`${process.env.GITHUB_WORKSPACE}/lib/development-automation/research-qa-protocol-v01.js`);
+            if(process.env.GITHUB_RUN_ATTEMPT!=='1')return core.setFailed('protocol_qa:replayed_run');
+            const issueNumber=Number(process.env.ISSUE_NUMBER);
+            const issue=(await github.rest.issues.get({owner:context.repo.owner,repo:context.repo.repo,issue_number:issueNumber})).data;
+            const parsed=p.parseWorkItemIssue(issue);if(!parsed.ok)return core.setFailed(`protocol_qa:${parsed.reason}`);
+            const researchWorkItem=parsed.workItem,qaWorkItem=p.deriveQaWorkItem(researchWorkItem);
+            const permission=(await github.rest.repos.getCollaboratorPermissionLevel({owner:context.repo.owner,repo:context.repo.repo,username:issue.user.login})).data;
+            const issuer=p.validateTrustedIssuer(issue,permission);if(!issuer.ok)return core.setFailed(`protocol_qa:${issuer.reason}`);
+            const commit=(await github.rest.repos.getCommit({owner:context.repo.owner,repo:context.repo.repo,ref:researchWorkItem.input_identity.commit_sha})).data;
+            if(commit.sha!==researchWorkItem.input_identity.commit_sha||commit.commit?.tree?.sha!==researchWorkItem.input_identity.tree_sha)return core.setFailed('protocol_qa:immutable_input_mismatch');
+            const comments=await github.paginate(github.rest.issues.listComments,{owner:context.repo.owner,repo:context.repo.repo,issue_number:issueNumber,per_page:100});
+            const state=p.assessControllerState({researchWorkItem,qaWorkItem,comments});
+            if(!state.ok||state.state!=='QA_DISPATCHED')return core.setFailed(`protocol_qa:not_dispatch_eligible:${state.reason||state.state}`);
+            const rr=state.researchResult;
+            const researchRun=(await github.rest.actions.getWorkflowRun({owner:context.repo.owner,repo:context.repo.repo,run_id:rr.worker_run_id})).data;
+            const runCheck=p.validateWorkerRunMetadata(researchRun,{role:'research',expectedRunId:rr.worker_run_id});if(!runCheck.ok)return core.setFailed(`protocol_qa:research_parent:${runCheck.reason}`);
+            const claims=comments.map((comment)=>({comment,parsed:p.parseDispatchClaimComment(comment)})).filter((entry)=>entry.parsed.ok&&entry.parsed.claim.dispatch_identity===process.env.DISPATCH_IDENTITY);
+            if(claims.length!==1)return core.setFailed('protocol_qa:missing_or_duplicate_dispatch_claim');
+            const claimCheck=p.validateDispatchClaim(claims[0].parsed.claim,{workItem:qaWorkItem,role:'qa',roleInstanceId:'qa-primary',upstreamResultIds:[rr.result_id],commentAuthor:claims[0].parsed.author});if(!claimCheck.ok)return core.setFailed(`protocol_qa:${claimCheck.reason}`);
+            fs.writeFileSync('protocol-context.json',JSON.stringify({work_item:qaWorkItem,original_objective:researchWorkItem.objective,research_terminal_result:rr,dispatch_identity:process.env.DISPATCH_IDENTITY},null,2));
+            core.setOutput('input_sha',researchWorkItem.input_identity.commit_sha);core.setOutput('research_result_id',rr.result_id);
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reusable-qa-context-${{ github.run_id }}
+          path: protocol-context.json
+          if-no-files-found: error
+          retention-days: 1
+
+  qa:
+    needs: preflight
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: protocol
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.input_sha }}
+          path: input
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: reusable-qa-context-${{ github.run_id }}
+          path: .
+      - name: Execute fresh independent QA worker
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ":read-only"
+          working-directory: input
+          output-file: ../qa-substance.json
+          output-schema-file: ../protocol/schemas/development-automation/worker-substance-v01.schema.json
+          prompt: |
+            Act as a FRESH independent QA worker. Read ../protocol-context.json, the original objective, exact immutable input snapshot, and the durable Research terminal result. Do not resume or assume Research reasoning.
+            Independently inspect/reproduce material facts against the checked-out snapshot. PASS only if the bounded contract is supported. FAIL if material requirements or claims are falsified/unsupported. BLOCKED if required evidence/identity/access is unavailable or ambiguous; BLOCKED is never PASS.
+            Do not mutate repository state, merge, install, deploy, release, change authority, alter QA criteria, dispatch another worker, or remediate. Return only schema-conforming worker substance.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reusable-qa-substance-${{ github.run_id }}
+          path: qa-substance.json
+          if-no-files-found: error
+          retention-days: 1
+
+  persist:
+    needs: [preflight, qa]
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      issues: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: reusable-qa-substance-${{ github.run_id }}
+          path: .
+      - name: Validate substance and persist infrastructure-authored QA envelope
+        uses: actions/github-script@v9
+        env:
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          DISPATCH_IDENTITY: ${{ inputs.dispatch_identity }}
+          RESEARCH_RESULT_ID: ${{ needs.preflight.outputs.research_result_id }}
+        with:
+          script: |
+            const fs=require('node:fs');const p=require(`${process.env.GITHUB_WORKSPACE}/lib/development-automation/research-qa-protocol-v01.js`);
+            if(process.env.GITHUB_RUN_ATTEMPT!=='1')return core.setFailed('protocol_qa_persist:replayed_run');
+            const issueNumber=Number(process.env.ISSUE_NUMBER);const issue=(await github.rest.issues.get({owner:context.repo.owner,repo:context.repo.repo,issue_number:issueNumber})).data;
+            const parsed=p.parseWorkItemIssue(issue);if(!parsed.ok)return core.setFailed(`protocol_qa_persist:${parsed.reason}`);
+            const researchWorkItem=parsed.workItem,qaWorkItem=p.deriveQaWorkItem(researchWorkItem);
+            const comments=await github.paginate(github.rest.issues.listComments,{owner:context.repo.owner,repo:context.repo.repo,issue_number:issueNumber,per_page:100});
+            const state=p.assessControllerState({researchWorkItem,qaWorkItem,comments});if(!state.ok||state.state!=='QA_DISPATCHED'||state.researchResult.result_id!==process.env.RESEARCH_RESULT_ID)return core.setFailed(`protocol_qa_persist:state_mismatch:${state.reason||state.state}`);
+            const claims=comments.map((comment)=>({comment,parsed:p.parseDispatchClaimComment(comment)})).filter((entry)=>entry.parsed.ok&&entry.parsed.claim.dispatch_identity===process.env.DISPATCH_IDENTITY);
+            if(claims.length!==1)return core.setFailed('protocol_qa_persist:dispatch_claim_ambiguity');
+            const claimCheck=p.validateDispatchClaim(claims[0].parsed.claim,{workItem:qaWorkItem,role:'qa',roleInstanceId:'qa-primary',upstreamResultIds:[state.researchResult.result_id],commentAuthor:claims[0].parsed.author});if(!claimCheck.ok)return core.setFailed(`protocol_qa_persist:${claimCheck.reason}`);
+            let substance;try{substance=JSON.parse(fs.readFileSync('qa-substance.json','utf8'));}catch{return core.setFailed('protocol_qa_persist:malformed_substance_json');}
+            const sub=p.validateSubstance(substance,'qa');if(!sub.ok)return core.setFailed(`protocol_qa_persist:${sub.reason}`);
+            const run=(await github.rest.actions.getWorkflowRun({owner:context.repo.owner,repo:context.repo.repo,run_id:context.runId})).data;
+            const telemetry=p.makeTelemetry({workflowCreatedAt:run.created_at,runStartedAt:run.run_started_at,terminalAt:new Date().toISOString(),founderInterventions:0,manualPromptTransfers:0,qaCycles:1,reworkCount:0});
+            const result=p.buildTerminalResult({workItem:qaWorkItem,role:'qa',roleInstanceId:'qa-primary',workerRunId:context.runId,runAttempt:1,upstreamResultIds:[state.researchResult.result_id],substance,createdAt:new Date().toISOString(),telemetry});
+            const pre=comments.filter((comment)=>typeof comment.body==='string'&&comment.body.startsWith(`${p.RESULT_MARKER}\n`)).map((comment)=>p.parseResultComment(comment)).filter((entry)=>entry.ok&&entry.result.work_item_id===qaWorkItem.work_item_id&&entry.result.role==='qa'&&entry.result.role_instance_id==='qa-primary');
+            if(pre.length!==0)return core.setFailed('protocol_qa_persist:existing_qa_terminal_result');
+            await github.rest.issues.createComment({owner:context.repo.owner,repo:context.repo.repo,issue_number:issueNumber,body:p.serializeMarkedJson(p.RESULT_MARKER,result)});
+            const readback=await github.paginate(github.rest.issues.listComments,{owner:context.repo.owner,repo:context.repo.repo,issue_number:issueNumber,per_page:100});
+            const proof=p.authoritativeResultsFor({comments:readback,workItem:qaWorkItem,role:'qa',roleInstanceId:'qa-primary',expectedWorkerRunId:context.runId,expectedRunAttempt:1,expectedUpstreamResultIds:[state.researchResult.result_id]});if(!proof.ok)return core.setFailed(`protocol_qa_persist:${proof.reason}`);
+
+  terminal:
+    needs: [preflight, persist]
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      issues: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Prove durable QA terminal result and stop at Founder/Lead gate
+        uses: actions/github-script@v9
+        env:
+          ISSUE_NUMBER: ${{ inputs.issue_number }}
+          RESEARCH_RESULT_ID: ${{ needs.preflight.outputs.research_result_id }}
+        with:
+          script: |
+            const p=require(`${process.env.GITHUB_WORKSPACE}/lib/development-automation/research-qa-protocol-v01.js`);const issueNumber=Number(process.env.ISSUE_NUMBER);
+            const issue=(await github.rest.issues.get({owner:context.repo.owner,repo:context.repo.repo,issue_number:issueNumber})).data;const parsed=p.parseWorkItemIssue(issue);if(!parsed.ok)return core.setFailed(`protocol_qa_terminal:${parsed.reason}`);
+            const qaWorkItem=p.deriveQaWorkItem(parsed.workItem);const comments=await github.paginate(github.rest.issues.listComments,{owner:context.repo.owner,repo:context.repo.repo,issue_number:issueNumber,per_page:100});
+            const proof=p.authoritativeResultsFor({comments,workItem:qaWorkItem,role:'qa',roleInstanceId:'qa-primary',expectedWorkerRunId:context.runId,expectedRunAttempt:1,expectedUpstreamResultIds:[process.env.RESEARCH_RESULT_ID]});if(!proof.ok)return core.setFailed(`protocol_qa_terminal:${proof.reason}`);
+            core.info(`protocol_qa_terminal:founder_stop:${proof.result.substance.status}:${proof.result.result_id}`);
