@@ -38,7 +38,7 @@
   ]);
 
   function finite(value) {
-    return value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
+    return typeof value === 'number' && Number.isFinite(value);
   }
   function round(value, digits = 3) {
     if (!finite(value)) return null;
