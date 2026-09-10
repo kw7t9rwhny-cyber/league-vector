@@ -12,7 +12,7 @@ const league = {
   season: "2026",
   total_rosters: 2,
   roster_positions: ["QB", "LB", "IDP_FLEX", "BN"],
-  scoring_settings: { pass_yd: 0.04, pass_td: 4, tkl_solo: 1, tkl_ast: 0.5, sack: 4 },
+  scoring_settings: { pass_yd: 0.04, pass_td: 4, idp_tkl_solo: 1, idp_tkl_ast: 0.5, idp_sack: 4 },
   settings: { draft_rounds: 2, playoff_week_start: 14 },
 };
 

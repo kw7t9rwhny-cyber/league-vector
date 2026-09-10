@@ -6,7 +6,7 @@ function league(overrides={}) {
   return {
     total_rosters: 1,
     roster_positions: ['DL','LB','DB','IDP_FLEX','BN'],
-    scoring_settings: { tkl_solo:1.5, tkl_ast:0.75, sack:4, int:6, pass_def:1.5, ff:3, fum_rec:3, def_td:6, safe:4, qb_hit:1, tkl_loss:2 },
+    scoring_settings: { idp_tkl_solo:1.5, idp_tkl_ast:0.75, idp_sack:4, idp_int:6, idp_pass_def:1.5, idp_ff:3, idp_fum_rec:3, idp_def_td:6, idp_safe:4, idp_qb_hit:1, idp_tkl_loss:2 },
     ...overrides,
   };
 }
@@ -42,11 +42,11 @@ test('league scoring is applied directly and complete supported scoring is ranka
 });
 
 test('meaningful unsupported IDP scoring fails closed', () => {
-  const rules = { ...league().scoring_settings, blk_kick: 6 };
+  const rules = { ...league().scoring_settings, idp_blk_kick: 6 };
   const result = Rankings.scoreProjectedStats(projection(1,'DL').projected_stats, rules);
   assert.equal(result.projected_points, null);
   assert.equal(result.ranking_eligible, false);
-  assert.deepEqual(result.scoring_coverage.unsupported_keys, ['blk_kick']);
+  assert.deepEqual(result.scoring_coverage.unsupported_keys, ['idp_blk_kick']);
 });
 
 test('missing projected stat required by active scoring fails closed', () => {
@@ -94,7 +94,7 @@ test('hybrid replacement threshold uses exact eligibility set rather than max po
 });
 
 test('negative supported scoring is preserved and replacement can be negative', () => {
-  const scored = Rankings.scoreProjectedStats({ solo_tackles:5 }, { tkl_solo:-1 });
+  const scored = Rankings.scoreProjectedStats({ solo_tackles:5 }, { idp_tkl_solo:-1 });
   assert.equal(scored.ranking_eligible, true);
   assert.equal(scored.projected_points, -5);
 
@@ -186,7 +186,7 @@ test('all current rows missing required projection stats is explicitly unavailab
 });
 
 test('deep league demand keeps points ranking but marks surplus unavailable', () => {
-  const l = league({ roster_positions:['LB','LB','BN'], scoring_settings:{tkl_solo:1} });
+  const l = league({ roster_positions:['LB','LB','BN'], scoring_settings:{idp_tkl_solo:1} });
   const s = { '3': sleeper()['3'] };
   const result = Rankings.buildCandidate({ league:l, sleeper_players:s, projections:[projection(3,'LB')] });
   assert.equal(result.status, 'ready_experimental');
@@ -204,7 +204,7 @@ test('candidate sorting remains deterministic for equal projected points and sur
     '12': { active:true, status:'Active', team:'MIN', fantasy_positions:['LB'] },
   };
   const rows = [projection(11,'LB'), projection(10,'LB'), projection(12,'LB')];
-  const l = league({ roster_positions:['LB','BN'], scoring_settings:{tkl_solo:1} });
+  const l = league({ roster_positions:['LB','BN'], scoring_settings:{idp_tkl_solo:1} });
   const first = Rankings.buildCandidate({ league:l, sleeper_players:s, projections:rows });
   const second = Rankings.buildCandidate({ league:l, sleeper_players:s, projections:[...rows].reverse() });
   assert.deepEqual(first.players.map((row)=>row.player_id), ['lv:10','lv:11','lv:12']);
@@ -212,7 +212,7 @@ test('candidate sorting remains deterministic for equal projected points and sur
 });
 
 test('candidate blocks all ranking output when meaningful league scoring coverage is incomplete', () => {
-  const l = league({ scoring_settings:{...league().scoring_settings, blk_kick:6} });
+  const l = league({ scoring_settings:{...league().scoring_settings, idp_blk_kick:6} });
   const result = Rankings.buildCandidate({ league:l, sleeper_players:sleeper(), projections:[projection(1,'DL')] });
   assert.equal(result.status, 'blocked');
   assert.ok(result.blocked_reasons.includes('meaningful_unsupported_idp_scoring_keys'));
