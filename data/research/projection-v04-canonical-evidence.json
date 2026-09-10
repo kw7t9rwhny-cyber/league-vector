@@ -1,0 +1,78 @@
+{
+  "version": "lv-projection-v04-canonical-evidence-v1",
+  "source_workflow_run": 31763952628,
+  "source_workflow_head": "5904d51cff57790ab38bf48fe14df660aa304983",
+  "input_snapshot_sha256": "d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188",
+  "output_hashes": {
+    "canonical_summary_sha256": "c68ed52ce49ac0fec238a2e3ee39456e5c7cc668f98a646c945bdfb3d3540da7",
+    "baseline_player_seasons_sha256": "4db202344356d9b21727df4f1e783a969c28e8d91dd93c2aebfec67c604cac29",
+    "candidate_player_seasons_sha256": "9e329e7901ecb8e925d5f5aae695dadc30195b33e67f3943177dc13087b45ab0"
+  },
+  "determinism": {
+    "run_a_vs_run_b": "byte_identical",
+    "canonical_summary": true,
+    "baseline_player_seasons": true,
+    "candidate_player_seasons": true,
+    "output_hashes": true
+  },
+  "selection_evidence_scope": [2020, 2021, 2022, 2023, 2024],
+  "retrospective_observed_season": 2025,
+  "holdout_claim": false,
+  "selection_policy": "Candidate feature families and target gates are justified only from pre-2025 evidence. 2025 was observed during prior research and is retrospective evidence only; no threshold, feature family, ensemble weight grid, or target policy was changed using 2025 in this canonical checkpoint.",
+  "pre2025_policy_evidence": {
+    "QB": {"post_initial_fold_wins":0,"post_initial_fold_losses":0,"mean_mae_gain_pct":0.0,"decision":"retain transparent baseline"},
+    "RB": {"post_initial_fold_wins":4,"post_initial_fold_losses":0,"mean_mae_gain_pct":4.0139884896,"fold_mae_gain_pct":{"2021":3.5727244931,"2022":3.6455248577,"2023":8.4909805216,"2024":0.3467240860},"decision":"retain experimental age+opportunity Ridge ensemble family"},
+    "WR": {"post_initial_fold_wins":4,"post_initial_fold_losses":0,"mean_mae_gain_pct":4.0024429290,"fold_mae_gain_pct":{"2021":2.5721439159,"2022":2.1352786690,"2023":4.3745451222,"2024":6.9278040089},"decision":"retain experimental age+opportunity Ridge ensemble family"},
+    "TE": {"post_initial_fold_wins":3,"post_initial_fold_losses":1,"mean_mae_gain_pct":2.2915754699,"fold_mae_gain_pct":{"2021":-1.6098579608,"2022":2.1222545306,"2023":3.5175023232,"2024":5.1364029868},"decision":"retain experimental age Ridge ensemble family with explicit ranking caveat"}
+  },
+  "retrospective_2025_vs_selection_safe_v03": {
+    "pooled": {"n":493,"v03_mae":40.4165587518,"v04_mae":38.9334233235,"mae_gain_pct":3.6696232290,"v03_rmse":58.7311088578,"v04_rmse":57.0017573432,"rmse_gain_pct":2.9445238617,"v03_spearman":0.7653448532,"v04_spearman":0.7772872796,"spearman_change":0.0119424263},
+    "QB": {"n":67,"mae_gain_pct":1.1166079534,"rmse_gain_pct":0.6445567981,"spearman_change":0.0060061258},
+    "RB": {"n":121,"mae_gain_pct":2.6491733715,"rmse_gain_pct":1.2522548843,"spearman_change":0.0163608958},
+    "WR": {"n":191,"mae_gain_pct":7.0419676870,"rmse_gain_pct":6.9987195318,"spearman_change":0.0167719312},
+    "TE": {"n":114,"mae_gain_pct":0.7683820028,"rmse_gain_pct":0.9113909324,"spearman_change":0.0060605694}
+  },
+  "identity_and_sample_audit": {
+    "raw_weekly_rows": 199868,
+    "regular_rows": 191281,
+    "offense_regular_rows": 63387,
+    "raw_missing_player_id": 0,
+    "duplicate_player_week_keys": 0,
+    "player_directory_rows": 25037,
+    "player_directory_missing_gsis": 0,
+    "player_directory_duplicate_gsis": 0,
+    "validated_missing_observation_gsis": 0,
+    "duplicate_aggregated_player_seasons": 0,
+    "sample_counts": {
+      "2020": {"QB":{"player_seasons":82,"history_eligible":68,"candidate_complete":68},"RB":{"player_seasons":173,"history_eligible":132,"candidate_complete":132},"WR":{"player_seasons":233,"history_eligible":183,"candidate_complete":183},"TE":{"player_seasons":130,"history_eligible":103,"candidate_complete":103}},
+      "2021": {"QB":{"player_seasons":81,"history_eligible":66,"candidate_complete":66},"RB":{"player_seasons":180,"history_eligible":142,"candidate_complete":142},"WR":{"player_seasons":256,"history_eligible":199,"candidate_complete":199},"TE":{"player_seasons":131,"history_eligible":103,"candidate_complete":103}},
+      "2022": {"QB":{"player_seasons":83,"history_eligible":73,"candidate_complete":73},"RB":{"player_seasons":169,"history_eligible":134,"candidate_complete":134},"WR":{"player_seasons":239,"history_eligible":191,"candidate_complete":191},"TE":{"player_seasons":128,"history_eligible":104,"candidate_complete":104}},
+      "2023": {"QB":{"player_seasons":81,"history_eligible":69,"candidate_complete":69},"RB":{"player_seasons":158,"history_eligible":129,"candidate_complete":129},"WR":{"player_seasons":225,"history_eligible":178,"candidate_complete":178},"TE":{"player_seasons":123,"history_eligible":97,"candidate_complete":97}},
+      "2024": {"QB":{"player_seasons":78,"history_eligible":67,"candidate_complete":67},"RB":{"player_seasons":156,"history_eligible":124,"candidate_complete":124},"WR":{"player_seasons":236,"history_eligible":186,"candidate_complete":186},"TE":{"player_seasons":127,"history_eligible":103,"candidate_complete":103}},
+      "2025_retrospective": {"QB":{"player_seasons":81,"history_eligible":67,"candidate_complete":67},"RB":{"player_seasons":157,"history_eligible":121,"candidate_complete":121},"WR":{"player_seasons":241,"history_eligible":191,"candidate_complete":191},"TE":{"player_seasons":137,"history_eligible":114,"candidate_complete":114},"common_candidate_total":493}
+    }
+  },
+  "stat_semantics": {
+    "canonical_rule": "Only source cells with state=value are numeric. Explicit numeric 0 remains zero. unavailable/null/not_applicable/source_error are not coerced to zero.",
+    "required_stats": {
+      "QB": {"value_zero":15440,"value_nonzero":39632,"unavailable":0,"null":0,"not_applicable":0,"source_error":0},
+      "RB": {"value_zero":57626,"value_nonzero":66918,"unavailable":0,"null":0,"not_applicable":0,"source_error":0},
+      "WR": {"value_zero":35797,"value_nonzero":67455,"unavailable":0,"null":0,"not_applicable":0,"source_error":0},
+      "TE": {"value_zero":17781,"value_nonzero":33811,"unavailable":0,"null":0,"not_applicable":0,"source_error":0}
+    },
+    "finding": "All required offensive target cells in the frozen regular-season source population are explicit numeric values; removing the old blanket non-value-to-zero coercion therefore does not change the canonical eligible sample. Optional fields can remain unavailable and are not silently zeroed."
+  },
+  "te_ranking_audit": [
+    {"season":2020,"classification":"development","baseline_mae":33.7290938511,"candidate_mae":33.7290938511,"top12":"5->5","top24":"15->15"},
+    {"season":2021,"classification":"development","baseline_mae":27.4303236246,"candidate_mae":27.8719128731,"top12":"8->7","top24":"17->17"},
+    {"season":2022,"classification":"development","baseline_mae":25.0909935897,"candidate_mae":24.5584988415,"top12":"6->6","top24":"20->19"},
+    {"season":2023,"classification":"development","baseline_mae":29.4547079038,"candidate_mae":28.4186378690,"top12":"7->7","top24":"17->17"},
+    {"season":2024,"classification":"development","baseline_mae":30.4034304207,"candidate_mae":28.8417877125,"top12":"6->6","top24":"17->17"},
+    {"season":2025,"classification":"retrospective_observed","baseline_mae":27.5762865497,"candidate_mae":26.2165139033,"top12":"4->4","top24":"19->17"}
+  ],
+  "te_conclusion": "TE point-error improvement is not a uniform ranking improvement. The ranking tradeoff already exists in pre-2025 development evidence, so no 2025-driven tuning is permitted. TE remains experimental and its top-N behavior is a required re-QA focus.",
+  "rookie_policy": "Zero-history rookies remain unsupported by this veteran/limited-history candidate and must use a separate conservative fallback/model path.",
+  "limited_history_policy": "One- and two-season histories remain mixed and experimental; no claim that v0.4 solves limited-history projection is permitted.",
+  "flags": {"experimental":true,"production_projection_eligible":false,"dynasty_value_eligible":false},
+  "readiness": "READY FOR HIGH-RISK RE-QA ONLY"
+}

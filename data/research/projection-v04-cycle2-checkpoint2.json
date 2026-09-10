@@ -1,0 +1,44 @@
+{
+  "version":"lv-projection-v04-cycle2-checkpoint2",
+  "control_sha":"6d931abadbcb06e910bf953d941902c7c2cd1638",
+  "input_snapshot_sha256":"d261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188",
+  "selection_evidence_seasons":[2020,2021,2022,2023,2024],
+  "retrospective_observed_season":2025,
+  "te_target_specific_ridge_vs_validated_v04":{
+    "role_growth":{"fold_wins":2,"mean_mae_gain_pct":-2.092902,"worst_mae_gain_pct":-9.549794,"mean_spearman_change":0.001833},
+    "opportunity_age_experience":{"fold_wins":2,"mean_mae_gain_pct":-2.621337,"worst_mae_gain_pct":-8.923085,"mean_spearman_change":-0.008203},
+    "control_like_direct":{"fold_wins":1,"mean_mae_gain_pct":-3.528123,"worst_mae_gain_pct":-11.455948,"mean_spearman_change":-0.003665},
+    "age_experience":{"fold_wins":1,"mean_mae_gain_pct":-3.609796,"worst_mae_gain_pct":-12.490808,"mean_spearman_change":-0.007807},
+    "decision":"REJECT as automatic replacement. None stably beat validated v0.4 TE on pre-2025 folds."
+  },
+  "second_year_separate_model_vs_validated_v04":{
+    "QB":{"folds":5,"wins":1,"mean_mae_gain_pct":-23.81,"worst_mae_gain_pct":-87.10,"mean_spearman_change":-0.18},
+    "RB":{"folds":5,"wins":2,"mean_mae_gain_pct":-6.63,"worst_mae_gain_pct":-16.79,"mean_spearman_change":0.02},
+    "WR":{"folds":5,"wins":1,"mean_mae_gain_pct":-9.74,"worst_mae_gain_pct":-24.61,"mean_spearman_change":0.00},
+    "TE":{"folds":5,"wins":4,"mean_mae_gain_pct":-1.24,"median_mae_gain_pct":3.97,"worst_mae_gain_pct":-32.83,"mean_spearman_change":0.03},
+    "decision":"REJECT as a general second-year replacement. TE is directionally interesting but too fragile because one fold dominates the loss."
+  },
+  "rookie_empirical_uncertainty_80pct":{
+    "QB":{"mean_coverage":0.81,"mean_full_interval_width":173.73},
+    "RB":{"mean_coverage":0.78,"mean_full_interval_width":111.74},
+    "WR":{"mean_coverage":0.76,"mean_full_interval_width":100.49},
+    "TE":{"mean_coverage":0.84,"mean_full_interval_width":83.60},
+    "interpretation":"Draft-capital rookie point projections require materially wider uncertainty than established-player point estimates. Coverage is close enough for continued experimental calibration, not production confidence claims."
+  },
+  "outlier_residual_correction":{
+    "QB":{"ridge_mean_mae_gain_pct":1.30,"ridge_fold_wins":4,"huber_mean_mae_gain_pct":2.03,"huber_fold_wins":3},
+    "RB":{"ridge_mean_mae_gain_pct":-5.41,"ridge_fold_wins":0,"huber_mean_mae_gain_pct":-2.09,"huber_fold_wins":1},
+    "WR":{"ridge_mean_mae_gain_pct":0.81,"ridge_fold_wins":2,"huber_mean_mae_gain_pct":2.62,"huber_fold_wins":2},
+    "TE":{"ridge_mean_mae_gain_pct":-5.21,"ridge_fold_wins":1,"huber_mean_mae_gain_pct":-2.91,"huber_fold_wins":3},
+    "decision":"Do not add a universal robust residual-correction layer. Small QB/WR signals are not sufficiently stable and RB/TE regress."
+  },
+  "extreme_error_concentration":{
+    "QB":{"top10pct_share_abs_error":0.3210,"p90_abs_error":138.91,"max_abs_error":306.21},
+    "RB":{"top10pct_share_abs_error":0.3327,"p90_abs_error":106.42,"max_abs_error":328.63},
+    "WR":{"top10pct_share_abs_error":0.3006,"p90_abs_error":87.20,"max_abs_error":263.10},
+    "TE":{"top10pct_share_abs_error":0.3212,"p90_abs_error":62.27,"max_abs_error":158.39},
+    "finding":"Roughly 30-33% of total absolute error comes from the worst 10% of player-season misses across every offensive position. This supports range-of-outcome work more strongly than hard-capping point projections."
+  },
+  "flags":{"experimental":true,"production_projection_eligible":false,"dynasty_value_eligible":false},
+  "status":"MORE PROJECTION RESEARCH REQUIRED"
+}

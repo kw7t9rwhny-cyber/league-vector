@@ -1,0 +1,46 @@
+{
+  "version": "lv-projection-v04-ridge-first",
+  "source_workflow_run": 31761627544,
+  "source_artifact": "league-vector-projection-v04-fast",
+  "development_folds": [2020, 2021, 2022, 2023, 2024],
+  "final_untouched_fold": 2025,
+  "baseline": "fixed weighted 60/30/10",
+  "candidates": ["chronologically selected weight grid", "rich Ridge"],
+  "leakage_safeguards": [
+    "target season uses only prior player-seasons",
+    "Ridge hyperparameters use target-1 validation trained on earlier seasons",
+    "outer model selection uses only earlier outer folds",
+    "2025 is not used to choose the model reported on 2025"
+  ],
+  "final_2025": {
+    "QB": {"n":67,"baseline_mae":62.2163,"candidate_mae":62.3374,"mae_change_pct":-0.1946,"baseline_rmse":85.2655,"candidate_rmse":85.2733,"rmse_change_pct":-0.0092,"baseline_spearman":0.71491,"candidate_spearman":0.71345,"spearman_delta":-0.00146},
+    "RB": {"n":121,"baseline_mae":45.0066,"candidate_mae":43.6826,"mae_change_pct":2.9417,"baseline_rmse":64.0916,"candidate_rmse":62.6569,"rmse_change_pct":2.2385,"baseline_spearman":0.71655,"candidate_spearman":0.73645,"spearman_delta":0.01989},
+    "WR": {"n":191,"baseline_mae":40.6708,"candidate_mae":35.6195,"mae_change_pct":12.4200,"baseline_rmse":58.2407,"candidate_rmse":48.9853,"rmse_change_pct":15.8916,"baseline_spearman":0.78644,"candidate_spearman":0.82482,"spearman_delta":0.03839},
+    "TE": {"n":114,"baseline_mae":27.5763,"candidate_mae":26.4789,"mae_change_pct":3.9796,"baseline_rmse":38.7224,"candidate_rmse":37.1185,"rmse_change_pct":4.1419,"baseline_spearman":0.77976,"candidate_spearman":0.79090,"spearman_delta":0.01114}
+  },
+  "fold_stability_2021_2025": {
+    "QB": {"improved":0,"worsened":5,"mean_mae_change_pct":-1.4959,"median_mae_change_pct":-1.2326,"largest_win_pct":-0.1946,"largest_loss_pct":-3.7680},
+    "RB": {"improved":4,"worsened":1,"mean_mae_change_pct":2.1683,"median_mae_change_pct":2.9417,"largest_win_pct":7.2535,"largest_loss_pct":-3.5820},
+    "WR": {"improved":5,"worsened":0,"mean_mae_change_pct":3.8158,"median_mae_change_pct":1.6219,"largest_win_pct":12.4200,"largest_loss_pct":0.0408},
+    "TE": {"improved":2,"worsened":3,"mean_mae_change_pct":-0.9981,"median_mae_change_pct":-0.1916,"largest_win_pct":3.9796,"largest_loss_pct":-6.2870}
+  },
+  "models_selected_for_2025": {
+    "QB": {"attempts":"60/30/10","completions":"60/30/10","passing_yards":"60/30/10","passing_td":"60/30/10","interceptions":"rich_ridge","sacks":"rich_ridge","carries":"50/30/20","rushing_yards":"50/30/20","rushing_td":"rich_ridge"},
+    "RB": {"carries":"70/20/10","rushing_yards":"60/30/10","rushing_td":"rich_ridge","targets":"rich_ridge","receptions":"rich_ridge","receiving_yards":"rich_ridge","receiving_td":"rich_ridge"},
+    "WR": {"targets":"rich_ridge","receptions":"rich_ridge","receiving_yards":"rich_ridge","receiving_td":"rich_ridge","carries":"60/30/10","rushing_yards":"rich_ridge","rushing_td":"rich_ridge"},
+    "TE": {"targets":"70/20/10","receptions":"70/20/10","receiving_yards":"rich_ridge","receiving_td":"50/30/20","carries":"80/15/5","rushing_yards":"60/30/10","rushing_td":"60/30/10"}
+  },
+  "interpretation": {
+    "QB": "reject current richer candidate; no fold improved",
+    "RB": "promising but one meaningful bad fold remains",
+    "WR": "strongest stable signal; improved all selectable folds and final 2025",
+    "TE": "2025 improved but development-fold instability prevents promotion"
+  },
+  "limitations": [
+    "This checkpoint compares against a selection-safe fixed 60/30/10 baseline, not an independently nested reconstruction of every retrospective v0.3 selected target.",
+    "Rookies without prior NFL history are excluded.",
+    "Whole-player paired bootstrap and age-group residual analysis are not yet included in this checkpoint.",
+    "Elastic Net and availability decomposition remain in the separate full-family experiment and are not used to claim this result."
+  ],
+  "readiness": "MORE RESEARCH REQUIRED"
+}

@@ -1,0 +1,37 @@
+{
+  "version": "lv-projection-v04-feature-ablation-summary",
+  "source_workflow_run": 31762104767,
+  "comparison": "Ridge variants with identical lag-history backbone; each alpha tuned chronologically on target-1",
+  "folds_summarized": [2021,2022,2023,2024,2025],
+  "findings": {
+    "QB": {
+      "age": {"mean_mae_change_pct_vs_history":0.2718,"folds_improved":3,"final_2025_change_pct":-0.6369},
+      "opportunity_efficiency": {"mean_mae_change_pct_vs_history":-0.2667,"folds_improved":2,"final_2025_change_pct":-1.7611},
+      "trend": {"mean_mae_change_pct_vs_history":0.0749,"folds_improved":3,"final_2025_change_pct":1.7414},
+      "decision": "no stable incremental feature family; richer QB feature expansion is rejected for now"
+    },
+    "RB": {
+      "age": {"mean_mae_change_pct_vs_history":0.7732,"folds_improved":3,"final_2025_change_pct":1.0586},
+      "opportunity_efficiency": {"mean_mae_change_pct_vs_history":2.1875,"folds_improved":5,"final_2025_change_pct":2.4805},
+      "age_plus_opportunity": {"mean_mae_change_pct_vs_history":2.5940,"folds_improved":5,"final_2025_change_pct":3.4957},
+      "trend": {"mean_mae_change_pct_vs_history":-0.3513,"folds_improved":1,"final_2025_change_pct":-0.8686},
+      "decision": "opportunity is the stable edge; age adds incremental value when combined; trend is rejected"
+    },
+    "WR": {
+      "age": {"mean_mae_change_pct_vs_history":3.5497,"folds_improved":5,"final_2025_change_pct":3.4643,"fold_changes_pct":{"2021":3.16,"2022":3.30,"2023":2.59,"2024":5.24,"2025":3.46}},
+      "opportunity_efficiency": {"mean_mae_change_pct_vs_history":0.1377,"folds_improved":3,"final_2025_change_pct":-1.5003},
+      "age_plus_opportunity": {"mean_mae_change_pct_vs_history":3.6189,"folds_improved":5,"final_2025_change_pct":2.1355},
+      "full_with_trend": {"mean_mae_change_pct_vs_history":3.6964,"folds_improved":5,"final_2025_change_pct":1.4052},
+      "decision": "age is the clearest stable WR feature; opportunity may add small development gain but trend reduces final-holdout benefit"
+    },
+    "TE": {
+      "age": {"mean_mae_change_pct_vs_history":1.3207,"folds_improved":5,"final_2025_change_pct":1.1640,"fold_changes_pct":{"2021":0.69,"2022":0.54,"2023":2.01,"2024":2.19,"2025":1.16}},
+      "opportunity_efficiency": {"mean_mae_change_pct_vs_history":-0.6168,"folds_improved":2,"final_2025_change_pct":0.6042},
+      "trend": {"mean_mae_change_pct_vs_history":-3.9475,"folds_improved":0,"final_2025_change_pct":-0.1186,"largest_failure_2021_pct":-17.84},
+      "age_plus_opportunity": {"mean_mae_change_pct_vs_history":0.9258,"folds_improved":3,"final_2025_change_pct":1.7427},
+      "decision": "age is a small but unusually stable TE signal; naive trend features are strongly rejected"
+    }
+  },
+  "young_player_implication": "The residual audit and ablation agree: age is not cosmetic for WR/TE projections. Young WR/TE under-projection and older-player over-projection are partly projection-model issues, not solely downstream dynasty-value issues.",
+  "readiness": "MORE RESEARCH REQUIRED"
+}
