@@ -1,0 +1,144 @@
+name: IDP Missing-Stat Coverage v0.1
+on:
+  push:
+    branches: [codex/idp-missing-stat-coverage-v01]
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONHASHSEED: '0'
+      OMP_NUM_THREADS: '1'
+      OPENBLAS_NUM_THREADS: '1'
+      MKL_NUM_THREADS: '1'
+      NUMEXPR_NUM_THREADS: '1'
+      LC_ALL: C.UTF-8
+      LANG: C.UTF-8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned research dependencies
+        run: python -m pip install pandas==2.2.3 numpy==2.2.3 scipy==1.15.2 scikit-learn==1.6.1
+      - name: Prove missing-state and canonicalization contracts
+        run: python scripts/idp-missing-stat-coverage-v01.py --self-test
+      - name: Restore validated frozen historical snapshot into two clean inputs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          rm -rf /tmp/lv-control /tmp/lv-unpacked /tmp/lv-run-a /tmp/lv-run-b
+          mkdir -p /tmp/lv-control /tmp/lv-unpacked /tmp/lv-run-a /tmp/lv-run-b
+          curl -L --fail-with-body -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" https://api.github.com/repos/${{ github.repository }}/actions/artifacts/9205731274/zip -o /tmp/lv-control/control.zip
+          unzip -q /tmp/lv-control/control.zip -d /tmp/lv-unpacked
+          for dest in /tmp/lv-run-a /tmp/lv-run-b; do
+            cp -R /tmp/lv-unpacked/.cache/lv-v04-canonical/. "$dest/"
+            cp /tmp/lv-unpacked/data/reports/projection-v04-canonical/snapshot-manifest.json "$dest/snapshot-manifest.json"
+            DEST="$dest" python - <<'PY'
+          import json, os
+          from pathlib import Path
+          expected = 'd261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188'
+          manifest = json.loads((Path(os.environ['DEST']) / 'snapshot-manifest.json').read_text())
+          assert manifest['snapshot_sha256'] == expected
+          PY
+          done
+      - name: Build and verify byte-deterministic canonical result
+        run: |
+          rm -rf data/reports/idp-missing-stat-coverage-v01/evidence
+          mkdir -p data/reports/idp-missing-stat-coverage-v01/evidence
+          python scripts/idp-missing-stat-coverage-v01.py /tmp/lv-run-a data/reports/idp-missing-stat-coverage-v01/evidence/canonical-run-a.json
+          python scripts/idp-missing-stat-coverage-v01.py /tmp/lv-run-b data/reports/idp-missing-stat-coverage-v01/evidence/canonical-run-b.json
+          cmp data/reports/idp-missing-stat-coverage-v01/evidence/canonical-run-a.json data/reports/idp-missing-stat-coverage-v01/evidence/canonical-run-b.json
+          cp data/reports/idp-missing-stat-coverage-v01/evidence/canonical-run-a.json data/reports/idp-missing-stat-coverage-v01/evidence/canonical-result.json
+          CANONICAL_SHA="$(sha256sum data/reports/idp-missing-stat-coverage-v01/evidence/canonical-result.json | awk '{print $1}')"
+          printf '%s  canonical-result.json\n' "$CANONICAL_SHA" > data/reports/idp-missing-stat-coverage-v01/evidence/canonical-result.sha256
+          CANONICAL_SHA="$CANONICAL_SHA" python - <<'PY'
+          import json, os
+          from pathlib import Path
+          evidence = Path('data/reports/idp-missing-stat-coverage-v01/evidence')
+          result = json.loads((evidence / 'canonical-result.json').read_text())
+          manifest = {
+              'evidence_contract_version': 'idp-missing-stat-coverage-v0.1.2',
+              'canonical_result': {
+                  'file': 'canonical-result.json',
+                  'sha256': os.environ['CANONICAL_SHA'],
+                  'byte_determinism_claim': True,
+                  'canonicalization': result['canonicalization'],
+                  'input_snapshot_sha256': result['input_snapshot_sha256'],
+              },
+              'ephemeral_workflow_metadata': {
+                  'github_head_sha': os.environ['GITHUB_SHA'],
+                  'github_run_id': os.environ['GITHUB_RUN_ID'],
+                  'github_run_attempt': os.environ['GITHUB_RUN_ATTEMPT'],
+                  'runner_os': os.environ['RUNNER_OS'],
+              },
+          }
+          (evidence / 'evidence-manifest.json').write_text(
+              json.dumps(manifest, indent=2, sort_keys=True) + '\n', encoding='utf-8', newline='\n'
+          )
+          PY
+          cd data/reports/idp-missing-stat-coverage-v01/evidence
+          sha256sum -c canonical-result.sha256
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          manifest = json.loads(Path('evidence-manifest.json').read_text())
+          payload = Path('canonical-result.json').read_bytes()
+          actual = hashlib.sha256(payload).hexdigest()
+          assert manifest['canonical_result']['sha256'] == actual
+          assert manifest['canonical_result']['byte_determinism_claim'] is True
+          assert manifest['canonical_result']['input_snapshot_sha256'] == 'd261bfb0f64f60f01db7e85cffe36b4025bf5a2958e9ef940968cbd2115c6188'
+          PY
+      - name: Verify frozen candidate semantics and firewalls
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          result = json.loads(Path('data/reports/idp-missing-stat-coverage-v01/evidence/canonical-result.json').read_text())
+          rows = result['continuous_models']['idp_sack_yd']
+          def metric(position, model, key):
+              vals = [r[key] for r in rows if r['position'] == position and r['model'] == model]
+              assert len(vals) == 5
+              return sum(vals) / len(vals)
+          def wins(position):
+              ridge = {r['season']: r['mae'] for r in rows if r['position'] == position and r['model'] == 'ridge'}
+              zero = {r['season']: r['mae'] for r in rows if r['position'] == position and r['model'] == 'zero'}
+              return sum(ridge[y] < zero[y] for y in sorted(ridge))
+          assert abs(metric('DL', 'ridge', 'mae') - 12.9023) < 0.01
+          assert abs(metric('DL', 'zero', 'mae') - 16.5583) < 0.01
+          assert wins('DL') == 5
+          assert abs(metric('LB', 'ridge', 'mae') - 10.1142) < 0.01
+          assert abs(metric('LB', 'zero', 'mae') - 12.2345) < 0.01
+          assert wins('LB') == 5
+          assert abs(metric('DB', 'ridge', 'mae') - 2.7303) < 0.01
+          assert abs(metric('DB', 'zero', 'mae') - 1.8907) < 0.01
+          assert wins('DB') == 0
+          assert result['development_seasons'] == [2020, 2021, 2022, 2023, 2024]
+          assert result['retrospective_observed'] == 2025
+          assert result['flags']['experimental'] is True
+          assert result['flags']['production_projection_eligible'] is False
+          assert result['flags']['idp_dynasty_value_available'] is False
+          assert result['flags']['dynasty_value'] is None
+          assert result['source_state_contract']['true_numeric_zero_preserved'] is True
+          assert result['source_state_contract']['missing_or_non_numeric_fails_closed'] is True
+          assert result['source_state_contract']['unavailable_coerced_to_zero'] is False
+          contract = json.loads(Path('data/reports/idp-missing-stat-coverage-v01/candidate-contract.json').read_text())
+          assert contract['category'] == 'idp_sack_yd'
+          assert contract['model']['supported_position_families'] == ['DL', 'LB']
+          assert contract['model']['unsupported_position_families'] == ['DB']
+          assert contract['firewalls']['global_founder_scoring_rankable'] is False
+          assert contract['non_candidates'] == ['bonus_sack_2p','fum_rec_td','idp_blk_kick','idp_fum_ret_yd','idp_int_ret_yd','idp_pass_def_3p','st_ff','st_fum_rec','st_td']
+          readiness = json.loads(Path('data/reports/idp-missing-stat-coverage-v01/readiness.json').read_text())
+          assert readiness['candidate_scope'] == {'idp_sack_yd': ['DL', 'LB']}
+          assert readiness['categories']['idp_sack_yd']['unsupported_positions'] == ['DB']
+          assert readiness['post_candidate_if_qa_passes']['full_founder_scoring_rankable'] is False
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: league-vector-idp-missing-stat-coverage-v01
+          path: data/reports/idp-missing-stat-coverage-v01/evidence/
+          retention-days: 30
