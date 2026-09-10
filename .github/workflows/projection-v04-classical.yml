@@ -1,0 +1,32 @@
+name: Projection v0.4 Classical Research
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/projection-v04-classical.js'
+      - '.github/workflows/projection-v04-classical.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  classical:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Run chronological weighting and shrinkage benchmark
+        run: node scripts/projection-v04-classical.js data/reports/projection-v04-classical
+      - name: Upload classical results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: league-vector-projection-v04-classical
+          path: data/reports/projection-v04-classical/
+          if-no-files-found: error
+          retention-days: 14

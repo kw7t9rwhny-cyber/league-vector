@@ -1,0 +1,55 @@
+{
+  "version": "lv-projection-v04-family2-summary",
+  "source_workflow_run": 31761905600,
+  "development_folds": [2020,2021,2022,2023,2024],
+  "final_untouched_fold": 2025,
+  "selection_rule": "outer model choice uses prior folds only; candidate requires majority prior-fold wins and at least 0.5% prior-fold MAE gain",
+  "models_tested": ["fixed 60/30/10 baseline","rich Ridge","Elastic Net","availability decomposition","25/50/75% Ridge ensembles with baseline"],
+  "final_2025": {
+    "QB": {"n":67,"mae_change_pct":1.0737,"rmse_change_pct":1.6295,"spearman_delta":-0.00343,"paired_mae_advantage_points":0.6680,"bootstrap_95_pct_ci_points":[-1.3553,2.6108],"bootstrap_probability_candidate_better":0.7378},
+    "RB": {"n":121,"mae_change_pct":4.4614,"rmse_change_pct":3.0313,"spearman_delta":0.02154,"paired_mae_advantage_points":2.0079,"bootstrap_95_pct_ci_points":[-1.2860,5.1482],"bootstrap_probability_candidate_better":0.8848},
+    "WR": {"n":191,"mae_change_pct":10.5678,"rmse_change_pct":11.4061,"spearman_delta":0.03312,"paired_mae_advantage_points":4.2980,"bootstrap_95_pct_ci_points":[2.5052,6.1397],"bootstrap_probability_candidate_better":1.0},
+    "TE": {"n":114,"mae_change_pct":5.5515,"rmse_change_pct":5.3781,"spearman_delta":0.00991,"paired_mae_advantage_points":1.5309,"bootstrap_95_pct_ci_points":[0.2590,2.8677],"bootstrap_probability_candidate_better":0.9912}
+  },
+  "fold_stability_2021_2025": {
+    "QB": {"improved":2,"worsened":3,"mean_mae_change_pct":0.1697,"median_mae_change_pct":-0.2789,"largest_win_pct":1.1036,"largest_loss_pct":-0.6518},
+    "RB": {"improved":4,"worsened":1,"mean_mae_change_pct":3.5542,"median_mae_change_pct":3.7463,"largest_win_pct":8.1613,"largest_loss_pct":-0.3455},
+    "WR": {"improved":5,"worsened":0,"mean_mae_change_pct":5.6438,"median_mae_change_pct":4.6949,"largest_win_pct":10.5678,"largest_loss_pct":2.1885},
+    "TE": {"improved":4,"worsened":1,"mean_mae_change_pct":1.9714,"median_mae_change_pct":3.4914,"largest_win_pct":5.5515,"largest_loss_pct":-4.2215}
+  },
+  "all_fold_candidate_metrics": {
+    "QB": {"n":410,"mae":60.2023,"mae_change_vs_fixed_baseline_pct":0.1312,"rmse_change_pct":0.2486,"spearman_delta":-0.00385},
+    "RB": {"n":782,"mae":45.2972,"mae_change_vs_fixed_baseline_pct":3.0017,"rmse_change_pct":4.2416,"spearman_delta":0.00152},
+    "WR": {"n":1128,"mae":39.8705,"mae_change_vs_fixed_baseline_pct":4.7249,"rmse_change_pct":5.3804,"spearman_delta":0.01086},
+    "TE": {"n":624,"mae":28.4200,"mae_change_vs_fixed_baseline_pct":1.7025,"rmse_change_pct":2.4849,"spearman_delta":0.00516}
+  },
+  "ranking_2025": {
+    "QB": {"top12_baseline":7,"top12_candidate":7,"top24_baseline":19,"top24_candidate":19},
+    "RB": {"top12_baseline":7,"top12_candidate":7,"top24_baseline":17,"top24_candidate":17,"top36_baseline":28,"top36_candidate":29},
+    "WR": {"top12_baseline":4,"top12_candidate":4,"top24_baseline":13,"top24_candidate":13,"top36_baseline":23,"top36_candidate":23,"top48_baseline":35,"top48_candidate":36},
+    "TE": {"top12_baseline":4,"top12_candidate":4,"top24_baseline":19,"top24_candidate":18}
+  },
+  "model_family_findings": {
+    "QB": "ensemble improvements are tiny and rank correlation is slightly worse; no position-wide promotion",
+    "RB": "baseline/Ridge ensembles are materially more stable than pure Ridge; 4 of 5 selectable folds improve",
+    "WR": "baseline/Ridge ensembles provide the strongest stable signal; all five selectable folds improve",
+    "TE": "target-specific conservative ensembles improve later folds but 2021 remains a substantial loss; pure Ridge/Elastic are unsafe for tiny rushing targets",
+    "Elastic_Net": "does not materially outperform Ridge across the useful high-volume targets and adds complexity without a clear unique edge",
+    "availability": "small standalone gains on some targets, especially rare TE rushing TD, but not a broad position-level solution"
+  },
+  "outlier_failure": {
+    "TE_carries_ridge_mean_dev_mae_change_pct": -94.48,
+    "TE_rushing_yards_ridge_mean_dev_mae_change_pct": -114.44,
+    "TE_rushing_td_ridge_mean_dev_mae_change_pct": -535.71,
+    "TE_rushing_td_elastic_mean_dev_mae_change_pct": -472.53,
+    "interpretation": "linear models extrapolate tiny-sample TE rushing signals catastrophically; these targets require baseline/shrinkage/availability handling rather than richer unrestricted regression"
+  },
+  "comparison_to_published_retrospective_v03_mae": {
+    "warning": "published v0.3 selected-model MAE is retrospectively selected on the same fold collection and is not an independent comparator",
+    "QB_candidate_mae_vs_v03_pct": 1.3723,
+    "RB_candidate_mae_vs_v03_pct": -0.8173,
+    "WR_candidate_mae_vs_v03_pct": 0.3986,
+    "TE_candidate_mae_vs_v03_pct": -0.8875
+  },
+  "readiness": "MORE RESEARCH REQUIRED"
+}

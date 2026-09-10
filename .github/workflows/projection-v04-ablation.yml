@@ -1,0 +1,32 @@
+name: Projection v0.4 Feature Ablation
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/projection-v04-feature-ablation.js'
+      - '.github/workflows/projection-v04-ablation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  feature-ablation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Run age opportunity trend ablations
+        run: node scripts/projection-v04-feature-ablation.js data/reports/projection-v04-ablation
+      - name: Upload ablation results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: league-vector-projection-v04-ablation
+          path: data/reports/projection-v04-ablation/
+          if-no-files-found: error
+          retention-days: 14
