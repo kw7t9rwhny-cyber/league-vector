@@ -1,0 +1,6 @@
+{
+  "derived_transition_path": "data/opportunity-archive/derived/2026/2026-09-15T174204Z/depth-transitions-dbdc6294ea3b951ffe4f38111b461e036ed8f63dec16bdff219e21f9a2b3eb1e.json.gz",
+  "derived_transition_sha256": "dbdc6294ea3b951ffe4f38111b461e036ed8f63dec16bdff219e21f9a2b3eb1e",
+  "schema_version": "lv-prospective-opportunity-archive-v1.1",
+  "snapshot_id": "2026/REG/2026-09-15T174204Z/depth_chart/nflverse"
+}
