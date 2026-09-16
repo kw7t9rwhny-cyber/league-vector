@@ -141,9 +141,7 @@ function adjustedValidation(observation) {
 function normalizeWeeklyRow(row, options) {
   const observation = Data.normalizeObservation(row, options);
   observation.timing.feature_available_at = null;
-  if (["QB", "RB", "WR", "TE"].includes(observation.position_group) && row.sack_yards_lost !== undefined && row.sack_yards_lost !== "") {
-    observation.stats.sack_yards = Data.stateful(row.sack_yards_lost);
-  }
+  // Shared normalization now handles this alias and detects conflicting values.
   return observation;
 }
 function qualityAudit(observations, validation, sourceHeaders, seasons) {
