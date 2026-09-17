@@ -62,6 +62,7 @@ jobs:
         with:
           openai-api-key: ${{ secrets.OPENAI_API_KEY }}
           permission-profile: ":read-only"
+          allow-bots: true
           prompt: ${{ needs.preflight.outputs.prompt }}
           output-schema-file: protocol/research-qa/worker-substance.schema.json
 
