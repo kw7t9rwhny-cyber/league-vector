@@ -1,0 +1,350 @@
+[
+  {
+    "name": "duplicate-player",
+    "description": "Duplicate player identity within a format board.",
+    "path": [
+      "formats",
+      "dynasty-1qb",
+      "entries"
+    ],
+    "append": true,
+    "value": {
+      "player_id": "lv:synthetic:alpha",
+      "name": "Synthetic Alpha",
+      "aliases": [
+        "Synthetic Alpha Alias"
+      ],
+      "identity_state": "VERIFIED",
+      "position": "WR",
+      "team": "Synthetic Club",
+      "team_state": "KNOWN",
+      "status": "ACTIVE",
+      "age": {
+        "years": 24,
+        "as_of": "2026-09-04T00:00:00.000Z"
+      },
+      "identity_evidence_refs": [
+        "synthetic-source"
+      ],
+      "ranking_status": "RANKED",
+      "rank": 1,
+      "evidence_state": "DOCUMENTED",
+      "unsupported_reason": null,
+      "evidence_gaps": [],
+      "facts": [
+        {
+          "id": "current-1qb-alpha-signal",
+          "run_id": "synthetic-current-v1",
+          "format": "dynasty-1qb",
+          "player_id": "lv:synthetic:alpha",
+          "field": "synthetic_signal",
+          "value": {
+            "state": "KNOWN",
+            "value": 22
+          },
+          "unit": "synthetic-observation",
+          "period": "Synthetic fixture observation period",
+          "as_of": "2026-09-04T00:00:00.000Z",
+          "source_id": "synthetic-source"
+        }
+      ],
+      "drivers": [
+        {
+          "id": "current-1qb-alpha-support",
+          "component_id": "synthetic-signal",
+          "direction": "supports",
+          "use": "ranking",
+          "fact_refs": [
+            "current-1qb-alpha-signal"
+          ]
+        }
+      ],
+      "primary_reason": {
+        "template_id": "observed-support/v1",
+        "driver_id": "current-1qb-alpha-support"
+      },
+      "limitations": [
+        "synthetic-only"
+      ],
+      "change_conditions": [
+        {
+          "fact_id": "current-1qb-alpha-signal",
+          "direction": "increase",
+          "basis_driver_id": "current-1qb-alpha-support",
+          "kind": "EDITORIAL",
+          "reviewed": true
+        }
+      ],
+      "history": {
+        "state": "COMPARABLE",
+        "previous_rank": 3,
+        "changed_fact_refs": [
+          "current-1qb-alpha-signal"
+        ]
+      }
+    }
+  },
+  {
+    "name": "ranked-null-rank",
+    "description": "Ranked entries require an ordinal.",
+    "path": [
+      "formats",
+      "dynasty-1qb",
+      "entries",
+      0,
+      "rank"
+    ],
+    "value": null
+  },
+  {
+    "name": "unsupported-numeric-rank",
+    "description": "Unsupported identities have no numeric ranking.",
+    "path": [
+      "formats",
+      "dynasty-1qb",
+      "entries",
+      5,
+      "rank"
+    ],
+    "value": 6
+  },
+  {
+    "name": "foreign-run-fact",
+    "description": "Explanations cannot mix immutable runs.",
+    "path": [
+      "formats",
+      "dynasty-1qb",
+      "entries",
+      0,
+      "facts",
+      0,
+      "run_id"
+    ],
+    "value": "synthetic-unrelated-v1"
+  },
+  {
+    "name": "foreign-format-fact",
+    "description": "Fact format must match its board.",
+    "path": [
+      "formats",
+      "dynasty-1qb",
+      "entries",
+      0,
+      "facts",
+      0,
+      "format"
+    ],
+    "value": "dynasty-superflex"
+  },
+  {
+    "name": "foreign-player-fact",
+    "description": "Fact identity must match its entry.",
+    "path": [
+      "formats",
+      "dynasty-1qb",
+      "entries",
+      0,
+      "facts",
+      0,
+      "player_id"
+    ],
+    "value": "lv:synthetic:bravo"
+  },
+  {
+    "name": "zero-age",
+    "description": "Unknown age cannot become a known zero.",
+    "path": [
+      "formats",
+      "dynasty-1qb",
+      "entries",
+      0,
+      "age",
+      "years"
+    ],
+    "value": 0
+  },
+  {
+    "name": "missing-primary-driver",
+    "description": "A missing actual driver cannot support a ranked explanation.",
+    "path": [
+      "formats",
+      "dynasty-1qb",
+      "entries",
+      0,
+      "drivers"
+    ],
+    "value": []
+  },
+  {
+    "name": "missing-required-input",
+    "description": "Required missing input cannot be downgraded to optional.",
+    "path": [
+      "formats",
+      "dynasty-1qb",
+      "entries",
+      0,
+      "facts",
+      0,
+      "value"
+    ],
+    "value": {
+      "state": "MISSING",
+      "value": null
+    }
+  },
+  {
+    "name": "missing-fact-reference",
+    "description": "Every driver fact reference must resolve.",
+    "path": [
+      "formats",
+      "dynasty-1qb",
+      "entries",
+      0,
+      "drivers",
+      0,
+      "fact_refs"
+    ],
+    "value": [
+      "nonexistent-fact"
+    ]
+  },
+  {
+    "name": "context-as-ranking-reason",
+    "description": "Context does not establish causal ranking support.",
+    "path": [
+      "formats",
+      "dynasty-1qb",
+      "entries",
+      0,
+      "drivers",
+      0,
+      "use"
+    ],
+    "value": "context"
+  },
+  {
+    "name": "limited-overstated-as-documented",
+    "description": "Missing optional fields cannot have a Documented label.",
+    "path": [
+      "formats",
+      "dynasty-1qb",
+      "entries",
+      2,
+      "evidence_state"
+    ],
+    "value": "DOCUMENTED"
+  },
+  {
+    "name": "unknown-not-null",
+    "description": "Unknown values must remain explicit null.",
+    "path": [
+      "formats",
+      "dynasty-1qb",
+      "entries",
+      0,
+      "facts",
+      0,
+      "value"
+    ],
+    "value": {
+      "state": "UNKNOWN",
+      "value": 0
+    }
+  },
+  {
+    "name": "wrong-competition-rank",
+    "description": "Two first-place ties require the next rank to be three.",
+    "path": [
+      "formats",
+      "dynasty-1qb",
+      "entries",
+      2,
+      "rank"
+    ],
+    "value": 2
+  },
+  {
+    "name": "wrong-previous-rank",
+    "description": "Comparable movement must bind exact previous rank.",
+    "path": [
+      "formats",
+      "dynasty-1qb",
+      "entries",
+      0,
+      "history",
+      "previous_rank"
+    ],
+    "value": 40
+  },
+  {
+    "name": "false-unchanged-input",
+    "description": "Changed-fact references must match prior stored values.",
+    "path": [
+      "formats",
+      "dynasty-1qb",
+      "entries",
+      0,
+      "history",
+      "changed_fact_refs"
+    ],
+    "value": []
+  },
+  {
+    "name": "unreviewed-condition",
+    "description": "Editorial review triggers require recorded review.",
+    "path": [
+      "formats",
+      "dynasty-1qb",
+      "entries",
+      0,
+      "change_conditions",
+      0,
+      "reviewed"
+    ],
+    "value": false
+  },
+  {
+    "name": "source-blocked",
+    "description": "Required source ineligibility cannot support current ranked output.",
+    "path": [
+      "sources",
+      0,
+      "delivery_state"
+    ],
+    "value": "BLOCKED"
+  },
+  {
+    "name": "source-expired-before-generation",
+    "description": "Publication cannot refresh expired required source inputs.",
+    "path": [
+      "sources",
+      0,
+      "valid_until"
+    ],
+    "value": "2026-09-03T00:00:00.000Z"
+  },
+  {
+    "name": "synthetic-identity-with-real-name",
+    "description": "Synthetic fixtures must visibly retain the Synthetic name prefix.",
+    "path": [
+      "formats",
+      "dynasty-1qb",
+      "entries",
+      0,
+      "name"
+    ],
+    "value": "Example Athlete"
+  },
+  {
+    "name": "unexpected-raw-score",
+    "description": "Unknown fields including raw scores are outside the strict contract.",
+    "path": [
+      "formats",
+      "dynasty-1qb",
+      "entries",
+      0,
+      "score"
+    ],
+    "value": 100
+  }
+]
